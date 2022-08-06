@@ -78,6 +78,6 @@
             "qtVersion": 6
         }
     },
-    "name": "obs-midi-mg",
+    "name": "obs-plugintemplate",
     "version": "1.0.0"
 }
