@@ -46,6 +46,7 @@ find . -type d \( \
     -path ./plugins/obs-browser -o \
     -path ./plugins/win-dshow/libdshowcapture -o \
     -path ./plugins/obs-websocket/deps \
+    -path ./libremidi \
 \) -prune -false -type f -o \
     -name 'CMakeLists.txt' -or \
     -name '*.cmake' \

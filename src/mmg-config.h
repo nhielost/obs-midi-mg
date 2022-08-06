@@ -16,12 +16,31 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#ifndef OBS_MIDIMG_H
-#define OBS_MIDIMG_H
+#include "mmg-device.h"
 
-#define PLUGIN_NAME "@CMAKE_PROJECT_NAME@"
-#define PLUGIN_VERSION "@CMAKE_PROJECT_VERSION@"
+class MMGConfig {
+public:
+	MMGConfig();
+	~MMGConfig() { clear(); };
 
-#define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
+	void load(const QString &path_str = QString());
+	void save(const QString &path_str = QString()) const;
+	void clear();
+	MMGDevice *find_device(const QString &name);
+	MMGDevice *get_active_device() const;
+	bool is_running() const { return active; };
+	void set_running(bool on) { active = on; };
 
-#endif // OBS_MIDIMG_H
+	uint get_next_error_default() { return ++error_device_count; };
+
+	const MMGDevices &get_devices() { return devices; };
+
+	static QString get_filepath();
+
+private:
+	MMGDevices devices;
+	bool active;
+	QString active_device_name;
+	uint error_device_count = 0;
+};
+Q_DECLARE_METATYPE(MMGConfig);

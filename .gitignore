@@ -11,3 +11,4 @@
 # ignore generated files
 *.generated.*
 **/.Brewfile.lock.json
+/.vs/obs-midi-mg/v17
