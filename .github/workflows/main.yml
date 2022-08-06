@@ -15,7 +15,7 @@ on:
       - master
 
 env:
-  PLUGIN_NAME: 'obs-plugintemplate'
+  PLUGIN_NAME: 'obs-midi-mg'
 
 jobs:
   clang_check:
