@@ -19,7 +19,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 
 #include "mmg-binding.h"
-#include "libremidi/libremidi.hpp"
 
 class MMGDevice {
 public:
@@ -43,6 +42,8 @@ public:
 	int index_of(MMGBinding *const el);
 	int size() const;
 
+	void start_reception();
+	void stop_reception();
 	void do_all_actions(const MMGMessage *const message);
 
 	libremidi::midi_in &get_input_device();

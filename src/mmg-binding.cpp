@@ -17,7 +17,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-binding.h"
-#include "mmg-utils.h"
 
 MMGBinding::MMGBinding(const QJsonObject &obj)
 {

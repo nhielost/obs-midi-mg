@@ -54,6 +54,7 @@ void MMGConfig::load(const QString &path_str)
 		clear();
 
 	if (json_key_exists(doc.object(), "config", QJsonValue::Array)) {
+		// JSON file found, introduce devices from the file (even if nonexistent)
 		for (QJsonValue obj : doc["config"].toArray()) {
 			if (json_is_valid(obj, QJsonValue::Object) &&
 			    !obj.toObject().isEmpty()) {
@@ -61,8 +62,27 @@ void MMGConfig::load(const QString &path_str)
 			}
 		}
 	}
+	// Check for devices currently connected that are not included
+	// and include them if necessary
+	for (const QString &name : MMGDevice::get_input_device_names()) {
+		bool device_included = false;
+		for (MMGDevice *device : devices) {
+			device_included |= (device->get_name() == name);
+		}
+		if (!device_included) {
+			devices.append(new MMGDevice());
+			devices.last()->set_name(name);
+			devices.last()->start_reception();
+		}
+	}
 	active = doc["active"].toBool(true);
-	active_device_name = doc["active_device"].toString("Error");
+	// Set the active device to the first device name
+	// if the active_device property is unspecified.
+	// If there are no devices, there is no active device.
+	active_device_name = devices.first()
+				     ? doc["active_device"].toString(
+					       devices.first()->get_name())
+				     : "Error";
 }
 
 void MMGConfig::save(const QString &path_str) const
@@ -103,10 +123,7 @@ MMGDevice *MMGConfig::find_device(const QString &name)
 			active_device_name = name;
 			if (MMGDevice::get_input_port_number(name) >= 0 &&
 			    !device->get_input_device().is_port_open()) {
-				device->get_input_device().set_callback(
-					MMGUtils::call_midi_callback);
-				device->get_input_device().open_port(
-					MMGDevice::get_input_port_number(name));
+				device->start_reception();
 			}
 			return device;
 		}

@@ -30,7 +30,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace std;
 
 OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi", "en-US")
+OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
 Configuration global_config;
 
@@ -40,8 +40,7 @@ bool obs_module_load(void)
 	global_config = Configuration(new MMGConfig());
 	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
 	plugin_window = new MidiMGWindow(mainWindow);
-	const char *menu_action_text =
-		obs_module_text("OBS MIDIMG Configuration");
+	const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
 	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		menu_action_text);
 	QObject::connect(menu_action, &QAction::triggered, plugin_window,

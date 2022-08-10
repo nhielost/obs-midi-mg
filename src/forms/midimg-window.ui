@@ -38,7 +38,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>OBS MIDIMG Configuration Menu</string>
+   <string>obs-midi-mg Setup Menu</string>
   </property>
   <property name="modal">
    <bool>true</bool>

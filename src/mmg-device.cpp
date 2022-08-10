@@ -17,7 +17,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-device.h"
-#include "mmg-utils.h"
 
 MMGDevice::MMGDevice(const QJsonObject &data)
 {
@@ -32,8 +31,7 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 		}
 	}
 	if (get_input_port_number(name) != -1) {
-		input_device.set_callback(MMGUtils::call_midi_callback);
-		input_device.open_port(get_input_port_number(name));
+		start_reception();
 	}
 }
 
@@ -85,6 +83,18 @@ MMGBinding *MMGDevice::find_binding(const QString &name)
 	return nullptr;
 }
 
+void MMGDevice::start_reception()
+{
+	input_device.set_callback(MMGUtils::call_midi_callback);
+	input_device.open_port(get_input_port_number(name));
+}
+
+void MMGDevice::stop_reception()
+{
+	input_device.cancel_callback();
+	input_device.close_port();
+}
+
 libremidi::midi_in &MMGDevice::get_input_device()
 {
 	return input_device;
@@ -98,8 +108,7 @@ libremidi::midi_out &MMGDevice::get_output_device()
 QStringList MMGDevice::get_input_device_names()
 {
 	QStringList inputs;
-	const unsigned int portCount = libremidi::midi_in().get_port_count();
-	for (unsigned int i = 0; i < portCount; ++i) {
+	for (uint i = 0; i < libremidi::midi_in().get_port_count(); ++i) {
 		inputs.append(QString::fromStdString(
 			libremidi::midi_in().get_port_name(i)));
 	}
@@ -111,8 +120,7 @@ QStringList MMGDevice::get_input_device_names()
 QStringList MMGDevice::get_output_device_names()
 {
 	QStringList outputs;
-	const unsigned int portCount = libremidi::midi_out().get_port_count();
-	for (unsigned int i = 0; i < portCount; ++i) {
+	for (uint i = 0; i < libremidi::midi_out().get_port_count(); ++i) {
 		outputs.append(QString::fromStdString(
 			libremidi::midi_out().get_port_name(i)));
 	}
@@ -155,6 +163,5 @@ void MMGDevice::do_all_actions(const MMGMessage *const message)
 MMGDevice::~MMGDevice()
 {
 	qDeleteAll(bindings);
-	input_device.cancel_callback();
-	input_device.close_port();
+	stop_reception();
 }

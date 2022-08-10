@@ -1240,11 +1240,11 @@ QString MidiMGWindow::binding_mode_description(enum MMGBinding::Mode mode) const
 	case MMGBinding::Mode::MMGBINDING_CONSECUTIVE:
 		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).\n\nThis setting is the default.";
 	case MMGBinding::Mode::MMGBINDING_CORRESPONDENCE:
-		return "If multiple messages are positioned consecutively, all action(s) will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
+		return "When multiple messages are positioned consecutively, all action(s) will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
 	case MMGBinding::Mode::MMGBINDING_MULTIPLY:
-		return "If multiple messages are positioned consecutively, all action(s) will each receive ALL of the messages as parameters (if applicable).\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
+		return "When multiple messages are positioned consecutively, all action(s) will each receive ALL of the messages as parameters (if applicable).\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
 	default:
-		return "Error: Invalid description. Report this as a bug.";
+		return "Error: Invalid description. Report this as a bug from the Preferences page.";
 	}
 }
 
@@ -1460,7 +1460,7 @@ void MidiMGWindow::import_bindings()
 void MidiMGWindow::i_need_help() const
 {
 	QDesktopServices::openUrl(QUrl(
-		"https://github.com/nhielost/obs-midi-mg/blob/main/README.md"));
+		"https://github.com/nhielost/obs-midi-mg/blob/master/README.md"));
 }
 
 void MidiMGWindow::report_a_bug() const

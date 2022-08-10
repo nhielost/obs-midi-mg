@@ -12,3 +12,4 @@
 *.generated.*
 **/.Brewfile.lock.json
 /.vs/obs-midi-mg/v17
+/formatcode.bat

@@ -22,7 +22,7 @@ set(LINUX_MAINTAINER_EMAIL "nhielost@gmail.com")
 set(LIBREMIDI_HEADER_ONLY
     ON
     CACHE BOOL "Header-only mode")
-add_subdirectory(libremidi)
+add_subdirectory(libremidi EXCLUDE_FROM_ALL)
 include_directories(libremidi/include)
 
 # Add your custom source files here - header files are optional and only

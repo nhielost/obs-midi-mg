@@ -18,7 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include "obs-midi-mg.h"
-#include "libremidi/message.hpp"
+#include <libremidi/libremidi.hpp>
 
 #include <QJsonDocument>
 #include <QJsonValue>
