@@ -28,7 +28,7 @@ public:
 	{
 		qDeleteAll(messages);
 		qDeleteAll(actions);
-		qDeleteAll(saved_messages);
+		saved_messages.clear();
 	};
 
 	void json(QJsonObject &binding_obj) const;
@@ -64,7 +64,7 @@ public:
 	MMGAction *find_action(const QString &name);
 
 	bool is_valid();
-	void do_actions(const MMGMessage *const el);
+	void do_actions(const MMGSharedMessage &el);
 
 	void move_elements(MMGModes mode, int from, int to);
 
@@ -73,7 +73,7 @@ private:
 	int mode = 1;
 	QList<MMGMessage *> messages;
 	QList<MMGAction *> actions;
-	QList<const MMGMessage *> saved_messages;
+	QList<MMGSharedMessage> saved_messages;
 
 	int current_message_index = 0;
 };

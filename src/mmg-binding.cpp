@@ -160,7 +160,7 @@ bool MMGBinding::is_valid()
 	return message_size() > 0;
 }
 
-void MMGBinding::do_actions(const MMGMessage *const incoming)
+void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 {
 	// Check if binding contains a message
 	if (!is_valid())
@@ -169,7 +169,8 @@ void MMGBinding::do_actions(const MMGMessage *const incoming)
 	int saved_message_index = 0;
 	int action_index = 0;
 	// Check the incoming message with the next message
-	if (!get_messages()[current_message_index]->is_acceptable(incoming)) {
+	if (!get_messages()[current_message_index]->is_acceptable(
+		    incoming.get())) {
 		goto reset_binding;
 	}
 	// Append the incoming message to a message list so it can be used (for Correspondence and Multiply Mode)
@@ -185,15 +186,17 @@ void MMGBinding::do_actions(const MMGMessage *const incoming)
 
 	case Mode::MMGBINDING_CONSECUTIVE:
 		while (action_index < action_size()) {
-			actions[action_index]->do_action(incoming);
+			actions[action_index]->do_action(incoming.get());
 			++action_index;
 		}
 		break;
 
 	case Mode::MMGBINDING_CORRESPONDENCE:
 		while (action_index < action_size()) {
-			actions[action_index]->do_action(saved_messages[fmod(
-				saved_message_index, saved_messages.size())]);
+			actions[action_index]->do_action(
+				saved_messages[fmod(saved_message_index,
+						    saved_messages.size())]
+					.get());
 			++action_index;
 			++saved_message_index;
 		}
@@ -201,8 +204,8 @@ void MMGBinding::do_actions(const MMGMessage *const incoming)
 
 	case Mode::MMGBINDING_MULTIPLY:
 		while (action_index < action_size()) {
-			for (const MMGMessage *const msg : saved_messages) {
-				actions[action_index]->do_action(msg);
+			for (const MMGSharedMessage &msg : saved_messages) {
+				actions[action_index]->do_action(msg.get());
 			}
 			++action_index;
 		}
@@ -214,6 +217,5 @@ void MMGBinding::do_actions(const MMGMessage *const incoming)
 reset_binding:
 	// Reset everything (on failure or on completion)
 	current_message_index = 0;
-	qDeleteAll(saved_messages);
 	saved_messages.clear();
 }

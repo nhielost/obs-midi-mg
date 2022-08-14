@@ -308,7 +308,8 @@ void MMGAction::do_action(const MMGMessage *const parameter)
 				  parameter->get_value());
 		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		//do_action_send_midi((MMGAction::SendMidi)subcategory);
+		do_action_send_midi((MMGAction::SendMidi)subcategory, strs,
+				    nums, parameter->get_value());
 		break;
 	case MMGAction::Category::MMGACTION_WAIT:
 		do_action_sleep((MMGAction::Sleep)subcategory,
@@ -399,6 +400,18 @@ void MMGAction::do_action_virtual_cam(VirtualCam kind)
 void MMGAction::do_action_studio_mode(StudioMode kind, const QString &scene,
 				      uint value)
 {
+	// For new Studio Mode activation (pre 28.0.0 method encounters threading errors)
+	auto set_studio_mode = [](bool on) {
+		if (obs_frontend_preview_program_mode_active() == on)
+			return;
+		obs_queue_task(
+			OBS_TASK_UI,
+			[](void *param) {
+				auto enabled = (bool *)param;
+				obs_frontend_set_preview_program_mode(*enabled);
+			},
+			&on, true);
+	};
 	char **scene_names = obs_frontend_get_scene_names();
 	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(
 		scene == "Use Message Value" ? scene_names[value]
@@ -406,14 +419,13 @@ void MMGAction::do_action_studio_mode(StudioMode kind, const QString &scene,
 	OBSSourceAutoRelease source_obs_scene = obs_scene_get_source(obs_scene);
 	switch (kind) {
 	case MMGAction::StudioMode::STUDIOMODE_ON:
-		obs_frontend_set_preview_program_mode(true);
+		set_studio_mode(true);
 		break;
 	case MMGAction::StudioMode::STUDIOMODE_OFF:
-		obs_frontend_set_preview_program_mode(false);
+		set_studio_mode(false);
 		break;
 	case MMGAction::StudioMode::STUDIOMODE_TOGGLE_ONOFF:
-		obs_frontend_set_preview_program_mode(
-			!obs_frontend_preview_program_mode_active());
+		set_studio_mode(!obs_frontend_preview_program_mode_active());
 		break;
 	case MMGAction::StudioMode::STUDIOMODE_CHANGEPREVIEW:
 		if (!source_obs_scene)
@@ -792,17 +804,36 @@ void MMGAction::do_action_hotkeys(Hotkeys kind, const QString &name, uint value)
 	}
 }
 
-void MMGAction::do_action_send_midi(SendMidi kind,
-				    const MMGMessage *const sender)
+void MMGAction::do_action_send_midi(SendMidi kind, const QString strs[4],
+				    const double nums[4], uint value)
 {
-	std::vector<uchar> arr = sender->to_libremidi_message().bytes;
-	switch (kind) {
-	case MMGAction::SendMidi::SENDMIDI_SENDMIDI:
-		global()->get_active_device()->get_output_device().send_message(
-			arr.data(), sizeof(uchar) * arr.size());
-		break;
-	default:
-		break;
+	libremidi::message message;
+	if (strs[1] == "Note On") {
+		message = libremidi::message::note_on(
+			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
+	} else if (strs[1] == "Note Off") {
+		message = libremidi::message::note_off(
+			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
+	} else if (strs[1] == "Control Change") {
+		message = libremidi::message::control_change(
+			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
+	} else if (strs[1] == "Program Change") {
+		message = libremidi::message::program_change(
+			nums[0], num_or_value(nums[1], value, 128.0));
+	} else if (strs[1] == "Pitch Bend") {
+		message = libremidi::message::pitch_bend(
+			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
+	} else {
+		// Message type is invalid
+		return;
+	}
+	if (kind == MMGAction::SendMidi::SENDMIDI_SENDMIDI) {
+		MMGDevice *const output = global()->find_device(strs[0]);
+		if (!output)
+			return;
+		if (!output->output_port_open())
+			output->open_output_port();
+		output->output_send(message);
 	}
 }
 

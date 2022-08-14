@@ -18,71 +18,35 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-frontend-api.h>
 
-#include <QLCDNumber>
 #include <QListWidget>
 #include <QFileDialog>
 #include <QDesktopServices>
-#include <QDateTime>
 
 #include "midimg-window.h"
-#include "../mmg-utils.h"
 #include "../mmg-config.h"
 
 using namespace MMGUtils;
 
-struct LCDData {
-	double maximum = 100.0;
-	double minimum = 0.0;
-	double minor_step = 1.0;
-	double major_step = 10.0;
-	double internal_val = 0.0;
-	std::function<void(double)> value_func;
+#define SET_LCD_STATUS(lcd, kind, visible)        \
+	ui->down_major_##lcd->set##kind(visible); \
+	ui->down_minor_##lcd->set##kind(visible); \
+	ui->up_minor_##lcd->set##kind(visible);   \
+	ui->up_major_##lcd->set##kind(visible);   \
+	ui->lcd_##lcd->set##kind(visible);
 
-	void setRange(double min, double max)
-	{
-		minimum = min;
-		maximum = max;
-	};
-	void setStep(double minor, double major)
-	{
-		minor_step = minor;
-		major_step = major;
-	};
+#define CONNECT_LCD(kind)                                           \
+	connect(ui->down_major_##kind, &QPushButton::clicked, this, \
+		[&]() { lcd_##kind.down_major(); });                \
+	connect(ui->down_minor_##kind, &QPushButton::clicked, this, \
+		[&]() { lcd_##kind.down_minor(); });                \
+	connect(ui->up_minor_##kind, &QPushButton::clicked, this,   \
+		[&]() { lcd_##kind.up_minor(); });                  \
+	connect(ui->up_major_##kind, &QPushButton::clicked, this,   \
+		[&]() { lcd_##kind.up_major(); });
 
-	void downMajor()
-	{
-		internal_val = internal_val - major_step <= minimum
-				       ? minimum
-				       : internal_val - major_step;
-	}
-	void downMinor()
-	{
-		internal_val = internal_val - minor_step <= minimum
-				       ? minimum
-				       : internal_val - minor_step;
-	}
-	void upMinor()
-	{
-		internal_val = internal_val + minor_step >= maximum
-				       ? maximum
-				       : internal_val + minor_step;
-	}
-	void upMajor()
-	{
-		internal_val = internal_val + major_step >= maximum
-				       ? maximum
-				       : internal_val + major_step;
-	}
-
-	QString time() const
-	{
-		return QTime(internal_val / 3600.0,
-			     fmod(internal_val / 60.0, 60.0),
-			     fmod(internal_val, 60.0))
-			.toString("hh:mm:ss");
-	};
-};
-Q_DECLARE_METATYPE(LCDData);
+#define INIT_LCD(kind) \
+	lcd_##kind =   \
+		LCDData(ui->lcd_##kind, [&](double val) { set_##kind(val); })
 
 MidiMGWindow::MidiMGWindow(QWidget *parent)
 	: QDialog(parent, Qt::Dialog), ui(new Ui::MidiMGWindow)
@@ -108,114 +72,13 @@ MidiMGWindow::MidiMGWindow(QWidget *parent)
 void MidiMGWindow::connect_ui_signals()
 {
 	// LCD Connections
-	connect(ui->down_major_channel, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_channel,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_channel, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_channel,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_channel, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_channel,
-			      LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_channel, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_channel,
-			      LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_note, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_note,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_note, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_note,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_note, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_note, LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_note, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_note, LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_value, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_value,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_value, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_value,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_value, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_value, LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_value, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_value, LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_double1, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double1,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_double1, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double1,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_double1, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double1,
-			      LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_double1, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double1,
-			      LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_double2, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double2,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_double2, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double2,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_double2, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double2,
-			      LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_double2, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double2,
-			      LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_double3, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double3,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_double3, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double3,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_double3, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double3,
-			      LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_double3, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double3,
-			      LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
-	connect(ui->down_major_double4, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double4,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MAJOR);
-	});
-	connect(ui->down_minor_double4, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double4,
-			      LCDButtons::MIDIMGWINDOW_DOWN_MINOR);
-	});
-	connect(ui->up_minor_double4, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double4,
-			      LCDButtons::MIDIMGWINDOW_UP_MINOR);
-	});
-	connect(ui->up_major_double4, &QPushButton::clicked, this, [&]() {
-		set_lcd_value(ui->lcd_double4,
-			      LCDButtons::MIDIMGWINDOW_UP_MAJOR);
-	});
+	CONNECT_LCD(channel);
+	CONNECT_LCD(note);
+	CONNECT_LCD(value);
+	CONNECT_LCD(double1);
+	CONNECT_LCD(double2);
+	CONNECT_LCD(double3);
+	CONNECT_LCD(double4);
 	// Binding Display Connections
 	connect(ui->binding_mode_editor,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
@@ -229,14 +92,8 @@ void MidiMGWindow::connect_ui_signals()
 	// Message Display Connections
 	connect(ui->message_type_editor, &QComboBox::currentTextChanged, this,
 		&MidiMGWindow::on_message_type_change);
-	connect(ui->usevalue_value, &QCheckBox::toggled, ui->down_major_value,
-		&QWidget::setEnabled);
-	connect(ui->usevalue_value, &QCheckBox::toggled, ui->down_minor_value,
-		&QWidget::setEnabled);
-	connect(ui->usevalue_value, &QCheckBox::toggled, ui->up_minor_value,
-		&QWidget::setEnabled);
-	connect(ui->usevalue_value, &QCheckBox::toggled, ui->up_major_value,
-		&QWidget::setEnabled);
+	connect(ui->usevalue_value, &QCheckBox::toggled, this,
+		[&](bool enabled) { SET_LCD_STATUS(value, Enabled, enabled); });
 	connect(ui->usevalue_value, &QCheckBox::toggled, this,
 		[&](bool toggled) { current_message->set_value(toggled - 1); });
 	// Action Display Connections
@@ -267,7 +124,7 @@ void MidiMGWindow::connect_ui_signals()
 	connect(ui->return_button, &QPushButton::clicked, this,
 		&MidiMGWindow::on_return_click);
 	// Device Buttons
-	connect(ui->view_bindings_button, &QPushButton::clicked, this,
+	connect(ui->view_input_bindings_button, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_BINDING); });
 	// connect(ui->transfer_bindings_button, &QPushButton::clicked, this, [&]() { on_button_click(UiButtons::MIDIMGWINDOW_TRANSFER_BINDINGS); });
 	// Preferences Buttons
@@ -310,66 +167,25 @@ void MidiMGWindow::reject()
 
 void MidiMGWindow::configure_lcd_widgets()
 {
-	LCDData lcd_data;
-	lcd_data.setStep(0.1, 1.0);
-	lcd_data.value_func = [this](double val) { set_double1(val); };
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.value_func = [this](double val) { set_double2(val); };
-	ui->lcd_double2->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.value_func = [this](double val) { set_double3(val); };
-	ui->lcd_double3->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.value_func = [this](double val) { set_double4(val); };
-	ui->lcd_double4->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.setRange(0.0, 127.0);
-	lcd_data.setStep(1.0, 10.0);
-	lcd_data.value_func = [this](double val) { set_message_note(val); };
-	ui->lcd_note->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.value_func = [this](double val) { set_message_value(val); };
-	ui->lcd_value->setProperty("LCDData", QVariant::fromValue(lcd_data));
-	lcd_data.setRange(1.0, 16.0);
-	lcd_data.setStep(1.0, 5.0);
-	lcd_data.value_func = [this](double val) { set_message_channel(val); };
-	ui->lcd_channel->setProperty("LCDData", QVariant::fromValue(lcd_data));
-}
+	INIT_LCD(channel);
+	INIT_LCD(note);
+	INIT_LCD(value);
+	INIT_LCD(double1);
+	INIT_LCD(double2);
+	INIT_LCD(double3);
+	INIT_LCD(double4);
 
-void MidiMGWindow::set_lcd_value(QLCDNumber *lcd, enum LCDButtons kind) const
-{
-	LCDData data = lcd->property("LCDData").value<LCDData>();
-
-	switch (kind) {
-	case LCDButtons::MIDIMGWINDOW_DOWN_MAJOR:
-		data.downMajor();
-		break;
-	case LCDButtons::MIDIMGWINDOW_DOWN_MINOR:
-		data.downMinor();
-		break;
-	case LCDButtons::MIDIMGWINDOW_UP_MINOR:
-		data.upMinor();
-		break;
-	case LCDButtons::MIDIMGWINDOW_UP_MAJOR:
-		data.upMajor();
-		break;
-	case LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET:
-		data.internal_val = 0.0;
-		break;
-	default:
-		break;
-	}
-	display_lcd_value(lcd, data);
-	data.value_func(data.internal_val);
-	lcd->setProperty("LCDData", QVariant::fromValue<LCDData>(data));
-}
-
-void MidiMGWindow::display_lcd_value(QLCDNumber *lcd, const LCDData &data) const
-{
-	if (ui->structure_editor->property("mode").value<MMGModes>() ==
-		    MMGModes::MMGMODE_ACTION &&
-	    current_action->get_category() ==
-		    MMGAction::Category::MMGACTION_MEDIA) {
-		lcd->display(data.time());
-	} else {
-		lcd->display(data.internal_val);
-	}
+	// Channel settings
+	lcd_channel.set_range(1.0, 16.0);
+	lcd_channel.set_step(1.0, 5.0);
+	// Note / Value settings
+	lcd_note.set_range(0.0, 127.0);
+	lcd_value.set_range(0.0, 127.0);
+	// Doubles settings
+	lcd_double1.set_step(0.1, 1.0);
+	lcd_double2.set_step(0.1, 1.0);
+	lcd_double3.set_step(0.1, 1.0);
+	lcd_double4.set_step(0.1, 1.0);
 }
 
 const QStringList MidiMGWindow::get_device_names() const
@@ -388,91 +204,82 @@ void MidiMGWindow::on_message_type_change(const QString &type)
 
 	ui->message_value_label->setVisible(true);
 	ui->usevalue_value->setVisible(true);
-	ui->lcd_value->setVisible(true);
-	ui->down_major_value->setVisible(true);
-	ui->down_minor_value->setVisible(true);
-	ui->up_minor_value->setVisible(true);
-	ui->up_major_value->setVisible(true);
-	ui->down_major_value->setEnabled(true);
-	ui->down_minor_value->setEnabled(true);
-	ui->up_minor_value->setEnabled(true);
-	ui->up_major_value->setEnabled(true);
+	SET_LCD_STATUS(value, Visible, true);
+	SET_LCD_STATUS(value, Enabled, true);
 
 	if (type == "Note On" || type == "Note Off") {
 		ui->message_note_label->setText("Note #");
 		ui->message_value_label->setText("Velocity");
+		SET_LCD_STATUS(value, Enabled, ui->usevalue_value->isChecked());
 		ui->message_value_label->setEnabled(
 			ui->usevalue_value->isChecked());
-		ui->down_major_value->setEnabled(
-			ui->usevalue_value->isChecked());
-		ui->down_minor_value->setEnabled(
-			ui->usevalue_value->isChecked());
-		ui->up_minor_value->setEnabled(ui->usevalue_value->isChecked());
-		ui->up_major_value->setEnabled(ui->usevalue_value->isChecked());
 	} else if (type == "Control Change") {
 		ui->message_note_label->setText("Control #");
 		ui->message_value_label->setText("Value");
+		SET_LCD_STATUS(value, Enabled, ui->usevalue_value->isChecked());
 		ui->message_value_label->setEnabled(
 			ui->usevalue_value->isChecked());
-		ui->down_major_value->setEnabled(
-			ui->usevalue_value->isChecked());
-		ui->down_minor_value->setEnabled(
-			ui->usevalue_value->isChecked());
-		ui->up_minor_value->setEnabled(ui->usevalue_value->isChecked());
-		ui->up_major_value->setEnabled(ui->usevalue_value->isChecked());
 	} else if (type == "Program Change") {
 		ui->message_note_label->setText("Program #");
 		ui->message_value_label->setVisible(false);
 		ui->usevalue_value->setVisible(false);
-		ui->down_major_value->setVisible(false);
-		ui->down_minor_value->setVisible(false);
-		ui->up_minor_value->setVisible(false);
-		ui->up_major_value->setVisible(false);
-		ui->lcd_value->setVisible(false);
+		SET_LCD_STATUS(value, Visible, false);
 	} else if (type == "Pitch Bend") {
 		ui->message_note_label->setText("Pitch Adj.");
 		ui->message_value_label->setVisible(false);
 		ui->usevalue_value->setVisible(false);
-		ui->down_major_value->setVisible(false);
-		ui->down_minor_value->setVisible(false);
-		ui->up_minor_value->setVisible(false);
-		ui->up_major_value->setVisible(false);
-		ui->lcd_value->setVisible(false);
+		SET_LCD_STATUS(value, Visible, false);
 	}
+}
+
+void MidiMGWindow::set_device_view()
+{
+	// QStringList list = get_device_names();
+
+	ui->device_name_text->setText(current_device->get_name());
+	ui->device_input_text->setText(current_device->input_device_status());
+	ui->device_output_text->setText(current_device->output_device_status());
+	// list.removeOne(current->text());
+	// ui->transfer_bindings_name_editor->clear();
+	// ui->transfer_bindings_name_editor->addItems(list);
+	ui->view_input_bindings_button->setEnabled(
+		ui->device_input_text->text() == "Active");
+	ui->view_output_bindings_button->setEnabled(false);
+}
+
+void MidiMGWindow::set_binding_view()
+{
+	ui->binding_name_text->setText(current_binding->get_name());
+	ui->binding_mode_editor->setCurrentIndex(
+		(int)current_binding->get_mode() - 1);
+	on_binding_mode_select(current_binding->get_mode());
 }
 
 void MidiMGWindow::set_message_view()
 {
-	// current_message is not unintentionally modified here
-	LCDData data_channel =
-		ui->lcd_channel->property("LCDData").value<LCDData>();
-	LCDData data_note = ui->lcd_note->property("LCDData").value<LCDData>();
-	LCDData data_value =
-		ui->lcd_value->property("LCDData").value<LCDData>();
+	// Because current_message is modified in these function calls (LCDData::reset),
+	// this uses a const version of it to get its values
+	const MMGMessage temp = *current_message;
 
-	data_channel.internal_val = current_message->get_channel();
-	data_note.internal_val = current_message->get_note();
-	data_value.internal_val = current_message->get_value() < 0
-					  ? 0
-					  : current_message->get_value();
-	ui->usevalue_value->setChecked(current_message->get_value() >= 0);
+	ui->message_name_text->setText(temp.get_name());
 
-	display_lcd_value(ui->lcd_channel, data_channel);
-	display_lcd_value(ui->lcd_note, data_note);
-	display_lcd_value(ui->lcd_value, data_value);
-	ui->lcd_channel->setProperty("LCDData",
-				     QVariant::fromValue(data_channel));
-	ui->lcd_note->setProperty("LCDData", QVariant::fromValue(data_note));
-	ui->lcd_value->setProperty("LCDData", QVariant::fromValue(data_value));
+	lcd_channel.reset(temp.get_channel());
+	lcd_note.reset(temp.get_note());
+	lcd_value.reset(temp.get_value() < 0 ? 0.0 : temp.get_value());
+	ui->usevalue_value->setChecked(temp.get_value() >= 0);
 
-	on_message_type_change(current_message->get_type());
+	on_message_type_change(temp.get_type());
+	// Re-set current_message to the correct one
+	*current_message = temp;
 }
 
 void MidiMGWindow::set_action_view()
 {
-	// Because current_action is modified in these function calls (signals/slots),
+	// Because current_action is modified in these function calls (LCDData::reset),
 	// this uses a const version of it to get its values
 	const MMGAction temp = *current_action;
+	// Set name
+	ui->action_name_text->setText(temp.get_name());
 	// Set category
 	ui->action_cat_editor->setCurrentIndex((int)temp.get_category());
 	on_action_cat_change(
@@ -492,22 +299,10 @@ void MidiMGWindow::set_action_view()
 	ui->usevalue_double2->setChecked(temp.get_num(1) == -1);
 	ui->usevalue_double3->setChecked(temp.get_num(2) == -1);
 	ui->usevalue_double4->setChecked(temp.get_num(3) == -1);
-	LCDData data1 = ui->lcd_double1->property("LCDData").value<LCDData>();
-	LCDData data2 = ui->lcd_double2->property("LCDData").value<LCDData>();
-	LCDData data3 = ui->lcd_double3->property("LCDData").value<LCDData>();
-	LCDData data4 = ui->lcd_double4->property("LCDData").value<LCDData>();
-	data1.internal_val = temp.get_num(0) == -1 ? 0 : temp.get_num(0);
-	data2.internal_val = temp.get_num(1) == -1 ? 0 : temp.get_num(1);
-	data3.internal_val = temp.get_num(2) == -1 ? 0 : temp.get_num(2);
-	data4.internal_val = temp.get_num(3) == -1 ? 0 : temp.get_num(3);
-	display_lcd_value(ui->lcd_double1, data1);
-	display_lcd_value(ui->lcd_double2, data2);
-	display_lcd_value(ui->lcd_double3, data3);
-	display_lcd_value(ui->lcd_double4, data4);
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(data1));
-	ui->lcd_double2->setProperty("LCDData", QVariant::fromValue(data2));
-	ui->lcd_double3->setProperty("LCDData", QVariant::fromValue(data3));
-	ui->lcd_double4->setProperty("LCDData", QVariant::fromValue(data4));
+	lcd_double1.reset(temp.get_num(0) == -1 ? 0 : temp.get_num(0));
+	lcd_double2.reset(temp.get_num(1) == -1 ? 0 : temp.get_num(1));
+	lcd_double3.reset(temp.get_num(2) == -1 ? 0 : temp.get_num(2));
+	lcd_double4.reset(temp.get_num(3) == -1 ? 0 : temp.get_num(3));
 	// Re-set current_action to the correct one
 	*current_action = temp;
 }
@@ -584,10 +379,8 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 				 "Reorder Filter Appearance"});
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
-		on_action_sub_change(0);
-		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		set_sub_options({"Currently Unavailable"});
+		on_action_sub_change(0);
 		break;
 	case MMGAction::Category::MMGACTION_WAIT:
 		set_sub_options({"Wait in Milliseconds", "Wait in Seconds"});
@@ -616,60 +409,32 @@ void MidiMGWindow::set_doubles_visible(bool double1, bool double2, bool double3,
 {
 	ui->action_double1_label->setVisible(double1);
 	ui->usevalue_double1->setVisible(double1);
-	ui->down_major_double1->setVisible(double1);
-	ui->down_minor_double1->setVisible(double1);
-	ui->lcd_double1->setVisible(double1);
-	ui->up_minor_double1->setVisible(double1);
-	ui->up_major_double1->setVisible(double1);
+	SET_LCD_STATUS(double1, Visible, double1);
 	ui->action_double2_label->setVisible(double2);
 	ui->usevalue_double2->setVisible(double2);
-	ui->down_major_double2->setVisible(double2);
-	ui->down_minor_double2->setVisible(double2);
-	ui->lcd_double2->setVisible(double2);
-	ui->up_minor_double2->setVisible(double2);
-	ui->up_major_double2->setVisible(double2);
+	SET_LCD_STATUS(double2, Visible, double2);
 	ui->action_double3_label->setVisible(double3);
 	ui->usevalue_double3->setVisible(double3);
-	ui->down_major_double3->setVisible(double3);
-	ui->down_minor_double3->setVisible(double3);
-	ui->lcd_double3->setVisible(double3);
-	ui->up_minor_double3->setVisible(double3);
-	ui->up_major_double3->setVisible(double3);
+	SET_LCD_STATUS(double3, Visible, double3);
 	ui->action_double4_label->setVisible(double4);
 	ui->usevalue_double4->setVisible(double4);
-	ui->down_major_double4->setVisible(double4);
-	ui->down_minor_double4->setVisible(double4);
-	ui->lcd_double4->setVisible(double4);
-	ui->up_minor_double4->setVisible(double4);
-	ui->up_major_double4->setVisible(double4);
+	SET_LCD_STATUS(double4, Visible, double4);
 }
 
 void MidiMGWindow::set_doubles_usevalue(short which, bool disabled) const
 {
 	switch (which) {
 	case 0:
-		ui->up_major_double1->setDisabled(disabled);
-		ui->up_minor_double1->setDisabled(disabled);
-		ui->down_minor_double1->setDisabled(disabled);
-		ui->down_major_double1->setDisabled(disabled);
+		SET_LCD_STATUS(double1, Disabled, disabled);
 		break;
 	case 1:
-		ui->up_major_double2->setDisabled(disabled);
-		ui->up_minor_double2->setDisabled(disabled);
-		ui->down_minor_double2->setDisabled(disabled);
-		ui->down_major_double2->setDisabled(disabled);
+		SET_LCD_STATUS(double2, Disabled, disabled);
 		break;
 	case 2:
-		ui->up_major_double3->setDisabled(disabled);
-		ui->up_minor_double3->setDisabled(disabled);
-		ui->down_minor_double3->setDisabled(disabled);
-		ui->down_major_double3->setDisabled(disabled);
+		SET_LCD_STATUS(double3, Disabled, disabled);
 		break;
 	case 3:
-		ui->up_major_double4->setDisabled(disabled);
-		ui->up_minor_double4->setDisabled(disabled);
-		ui->down_minor_double4->setDisabled(disabled);
-		ui->down_major_double4->setDisabled(disabled);
+		SET_LCD_STATUS(double4, Disabled, disabled);
 		break;
 	default:
 		return;
@@ -699,8 +464,6 @@ void MidiMGWindow::on_action_sub_change(int index)
 	ui->lcd_double4->display(0);
 	set_lists_visible();
 	set_doubles_visible();
-
-	LCDData data1 = ui->lcd_double1->property("LCDData").value<LCDData>();
 
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_NONE:
@@ -755,33 +518,34 @@ void MidiMGWindow::on_action_sub_change(int index)
 		MMGAction::do_obs_hotkey_enum(ui->action_list1_editor);
 		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+		set_lists_visible(true);
+		ui->action_list1_label->setText("Device");
+		ui->action_list1_editor->addItems(
+			MMGDevice::get_output_device_names());
 		break;
 	case MMGAction::Category::MMGACTION_WAIT:
 		set_doubles_visible(true);
 		ui->action_double1_label->setText("Time");
-		data1.setRange(0.0, 1000.0);
-		data1.setStep(1.0, 10.0);
-		set_lcd_value(ui->lcd_double1,
-			      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+		lcd_double1.set_range(0.0, 1000.0);
+		lcd_double1.set_step(1.0, 10.0);
+		lcd_double1.reset();
 		break;
 	default:
 		break;
 	}
-
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(data1));
 }
 
-void MidiMGWindow::set_message_channel(double value)
+void MidiMGWindow::set_channel(double value)
 {
 	current_message->set_channel(value);
 }
 
-void MidiMGWindow::set_message_note(double value)
+void MidiMGWindow::set_note(double value)
 {
 	current_message->set_note(value);
 }
 
-void MidiMGWindow::set_message_value(double value)
+void MidiMGWindow::set_value(double value)
 {
 	current_message->set_value(value);
 }
@@ -796,9 +560,8 @@ void MidiMGWindow::set_list1(const QString &value)
 	if (value.isEmpty())
 		return;
 
-	LCDData data1 = ui->lcd_double1->property("LCDData").value<LCDData>();
-
 	ui->action_list2_editor->clear();
+	lcd_double1.set_use_time(false);
 
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
@@ -813,18 +576,16 @@ void MidiMGWindow::set_list1(const QString &value)
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGETO:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Volume");
-			data1.setRange(0.0, 100.0);
-			data1.setStep(1.0, 10.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, 100.0);
+			lcd_double1.set_step(1.0, 10.0);
+			lcd_double1.reset();
 			break;
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGEBY:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Volume Adj.");
-			data1.setRange(-50.0, 50.0);
-			data1.setStep(1.0, 10.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(-50.0, 50.0);
+			lcd_double1.set_step(1.0, 10.0);
+			lcd_double1.reset();
 			break;
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_ON:
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_OFF:
@@ -835,10 +596,9 @@ void MidiMGWindow::set_list1(const QString &value)
 		case MMGAction::SourceProperties::PROPERTY_AUDIO_OFFSET:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Sync Offset");
-			data1.setRange(0.0, 20000.0);
-			data1.setStep(25.0, 250.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, 20000.0);
+			lcd_double1.set_step(25.0, 250.0);
+			lcd_double1.reset();
 			break;
 		case MMGAction::SourceProperties::PROPERTY_AUDIO_MONITOR:
 			set_lists_visible(true, true);
@@ -851,27 +611,26 @@ void MidiMGWindow::set_list1(const QString &value)
 		}
 		break;
 	case MMGAction::Category::MMGACTION_MEDIA:
+		lcd_double1.set_use_time(true);
 		switch ((MMGAction::Media)current_action->get_sub()) {
 		case MMGAction::Media::MEDIA_TIME:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Time");
-			data1.setRange(0.0,
-				       get_obs_media_length(
-					       current_action->get_str(0)));
-			data1.setStep(1.0, 10.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(
+				0.0, get_obs_media_length(
+					     current_action->get_str(0)));
+			lcd_double1.set_step(1.0, 10.0);
+			lcd_double1.reset();
 			break;
 		case MMGAction::Media::MEDIA_SKIP_FORWARD_TIME:
 		case MMGAction::Media::MEDIA_SKIP_BACKWARD_TIME:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Time Adj.");
-			data1.setRange(0.0,
-				       get_obs_media_length(
-					       current_action->get_str(0)));
-			data1.setStep(1.0, 10.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(
+				0.0, get_obs_media_length(
+					     current_action->get_str(0)));
+			lcd_double1.set_step(1.0, 10.0);
+			lcd_double1.reset();
 			break;
 		default:
 			break;
@@ -882,16 +641,15 @@ void MidiMGWindow::set_list1(const QString &value)
 		case MMGAction::Transitions::TRANSITION_CURRENT:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Duration");
-			data1.setRange(0.0, 20000.0);
-			data1.setStep(25.0, 250.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, 20000.0);
+			lcd_double1.set_step(25.0, 250.0);
+			lcd_double1.reset();
 			break;
 		/*case MMGAction::Transitions::TRANSITION_TBAR:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Position (%)");
-			data1.setRange(0.0, 100.0);
-			data1.setStep(0.5, 5.0);
+			lcd_double1.set_range(0.0, 100.0);
+			lcd_double1.set_step(0.5, 5.0);
 			set_lcd_value(ui->lcd_double1, LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
 			break;*/
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
@@ -911,11 +669,17 @@ void MidiMGWindow::set_list1(const QString &value)
 			ui->action_list2_editor,
 			MMGAction::Category::MMGACTION_SOURCE_PROPS, value);
 		break;
+	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+		set_lists_visible(true, true);
+		ui->action_list2_label->setText("Type");
+		for (int i = 0; i < ui->message_type_editor->count(); ++i) {
+			ui->action_list2_editor->addItem(
+				ui->message_type_editor->itemText(i));
+		}
+		break;
 	default:
 		break;
 	}
-
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(data1));
 }
 
 void MidiMGWindow::set_list2(const QString &value)
@@ -925,10 +689,7 @@ void MidiMGWindow::set_list2(const QString &value)
 	if (value.isEmpty())
 		return;
 
-	LCDData data1 = ui->lcd_double1->property("LCDData").value<LCDData>();
-	LCDData data2 = ui->lcd_double2->property("LCDData").value<LCDData>();
-	LCDData data3 = ui->lcd_double3->property("LCDData").value<LCDData>();
-	LCDData data4 = ui->lcd_double4->property("LCDData").value<LCDData>();
+	QString str1;
 
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
@@ -937,14 +698,12 @@ void MidiMGWindow::set_list2(const QString &value)
 			set_doubles_visible(true, true);
 			ui->action_double1_label->setText("Pos X");
 			ui->action_double2_label->setText("Pos Y");
-			data1.setRange(0.0, get_obs_dimensions().first);
-			data1.setStep(0.5, 5.0);
-			data2.setRange(0.0, get_obs_dimensions().second);
-			data2.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			set_lcd_value(ui->lcd_double2,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, get_obs_dimensions().first);
+			lcd_double1.set_step(0.5, 5.0);
+			lcd_double1.reset();
+			lcd_double2.set_range(0.0, get_obs_dimensions().second);
+			lcd_double2.set_step(0.5, 5.0);
+			lcd_double2.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_DISPLAY:
 			set_lists_visible(true, true, true);
@@ -964,84 +723,75 @@ void MidiMGWindow::set_list2(const QString &value)
 			ui->action_double2_label->setText("Right");
 			ui->action_double3_label->setText("Bottom");
 			ui->action_double4_label->setText("Left");
-			data1.setRange(
+			lcd_double1.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 						.second >>
 					1);
-			data1.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			data2.setRange(
+			lcd_double1.set_step(0.5, 5.0);
+			lcd_double1.reset();
+			lcd_double2.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 						.first >>
 					1);
-			data2.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double2,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			data3.setRange(
+			lcd_double2.set_step(0.5, 5.0);
+			lcd_double2.reset();
+			lcd_double3.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 						.second >>
 					1);
-			data3.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double3,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			data4.setRange(
+			lcd_double3.set_step(0.5, 5.0);
+			lcd_double3.reset();
+			lcd_double4.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 						.first >>
 					1);
-			data4.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double4,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double4.set_step(0.5, 5.0);
+			lcd_double4.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_SCALE:
 			set_doubles_visible(true, true);
 			ui->action_double1_label->setText("Scale X");
 			ui->action_double2_label->setText("Scale Y");
-			data1.setRange(0.2, 5.0);
-			data1.setStep(0.05, 0.5);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			data2.setRange(0.2, 5.0);
-			data2.setStep(0.05, 0.5);
-			set_lcd_value(ui->lcd_double2,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.2, 5.0);
+			lcd_double1.set_step(0.05, 0.5);
+			lcd_double1.reset(1.0);
+			lcd_double2.set_range(0.2, 5.0);
+			lcd_double2.set_step(0.05, 0.5);
+			lcd_double2.reset(1.0);
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_ROTATION:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Rotation (°)");
-			data1.setRange(0.0, 360.0);
-			data1.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, 360.0);
+			lcd_double1.set_step(0.5, 5.0);
+			lcd_double1.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_BOUNDINGBOX:
 			set_doubles_visible(true, true);
 			ui->action_double1_label->setText("Size X");
 			ui->action_double2_label->setText("Size Y");
-			data1.setRange(
+			lcd_double1.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 					.first);
-			data1.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
-			data2.setRange(
+			lcd_double1.set_step(0.5, 5.0);
+			lcd_double1.reset();
+			lcd_double2.set_range(
 				0.0,
 				get_obs_source_dimensions(
 					ui->action_list1_editor->currentText())
 					.second);
-			data2.setStep(0.5, 5.0);
-			set_lcd_value(ui->lcd_double2,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double2.set_step(0.5, 5.0);
+			lcd_double2.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_RESET:
 			break;
@@ -1072,32 +822,53 @@ void MidiMGWindow::set_list2(const QString &value)
 		case MMGAction::Filters::FILTER_REORDER:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Position");
-			data1.setRange(1.0, get_obs_source_filter_count(
-						    ui->action_list1_editor
-							    ->currentText()));
-			data1.setStep(1.0, 5.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(
+				1.0,
+				get_obs_source_filter_count(
+					ui->action_list1_editor->currentText()));
+			lcd_double1.set_step(1.0, 5.0);
+			lcd_double1.reset();
 			break;
 		default:
 			break;
 		}
 		break;
+	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+		ui->action_double1_label->setText("Channel");
+		lcd_double1.set_range(1.0, 16.0);
+		lcd_double1.set_step(1.0, 5.0);
+		lcd_double1.reset();
+		lcd_double2.set_range(0.0, 127.0);
+		lcd_double2.set_step(1.0, 10.0);
+		lcd_double2.reset();
+		lcd_double3.set_range(0.0, 127.0);
+		lcd_double3.set_step(1.0, 10.0);
+		lcd_double3.reset();
+		str1 = ui->action_list2_editor->currentText();
+		if (str1 == "Note On" || str1 == "Note Off") {
+			set_doubles_visible(true, true, true);
+			ui->action_double2_label->setText("Note #");
+			ui->action_double3_label->setText("Velocity");
+		} else if (str1 == "Control Change") {
+			set_doubles_visible(true, true, true);
+			ui->action_double2_label->setText("Control #");
+			ui->action_double3_label->setText("Value");
+		} else if (str1 == "Program Change") {
+			set_doubles_visible(true, true);
+			ui->action_double2_label->setText("Program #");
+		} else if (str1 == "Pitch Bend") {
+			set_doubles_visible(true, true);
+			ui->action_double2_label->setText("Pitch Adj.");
+		}
+		break;
 	default:
 		break;
 	}
-
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(data1));
-	ui->lcd_double2->setProperty("LCDData", QVariant::fromValue(data2));
-	ui->lcd_double3->setProperty("LCDData", QVariant::fromValue(data3));
-	ui->lcd_double4->setProperty("LCDData", QVariant::fromValue(data4));
 }
 
 void MidiMGWindow::set_list3(const QString &value)
 {
 	current_action->set_str(2, value);
-
-	LCDData data1 = ui->lcd_double1->property("LCDData").value<LCDData>();
 
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_TRANSITION:
@@ -1106,10 +877,9 @@ void MidiMGWindow::set_list3(const QString &value)
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:
 			set_doubles_visible(true);
 			ui->action_double1_label->setText("Duration");
-			data1.setRange(0.0, 20000.0);
-			data1.setStep(25.0, 250.0);
-			set_lcd_value(ui->lcd_double1,
-				      LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.set_range(0.0, 20000.0);
+			lcd_double1.set_step(25.0, 250.0);
+			lcd_double1.reset();
 			break;
 		default:
 			break;
@@ -1118,8 +888,6 @@ void MidiMGWindow::set_list3(const QString &value)
 	default:
 		break;
 	}
-
-	ui->lcd_double1->setProperty("LCDData", QVariant::fromValue(data1));
 }
 
 void MidiMGWindow::set_double1(double value)
@@ -1261,6 +1029,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_binding->set_name(str);
+		ui->binding_name_text->setText(str);
 		break;
 
 	case MMGModes::MMGMODE_MESSAGE:
@@ -1271,6 +1040,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_message->set_name(str);
+		ui->message_name_text->setText(str);
 		break;
 
 	case MMGModes::MMGMODE_ACTION:
@@ -1281,6 +1051,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_action->set_name(str);
+		ui->action_name_text->setText(str);
 		break;
 
 	default:
@@ -1296,8 +1067,6 @@ void MidiMGWindow::on_list_selection_change(const QListWidgetItem *current)
 		return;
 	}
 
-	// QStringList list = get_device_names();
-
 	ui->add_button->setEnabled(true);
 	ui->remove_button->setEnabled(true);
 	ui->return_button->setEnabled(true);
@@ -1308,22 +1077,12 @@ void MidiMGWindow::on_list_selection_change(const QListWidgetItem *current)
 		ui->add_button->setEnabled(false);
 		ui->remove_button->setEnabled(false);
 		ui->return_button->setEnabled(false);
-		ui->device_name_text->setText(current->text());
-		ui->device_type_text->setText("Input");
-		ui->device_status_text->setText(
-			current_device->get_input_device().is_port_open()
-				? "Active"
-				: "Not Connected");
-		// list.removeOne(current->text());
-		// ui->transfer_bindings_name_editor->clear();
-		// ui->transfer_bindings_name_editor->addItems(list);
+		set_device_view();
 		ui->pages->setCurrentIndex(1);
 		break;
 	case MMGModes::MMGMODE_BINDING:
 		current_binding = current_device->find_binding(current->text());
-		ui->binding_mode_editor->setCurrentIndex(
-			(int)current_binding->get_mode() - 1);
-		on_binding_mode_select(current_binding->get_mode());
+		set_binding_view();
 		ui->pages->setCurrentIndex(2);
 		break;
 	case MMGModes::MMGMODE_MESSAGE:

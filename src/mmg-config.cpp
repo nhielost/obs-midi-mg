@@ -72,9 +72,23 @@ void MMGConfig::load(const QString &path_str)
 		if (!device_included) {
 			devices.append(new MMGDevice());
 			devices.last()->set_name(name);
-			devices.last()->start_reception();
+			devices.last()->open_input_port();
+			devices.last()->open_output_port();
 		}
 	}
+	for (const QString &name : MMGDevice::get_output_device_names()) {
+		bool device_included = false;
+		for (MMGDevice *device : devices) {
+			device_included |= (device->get_name() == name);
+		}
+		if (!device_included) {
+			devices.append(new MMGDevice());
+			devices.last()->set_name(name);
+			devices.last()->open_input_port();
+			devices.last()->open_output_port();
+		}
+	}
+
 	active = doc["active"].toBool(true);
 	// Set the active device to the first device name
 	// if the active_device property is unspecified.
@@ -121,9 +135,11 @@ MMGDevice *MMGConfig::find_device(const QString &name)
 	for (MMGDevice *const device : devices) {
 		if (device->get_name() == name) {
 			active_device_name = name;
-			if (MMGDevice::get_input_port_number(name) >= 0 &&
-			    !device->get_input_device().is_port_open()) {
-				device->start_reception();
+			if (!device->input_port_open()) {
+				device->open_input_port();
+			}
+			if (!device->output_port_open()) {
+				device->open_output_port();
 			}
 			return device;
 		}

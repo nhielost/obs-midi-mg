@@ -20,9 +20,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QDialog>
 
 #include "ui_midimg-window.h"
+#include "../mmg-utils.h"
 #include "../mmg-device.h"
-
-struct LCDData;
 
 class MidiMGWindow : public QDialog {
 	Q_OBJECT
@@ -32,14 +31,13 @@ public:
 
 private:
 	Ui::MidiMGWindow *ui;
-
-	enum class LCDButtons {
-		MIDIMGWINDOW_NEUTRAL_RESET,
-		MIDIMGWINDOW_DOWN_MAJOR,
-		MIDIMGWINDOW_DOWN_MINOR,
-		MIDIMGWINDOW_UP_MINOR,
-		MIDIMGWINDOW_UP_MAJOR
-	};
+	MMGUtils::LCDData lcd_channel;
+	MMGUtils::LCDData lcd_note;
+	MMGUtils::LCDData lcd_value;
+	MMGUtils::LCDData lcd_double1;
+	MMGUtils::LCDData lcd_double2;
+	MMGUtils::LCDData lcd_double3;
+	MMGUtils::LCDData lcd_double4;
 
 	/* enum class BindingTransfer {
 		MIDIMGWINDOW_KEEP_APPEND,
@@ -53,9 +51,9 @@ private:
 
 	const QStringList get_device_names() const;
 	QString binding_mode_description(enum MMGBinding::Mode mode) const;
-	void set_lcd_value(QLCDNumber *lcd, enum LCDButtons kind) const;
-	void display_lcd_value(QLCDNumber *lcd, const LCDData &data) const;
 	void switch_structure_pane(enum MMGModes mode);
+	void set_device_view();
+	void set_binding_view();
 	void set_message_view();
 	void set_action_view();
 	void set_sub_visible(bool visible = false) const;
@@ -66,9 +64,9 @@ private:
 				 bool double4 = false) const;
 	void set_doubles_usevalue(short which, bool disabled) const;
 	void set_sub_options(std::initializer_list<QString> list) const;
-	void set_message_channel(double value);
-	void set_message_note(double value);
-	void set_message_value(double value);
+	void set_channel(double value);
+	void set_note(double value);
+	void set_value(double value);
 	void set_list1(const QString &value);
 	void set_list2(const QString &value);
 	void set_list3(const QString &value);

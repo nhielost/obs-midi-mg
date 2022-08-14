@@ -30,9 +30,8 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 				add(new MMGBinding(json_binding.toObject()));
 		}
 	}
-	if (get_input_port_number(name) != -1) {
-		start_reception();
-	}
+	open_input_port();
+	open_output_port();
 }
 
 void MMGDevice::json(QJsonObject &device_obj) const
@@ -83,26 +82,67 @@ MMGBinding *MMGDevice::find_binding(const QString &name)
 	return nullptr;
 }
 
-void MMGDevice::start_reception()
+void MMGDevice::open_input_port()
 {
-	input_device.set_callback(MMGUtils::call_midi_callback);
-	input_device.open_port(get_input_port_number(name));
+	if (get_input_port_number(name) >= 0) {
+		input_device.set_callback(MMGUtils::call_midi_callback);
+		input_device.open_port(get_input_port_number(name));
+	}
 }
 
-void MMGDevice::stop_reception()
+void MMGDevice::open_output_port()
+{
+	if (get_output_port_number(name) >= 0) {
+		output_device.open_port(get_output_port_number(name));
+	}
+}
+
+void MMGDevice::close_input_port()
 {
 	input_device.cancel_callback();
 	input_device.close_port();
 }
 
-libremidi::midi_in &MMGDevice::get_input_device()
+void MMGDevice::close_output_port()
 {
-	return input_device;
+	output_device.close_port();
 }
 
-libremidi::midi_out &MMGDevice::get_output_device()
+bool MMGDevice::input_port_open() const
 {
-	return output_device;
+	return input_device.is_port_open();
+}
+
+bool MMGDevice::output_port_open() const
+{
+	return output_device.is_port_open();
+}
+
+void MMGDevice::output_send(const libremidi::message &message)
+{
+	output_device.send_message(message);
+}
+
+const QString MMGDevice::input_device_status() const
+{
+	if (input_port_open()) {
+		return "Active";
+	} else if (get_output_port_number(name) >= 0) {
+		return "Unavailable";
+	} else {
+		return "Not Connected";
+	}
+}
+
+const QString MMGDevice::output_device_status() const
+{
+	if (output_port_open()) {
+		return "Active";
+	} else if (get_input_port_number(name) >= 0) {
+		return "Unavailable";
+	} else {
+		return "Not Connected";
+	}
 }
 
 QStringList MMGDevice::get_input_device_names()
@@ -126,34 +166,18 @@ QStringList MMGDevice::get_output_device_names()
 	}
 	return outputs;
 }
-/*
- * Returns the port number of the specified device.
- * If the device isn't found (possibly due to being disconnected), returns -1
- */
-int MMGDevice::get_input_port_number(const QString &deviceName)
+
+int MMGDevice::get_input_port_number(const QString &device_name)
 {
-	return get_input_device_names().indexOf(deviceName);
-}
-/**
- *
- *
- * @name GetOutPortNumberByDeviceName
- * @Param deviceName
- * @category Device Manager
- * @description Returns the port number of the specified device. \
- *		If the device isn't found (possibly due to being disconnected), returns -1
- * @returns  Device Output Port
- * @rtype int
- */
-int MMGDevice::get_output_port_number(const QString &deviceName)
-{
-	const QStringList portsList = get_output_device_names();
-	if (portsList.contains(deviceName))
-		return portsList.indexOf(deviceName);
-	return -1;
+	return get_input_device_names().indexOf(device_name);
 }
 
-void MMGDevice::do_all_actions(const MMGMessage *const message)
+int MMGDevice::get_output_port_number(const QString &device_name)
+{
+	return get_output_device_names().indexOf(device_name);
+}
+
+void MMGDevice::do_all_actions(const MMGSharedMessage &message)
 {
 	for (MMGBinding *const el : bindings) {
 		el->do_actions(message);
@@ -163,5 +187,7 @@ void MMGDevice::do_all_actions(const MMGMessage *const message)
 MMGDevice::~MMGDevice()
 {
 	qDeleteAll(bindings);
-	stop_reception();
+	bindings.clear();
+	close_input_port();
+	close_output_port();
 }

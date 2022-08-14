@@ -40,7 +40,7 @@ public:
 	void set_note(int val) { note = val; };
 	void set_value(int val) { value = val; };
 
-	bool is_acceptable(const MMGMessage *const test) const;
+	bool is_acceptable(MMGMessage *test) const;
 	const libremidi::message to_libremidi_message() const;
 
 	static QString get_midi_type(const libremidi::message &mess);
@@ -56,3 +56,5 @@ private:
 };
 
 using MMGMessageList = QList<MMGMessage *>;
+
+using MMGSharedMessage = QSharedPointer<MMGMessage>;

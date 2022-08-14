@@ -24,8 +24,43 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QJsonValue>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QLCDNumber>
+#include <QDateTime>
 
 namespace MMGUtils {
+
+class LCDData {
+public:
+	LCDData() = default;
+	explicit LCDData(QLCDNumber *lcd_ptr, std::function<void(double)> func);
+
+	void set_range(double min, double max);
+	void set_step(double minor, double major);
+
+	void set_use_time(bool time) { use_time = time; }
+
+	void down_major();
+	void down_minor();
+	void up_minor();
+	void up_major();
+	void reset(double value = 0.0);
+
+private:
+	QLCDNumber *lcd;
+	std::function<void(double)> value_func;
+
+	double maximum = 100.0;
+	double minimum = 0.0;
+	double minor_step = 1.0;
+	double major_step = 10.0;
+	double internal_val = 0.0;
+
+	bool use_time = false;
+
+	void display();
+};
+Q_DECLARE_METATYPE(LCDData);
+
 void call_midi_callback(const libremidi::message &message);
 
 bool json_key_exists(const QJsonObject &obj, QString key,

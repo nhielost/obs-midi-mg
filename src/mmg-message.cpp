@@ -137,7 +137,7 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 	}
 }
 
-bool MMGMessage::is_acceptable(const MMGMessage *const test) const
+bool MMGMessage::is_acceptable(MMGMessage *test) const
 {
 	bool isTrue = true;
 	isTrue &= (channel == test->get_channel());

@@ -23,6 +23,73 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-frontend-api.h>
 
 namespace MMGUtils {
+
+// LCDData
+LCDData::LCDData(QLCDNumber *lcd_ptr, std::function<void(double)> func)
+{
+	lcd = lcd_ptr;
+	value_func = func;
+}
+
+void LCDData::set_range(double min, double max)
+{
+	minimum = min;
+	maximum = max;
+};
+void LCDData::set_step(double minor, double major)
+{
+	minor_step = minor;
+	major_step = major;
+};
+
+void LCDData::down_major()
+{
+	internal_val = internal_val - major_step <= minimum
+			       ? minimum
+			       : internal_val - major_step;
+	display();
+}
+void LCDData::down_minor()
+{
+	internal_val = internal_val - minor_step <= minimum
+			       ? minimum
+			       : internal_val - minor_step;
+	display();
+}
+void LCDData::up_minor()
+{
+	internal_val = internal_val + minor_step >= maximum
+			       ? maximum
+			       : internal_val + minor_step;
+	display();
+}
+void LCDData::up_major()
+{
+	internal_val = internal_val + major_step >= maximum
+			       ? maximum
+			       : internal_val + major_step;
+	display();
+}
+void LCDData::reset(double value)
+{
+	internal_val = value;
+	display();
+}
+
+void LCDData::display()
+{
+	if (use_time) {
+		lcd->display(QTime(internal_val / 3600.0,
+				   fmod(internal_val / 60.0, 60.0),
+				   fmod(internal_val, 60.0))
+				     .toString("hh:mm:ss"));
+	} else {
+		lcd->display(internal_val);
+	}
+	value_func(internal_val);
+}
+// End LCDData
+
 bool json_key_exists(const QJsonObject &obj, QString key,
 		     QJsonValue::Type value_type)
 {
@@ -85,9 +152,10 @@ void call_midi_callback(const libremidi::message &message)
 {
 	if (!global()->is_running())
 		return;
+	MMGSharedMessage incoming(new MMGMessage(message));
 	for (MMGDevice *const device : global()->get_devices()) {
-		if (device->get_input_device().is_port_open())
-			device->do_all_actions(new MMGMessage(message));
+		if (device->input_port_open())
+			device->do_all_actions(incoming);
 	}
 }
 

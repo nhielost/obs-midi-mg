@@ -204,8 +204,8 @@ private:
 				      int index = 0, uint value = 0U);
 	static void do_action_hotkeys(Hotkeys kind, const QString &name = "",
 				      uint value = 0U);
-	static void do_action_send_midi(SendMidi kind,
-					const MMGMessage *const sender);
+	static void do_action_send_midi(SendMidi kind, const QString type[4],
+					const double nums[4], uint value = 0U);
 	static void do_action_sleep(Sleep kind, ulong duration = 0UL,
 				    uint value = 0U);
 
