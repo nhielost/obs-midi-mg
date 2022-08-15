@@ -32,6 +32,7 @@ using namespace std;
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
+static MidiMGWindow *plugin_window;
 Configuration global_config;
 
 bool obs_module_load(void)

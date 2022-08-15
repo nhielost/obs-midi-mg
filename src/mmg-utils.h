@@ -59,7 +59,6 @@ private:
 
 	void display();
 };
-Q_DECLARE_METATYPE(LCDData);
 
 void call_midi_callback(const libremidi::message &message);
 
@@ -77,3 +76,4 @@ qulonglong get_obs_source_filter_count(const QString &name);
 
 QString next_default_name(MMGModes mode);
 }
+Q_DECLARE_METATYPE(MMGUtils::LCDData);

@@ -2,7 +2,8 @@
 
 Allows MIDI devices to interact with OBS Studio.
 
-### This plugin will not work in OBS Studio versions below 28.0.0, meaning that any users on Windows 8 or MacOS 10.14 and below will not be able to use this plugin.
+### This plugin will not work in OBS Studio versions below 28.0.0 due to its usage of Qt 6, meaning that any users using an OS below Windows 10 or MacOS 10.15 will not be able to use this plugin.
+(This may be addressed at a later date.)
 
 ### Beta releases of 28.0.0 may not allow this plugin to display properly in the new default theme *Yami*. Use the old default theme *Dark* for a better-looking display.
 
@@ -55,9 +56,7 @@ To edit the action, select the action in the ***Actions*** display, and the edit
 
 Adjust the values as necessary for the action(s) in this binding. Settings will appear as the form is filled out. To use a value from a message, either check the box for the number fields, or select *Use Message Value* in the selection fields.
 
-*Note 1: At this time, some actions are currently unavailable. Future releases of this plugin will implement these actions, and potentially new ones as well*.
-
-*Note 2: You can use multiple actions in a binding by adding more actions. If this is desired, the behavior of the binding may not be appropriate. See [Binding Modes](#binding-modes) for more details*.
+*Note: You can use multiple actions in a binding by adding more actions. If this is desired, the behavior of the binding may not be appropriate. See [Binding Modes](#binding-modes) for more details*.
 
 ### Binding Modes
 
@@ -79,11 +78,10 @@ To adjust other settings or view this page, click the *Preferences* button in th
 
 The coming updates will hopefully introduce these new features:
 
-- Implement already planned actions
-- A transfer bindings between devices feature (for when a device has disconnected)
+- A transfer bindings between devices feature (for when a device has disconnected or is unavailable)
 - Using more elements of the message than just the value
 - (Potentially) more actions - involving external features such as Scene Collections, Themes, and other settings
-- MIDI Output device support - send a message when an event in OBS Studio occurs
+- MIDI Output device support - send a message when an event in OBS Studio occurs (well underway!)
 
 ## Feedback
 

@@ -30,7 +30,6 @@ class MidiMGWindow;
 
 using Configuration = QSharedPointer<MMGConfig>;
 Configuration global();
-static MidiMGWindow *plugin_window;
 
 enum class MMGModes {
 	MMGMODE_NONE,
