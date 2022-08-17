@@ -5,7 +5,7 @@ Allows MIDI devices to interact with OBS Studio.
 ### This plugin will not work in OBS Studio versions below 28.0.0 due to its usage of Qt 6, meaning that any users using an OS below Windows 10 or MacOS 10.15 will not be able to use this plugin.
 (This may be addressed at a later date.)
 
-### Beta releases of 28.0.0 may not allow this plugin to display properly in the new default theme *Yami*. Use the old default theme *Dark* for a better-looking display.
+### As of version 1.1.1, this plugin will display properly on both *Dark* and *Yami* themes.
 
 ## Description
 
@@ -42,7 +42,7 @@ To rename the message, double-click the message and type to change the name. To 
 
 To edit the message, select the message in the ***Messages*** display, and the editor will appear on the right.
 
-Adjust the values as necessary for the message. By default, the value/velocity option is disabled for the use of its value in executing actions. If you wish to make the value required for executing an action, check the box next to the value/velocity option.
+Adjust the values as necessary for the message. By default, the value/velocity option is OFF for the use of its value in executing actions. If you wish to make the value required for executing an action, click the OFF in the middle of the value field, and it will switch to a number. Clicking the number again will revert it to the OFF state.
 
 *Note: You can use multiple messages in a binding by adding more messages. If this is desired, the behavior of the binding may not be appropriate. See [Binding Modes](#binding-modes) for more details*.
 
@@ -54,7 +54,7 @@ To rename the action, double-click the action and type to change the name. To re
 
 To edit the action, select the action in the ***Actions*** display, and the editor will appear on the right.
 
-Adjust the values as necessary for the action(s) in this binding. Settings will appear as the form is filled out. To use a value from a message, either check the box for the number fields, or select *Use Message Value* in the selection fields.
+Adjust the values as necessary for the action(s) in this binding. Settings will appear as the form is filled out. To use a value from a message, either click the number (the same way as the value field for messages) for the number fields, or select *Use Message Value* in the selection fields.
 
 *Note: You can use multiple actions in a binding by adding more actions. If this is desired, the behavior of the binding may not be appropriate. See [Binding Modes](#binding-modes) for more details*.
 
@@ -79,8 +79,8 @@ To adjust other settings or view this page, click the *Preferences* button in th
 The coming updates will hopefully introduce these new features:
 
 - A transfer bindings between devices feature (for when a device has disconnected or is unavailable)
-- Using more elements of the message than just the value
-- (Potentially) more actions - involving external features such as Scene Collections, Themes, and other settings
+- Using more elements of the message than just the value (planned for 1.2.0)
+- More actions involving external features such as Scene Collections, Themes, and other settings
 - MIDI Output device support - send a message when an event in OBS Studio occurs (well underway!)
 
 ## Feedback

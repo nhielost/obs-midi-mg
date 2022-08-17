@@ -53,10 +53,10 @@ public:
 	void insert_action(int index, MMGAction *const el);
 	void remove(MMGAction *const el);
 
-	int index_of(MMGMessage *const el) const;
-	int index_of(MMGAction *const el) const;
-	int message_size() const;
-	int action_size() const;
+	size_t index_of(MMGMessage *const el) const;
+	size_t index_of(MMGAction *const el) const;
+	size_t message_size() const;
+	size_t action_size() const;
 
 	const MMGMessageList &get_messages() const { return messages; };
 	const MMGActionList &get_actions() const { return actions; };
@@ -66,7 +66,7 @@ public:
 	bool is_valid();
 	void do_actions(const MMGSharedMessage &el);
 
-	void move_elements(MMGModes mode, int from, int to);
+	void move_elements(MMGModes mode, size_t from, size_t to);
 
 private:
 	QString name = MMGUtils::next_default_name(MMGModes::MMGMODE_BINDING);

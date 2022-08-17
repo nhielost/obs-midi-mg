@@ -792,7 +792,7 @@ void MMGAction::do_action_hotkeys(Hotkeys kind, const QString &name, uint value)
 		},
 		&req);
 
-	if (req.hotkey_id == -1)
+	if (req.hotkey_id == (size_t)(-1))
 		return;
 
 	switch (kind) {
@@ -821,8 +821,9 @@ void MMGAction::do_action_send_midi(SendMidi kind, const QString strs[4],
 		message = libremidi::message::program_change(
 			nums[0], num_or_value(nums[1], value, 128.0));
 	} else if (strs[1] == "Pitch Bend") {
+		int num1 = num_or_value(nums[1], value, 128.0);
 		message = libremidi::message::pitch_bend(
-			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
+			nums[0], num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
 	} else {
 		// Message type is invalid
 		return;

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
 # (e.g.: obs-myawesomeplugin) and set
-project(obs-midi-mg VERSION 1.1.0)
+project(obs-midi-mg VERSION 1.1.1)
 add_library(obs-midi-mg MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
@@ -90,7 +90,7 @@ if(OS_WINDOWS)
                  ${CMAKE_BINARY_DIR}/installer-Windows.generated.iss)
 
   if(MSVC)
-    target_compile_options(obs-midi-mg PRIVATE /W4)
+    target_compile_options(obs-midi-mg PRIVATE /W3)
   endif()
   # --- End of section ---
 
@@ -101,7 +101,7 @@ elseif(OS_MACOS)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
   set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1.1.1")
 
   target_compile_options(obs-midi-mg PRIVATE -Wall)
   # --- End of section ---

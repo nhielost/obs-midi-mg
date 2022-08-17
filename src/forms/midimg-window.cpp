@@ -19,6 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-frontend-api.h>
 
 #include <QListWidget>
+#include <QEvent>
 #include <QFileDialog>
 #include <QDesktopServices>
 
@@ -27,26 +28,63 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-#define SET_LCD_STATUS(lcd, kind, visible)        \
-	ui->down_major_##lcd->set##kind(visible); \
-	ui->down_minor_##lcd->set##kind(visible); \
-	ui->up_minor_##lcd->set##kind(visible);   \
-	ui->up_major_##lcd->set##kind(visible);   \
-	ui->lcd_##lcd->set##kind(visible);
+#define SET_LCD_STATUS(lcd, kind, status)        \
+	ui->down_major_##lcd->set##kind(status); \
+	ui->down_minor_##lcd->set##kind(status); \
+	ui->up_minor_##lcd->set##kind(status);   \
+	ui->up_major_##lcd->set##kind(status);   \
+	ui->label_##lcd->set##kind(status);      \
+	ui->lcd_##lcd->set##kind(status)
 
-#define CONNECT_LCD(kind)                                           \
-	connect(ui->down_major_##kind, &QPushButton::clicked, this, \
-		[&]() { lcd_##kind.down_major(); });                \
-	connect(ui->down_minor_##kind, &QPushButton::clicked, this, \
-		[&]() { lcd_##kind.down_minor(); });                \
-	connect(ui->up_minor_##kind, &QPushButton::clicked, this,   \
-		[&]() { lcd_##kind.up_minor(); });                  \
-	connect(ui->up_major_##kind, &QPushButton::clicked, this,   \
-		[&]() { lcd_##kind.up_major(); });
+#define CONNECT_LCD(kind)                                                     \
+	connect(ui->down_major_##kind, &QAbstractButton::clicked, this,       \
+		[&]() {                                                       \
+			lcd_##kind.down_major();                              \
+			set_##kind(lcd_##kind.get_value());                   \
+		});                                                           \
+	connect(ui->down_minor_##kind, &QAbstractButton::clicked, this,       \
+		[&]() {                                                       \
+			lcd_##kind.down_minor();                              \
+			set_##kind(lcd_##kind.get_value());                   \
+		});                                                           \
+	connect(ui->up_minor_##kind, &QAbstractButton::clicked, this, [&]() { \
+		lcd_##kind.up_minor();                                        \
+		set_##kind(lcd_##kind.get_value());                           \
+	});                                                                   \
+	connect(ui->up_major_##kind, &QAbstractButton::clicked, this, [&]() { \
+		lcd_##kind.up_major();                                        \
+		set_##kind(lcd_##kind.get_value());                           \
+	})
 
-#define INIT_LCD(kind) \
-	lcd_##kind =   \
-		LCDData(ui->lcd_##kind, [&](double val) { set_##kind(val); })
+#define INIT_LCD(kind)                        \
+	lcd_##kind = LCDData(ui->lcd_##kind); \
+	ui->lcd_##kind->installEventFilter(this)
+
+#define SET_TOOLTIP(element, text) ui->element->setToolTip(tr(text))
+
+#define SET_LCD_TOOLTIP(element, text)                         \
+	SET_TOOLTIP(lcd_##element, text);                      \
+	SET_TOOLTIP(label_##element, text);                    \
+	SET_TOOLTIP(down_major_##element,                      \
+		    QVariant(lcd_##element.get_major_step())   \
+			    .toString()                        \
+			    .prepend("Adjust this value by -") \
+			    .qtocs());                         \
+	SET_TOOLTIP(down_minor_##element,                      \
+		    QVariant(lcd_##element.get_minor_step())   \
+			    .toString()                        \
+			    .prepend("Adjust this value by -") \
+			    .qtocs());                         \
+	SET_TOOLTIP(up_minor_##element,                        \
+		    QVariant(lcd_##element.get_minor_step())   \
+			    .toString()                        \
+			    .prepend("Adjust this value by ")  \
+			    .qtocs());                         \
+	SET_TOOLTIP(up_major_##element,                        \
+		    QVariant(lcd_##element.get_major_step())   \
+			    .toString()                        \
+			    .prepend("Adjust this value by ")  \
+			    .qtocs())
 
 MidiMGWindow::MidiMGWindow(QWidget *parent)
 	: QDialog(parent, Qt::Dialog), ui(new Ui::MidiMGWindow)
@@ -54,19 +92,77 @@ MidiMGWindow::MidiMGWindow(QWidget *parent)
 	this->setWindowFlags(this->windowFlags() &
 			     ~Qt::WindowContextHelpButtonHint);
 	ui->setupUi(this);
-	ui->version_label->setText(OBS_MIDIMG_VERSION);
+	ui->label_version->setText(OBS_MIDIMG_VERSION);
 
-	ui->structure_editor->setDragEnabled(true);
-	ui->structure_editor->setDragDropMode(
+	ui->editor_structure->setDragEnabled(true);
+	ui->editor_structure->setDragDropMode(
 		QAbstractItemView::DragDropMode::InternalMove);
-	ui->structure_editor->setAcceptDrops(true);
-	ui->structure_editor->setSelectionMode(
+	ui->editor_structure->setAcceptDrops(true);
+	ui->editor_structure->setSelectionMode(
 		QAbstractItemView::SelectionMode::SingleSelection);
-	ui->structure_editor->setDropIndicatorShown(true);
+	ui->editor_structure->setDropIndicatorShown(true);
 
 	configure_lcd_widgets();
 
 	connect_ui_signals();
+}
+
+bool MidiMGWindow::eventFilter(QObject *obj, QEvent *event)
+{
+	if (!obj->objectName().startsWith("lcd"))
+		return QObject::eventFilter(obj, event);
+
+	if (event->type() == QEvent::MouseButtonRelease) {
+		QString name = obj->objectName();
+		if (name == "lcd_note") {
+			/*set_value(0 - ui->lcd_note->isEnabled());
+			SET_LCD_STATUS(note, Disabled,
+				       ui->lcd_note->isEnabled());
+			lcd_note.display();*/
+		} else if (name == "lcd_value") {
+			set_value(0 - ui->lcd_value->isEnabled());
+			SET_LCD_STATUS(value, Disabled,
+				       ui->lcd_value->isEnabled());
+			lcd_value.display();
+		} else if (name == "lcd_double1") {
+			set_double1(0 - ui->lcd_double1->isEnabled());
+			SET_LCD_STATUS(double1, Disabled,
+				       ui->lcd_double1->isEnabled());
+			lcd_double1.display();
+		} else if (name == "lcd_double2") {
+			set_double2(0 - ui->lcd_double2->isEnabled());
+			SET_LCD_STATUS(double2, Disabled,
+				       ui->lcd_double2->isEnabled());
+			lcd_double2.display();
+		} else if (name == "lcd_double3") {
+			set_double3(0 - ui->lcd_double3->isEnabled());
+			SET_LCD_STATUS(double3, Disabled,
+				       ui->lcd_double3->isEnabled());
+			lcd_double3.display();
+		} else if (name == "lcd_double4") {
+			set_double4(0 - ui->lcd_double4->isEnabled());
+			SET_LCD_STATUS(double4, Disabled,
+				       ui->lcd_double4->isEnabled());
+			lcd_double4.display();
+		}
+	}
+
+	return QObject::eventFilter(obj, event);
+}
+
+void MidiMGWindow::show_window()
+{
+	setVisible(!isVisible());
+	ui->editor_structure->clearSelection();
+	current_device = global()->get_active_device();
+	switch_structure_pane(MMGModes::MMGMODE_DEVICE);
+	ui->pages->setCurrentIndex(0);
+}
+
+void MidiMGWindow::reject()
+{
+	global()->save();
+	QDialog::reject();
 }
 
 void MidiMGWindow::connect_ui_signals()
@@ -80,89 +176,62 @@ void MidiMGWindow::connect_ui_signals()
 	CONNECT_LCD(double3);
 	CONNECT_LCD(double4);
 	// Binding Display Connections
-	connect(ui->binding_mode_editor,
+	connect(ui->editor_binding_mode,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		[&](int id) {
 			on_binding_mode_select((MMGBinding::Mode)(id + 1));
 		});
-	connect(ui->view_message_button, &QPushButton::clicked, this,
+	connect(ui->button_edit_messages, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_MESSAGE); });
-	connect(ui->view_action_button, &QPushButton::clicked, this,
+	connect(ui->button_edit_actions, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_ACTION); });
 	// Message Display Connections
-	connect(ui->message_type_editor, &QComboBox::currentTextChanged, this,
+	connect(ui->editor_type, &QComboBox::currentTextChanged, this,
 		&MidiMGWindow::on_message_type_change);
-	connect(ui->usevalue_value, &QCheckBox::toggled, this,
-		[&](bool enabled) { SET_LCD_STATUS(value, Enabled, enabled); });
-	connect(ui->usevalue_value, &QCheckBox::toggled, this,
-		[&](bool toggled) { current_message->set_value(toggled - 1); });
 	// Action Display Connections
-	connect(ui->action_cat_editor, &QComboBox::currentTextChanged, this,
+	connect(ui->editor_cat, &QComboBox::currentTextChanged, this,
 		&MidiMGWindow::on_action_cat_change);
-	connect(ui->action_sub_editor,
+	connect(ui->editor_sub,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		&MidiMGWindow::on_action_sub_change);
-	connect(ui->action_list1_editor, &QComboBox::currentTextChanged, this,
-		&MidiMGWindow::set_list1);
-	connect(ui->action_list2_editor, &QComboBox::currentTextChanged, this,
-		&MidiMGWindow::set_list2);
-	connect(ui->action_list3_editor, &QComboBox::currentTextChanged, this,
-		&MidiMGWindow::set_list3);
-	connect(ui->usevalue_double1, &QCheckBox::toggled, this,
-		[&](bool toggled) { set_doubles_usevalue(0, toggled); });
-	connect(ui->usevalue_double2, &QCheckBox::toggled, this,
-		[&](bool toggled) { set_doubles_usevalue(1, toggled); });
-	connect(ui->usevalue_double3, &QCheckBox::toggled, this,
-		[&](bool toggled) { set_doubles_usevalue(2, toggled); });
-	connect(ui->usevalue_double4, &QCheckBox::toggled, this,
-		[&](bool toggled) { set_doubles_usevalue(3, toggled); });
+	connect(ui->editor_str1, &QComboBox::currentTextChanged, this,
+		&MidiMGWindow::set_str1);
+	connect(ui->editor_str2, &QComboBox::currentTextChanged, this,
+		&MidiMGWindow::set_str2);
+	connect(ui->editor_str3, &QComboBox::currentTextChanged, this,
+		&MidiMGWindow::set_str3);
 	// UI Movement Buttons
-	connect(ui->add_button, &QPushButton::clicked, this,
+	connect(ui->button_add, &QPushButton::clicked, this,
 		&MidiMGWindow::on_add_click);
-	connect(ui->remove_button, &QPushButton::clicked, this,
+	connect(ui->button_remove, &QPushButton::clicked, this,
 		&MidiMGWindow::on_remove_click);
-	connect(ui->return_button, &QPushButton::clicked, this,
+	connect(ui->button_return, &QPushButton::clicked, this,
 		&MidiMGWindow::on_return_click);
 	// Device Buttons
-	connect(ui->view_input_bindings_button, &QPushButton::clicked, this,
+	connect(ui->button_edit_input_bindings, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_BINDING); });
 	// connect(ui->transfer_bindings_button, &QPushButton::clicked, this, [&]() { on_button_click(UiButtons::MIDIMGWINDOW_TRANSFER_BINDINGS); });
 	// Preferences Buttons
-	connect(ui->preferences_button, &QPushButton::clicked, this, [&]() {
+	connect(ui->button_preferences, &QPushButton::clicked, this, [&]() {
 		switch_structure_pane(MMGModes::MMGMODE_PREFERENCES);
 	});
-	connect(ui->enable_this_toggle, &QCheckBox::toggled, this,
+	connect(ui->editor_global_enable, &QCheckBox::toggled, this,
 		[&](bool toggled) { global()->set_running(toggled); });
-	connect(ui->export_button, &QPushButton::clicked, this,
+	connect(ui->button_export, &QPushButton::clicked, this,
 		&MidiMGWindow::export_bindings);
-	connect(ui->import_button, &QPushButton::clicked, this,
+	connect(ui->button_import, &QPushButton::clicked, this,
 		&MidiMGWindow::import_bindings);
-	connect(ui->help_button, &QPushButton::clicked, this,
+	connect(ui->button_help, &QPushButton::clicked, this,
 		&MidiMGWindow::i_need_help);
-	connect(ui->bug_report_button, &QPushButton::clicked, this,
+	connect(ui->button_bug_report, &QPushButton::clicked, this,
 		&MidiMGWindow::report_a_bug);
 	// List Widget Connections
-	connect(ui->structure_editor, &QListWidget::itemClicked, this,
+	connect(ui->editor_structure, &QListWidget::itemClicked, this,
 		&MidiMGWindow::on_list_selection_change);
-	connect(ui->structure_editor, &QListWidget::itemChanged, this,
+	connect(ui->editor_structure, &QListWidget::itemChanged, this,
 		&MidiMGWindow::on_name_edit);
-	connect(ui->structure_editor->model(), &QAbstractItemModel::rowsMoved,
+	connect(ui->editor_structure->model(), &QAbstractItemModel::rowsMoved,
 		this, &MidiMGWindow::on_element_drag);
-}
-
-void MidiMGWindow::show_window()
-{
-	setVisible(!isVisible());
-	ui->structure_editor->clearSelection();
-	current_device = global()->get_active_device();
-	switch_structure_pane(MMGModes::MMGMODE_DEVICE);
-	ui->pages->setCurrentIndex(0);
-}
-
-void MidiMGWindow::reject()
-{
-	global()->save();
-	QDialog::reject();
 }
 
 void MidiMGWindow::configure_lcd_widgets()
@@ -186,71 +255,37 @@ void MidiMGWindow::configure_lcd_widgets()
 	lcd_double2.set_step(0.1, 1.0);
 	lcd_double3.set_step(0.1, 1.0);
 	lcd_double4.set_step(0.1, 1.0);
-}
 
-const QStringList MidiMGWindow::get_device_names() const
-{
-	QStringList midi_in_names;
-	for (MMGDevice *const device : global()->get_devices()) {
-		midi_in_names.append(device->get_name());
-	}
-	return midi_in_names;
-}
-
-void MidiMGWindow::on_message_type_change(const QString &type)
-{
-	current_message->set_type(type);
-	ui->message_type_editor->setCurrentText(type);
-
-	ui->message_value_label->setVisible(true);
-	ui->usevalue_value->setVisible(true);
-	SET_LCD_STATUS(value, Visible, true);
-	SET_LCD_STATUS(value, Enabled, true);
-
-	if (type == "Note On" || type == "Note Off") {
-		ui->message_note_label->setText("Note #");
-		ui->message_value_label->setText("Velocity");
-		SET_LCD_STATUS(value, Enabled, ui->usevalue_value->isChecked());
-		ui->message_value_label->setEnabled(
-			ui->usevalue_value->isChecked());
-	} else if (type == "Control Change") {
-		ui->message_note_label->setText("Control #");
-		ui->message_value_label->setText("Value");
-		SET_LCD_STATUS(value, Enabled, ui->usevalue_value->isChecked());
-		ui->message_value_label->setEnabled(
-			ui->usevalue_value->isChecked());
-	} else if (type == "Program Change") {
-		ui->message_note_label->setText("Program #");
-		ui->message_value_label->setVisible(false);
-		ui->usevalue_value->setVisible(false);
-		SET_LCD_STATUS(value, Visible, false);
-	} else if (type == "Pitch Bend") {
-		ui->message_note_label->setText("Pitch Adj.");
-		ui->message_value_label->setVisible(false);
-		ui->usevalue_value->setVisible(false);
-		SET_LCD_STATUS(value, Visible, false);
-	}
+	SET_LCD_TOOLTIP(
+		channel,
+		"This is the channel that the binding will look for in an incoming message.\nThis value will always be required.");
+	SET_LCD_TOOLTIP(
+		note,
+		"This is the note or control that the binding will look for in an incoming message.\nIf this is set to OFF, this value is not required.");
+	SET_LCD_TOOLTIP(
+		value,
+		"This is the value that the binding will look for in an incoming message.\nIf this set to OFF, this value is not required.");
 }
 
 void MidiMGWindow::set_device_view()
 {
 	// QStringList list = get_device_names();
 
-	ui->device_name_text->setText(current_device->get_name());
-	ui->device_input_text->setText(current_device->input_device_status());
-	ui->device_output_text->setText(current_device->output_device_status());
+	ui->text_device_name->setText(current_device->get_name());
+	ui->text_status_input->setText(current_device->input_device_status());
+	ui->text_status_output->setText(current_device->output_device_status());
 	// list.removeOne(current->text());
 	// ui->transfer_bindings_name_editor->clear();
 	// ui->transfer_bindings_name_editor->addItems(list);
-	ui->view_input_bindings_button->setEnabled(
-		ui->device_input_text->text() == "Active");
-	ui->view_output_bindings_button->setEnabled(false);
+	ui->button_edit_input_bindings->setEnabled(
+		ui->text_status_input->text() == "Active");
+	ui->button_edit_output_bindings->setEnabled(false);
 }
 
 void MidiMGWindow::set_binding_view()
 {
-	ui->binding_name_text->setText(current_binding->get_name());
-	ui->binding_mode_editor->setCurrentIndex(
+	ui->text_binding_name->setText(current_binding->get_name());
+	ui->editor_binding_mode->setCurrentIndex(
 		(int)current_binding->get_mode() - 1);
 	on_binding_mode_select(current_binding->get_mode());
 }
@@ -261,16 +296,16 @@ void MidiMGWindow::set_message_view()
 	// this uses a const version of it to get its values
 	const MMGMessage temp = *current_message;
 
-	ui->message_name_text->setText(temp.get_name());
+	ui->text_message_name->setText(temp.get_name());
 
 	lcd_channel.reset(temp.get_channel());
 	lcd_note.reset(temp.get_note());
 	lcd_value.reset(temp.get_value() < 0 ? 0.0 : temp.get_value());
-	ui->usevalue_value->setChecked(temp.get_value() >= 0);
 
-	on_message_type_change(temp.get_type());
 	// Re-set current_message to the correct one
 	*current_message = temp;
+
+	on_message_type_change(temp.get_type());
 }
 
 void MidiMGWindow::set_action_view()
@@ -279,26 +314,23 @@ void MidiMGWindow::set_action_view()
 	// this uses a const version of it to get its values
 	const MMGAction temp = *current_action;
 	// Set name
-	ui->action_name_text->setText(temp.get_name());
+	ui->text_action_name->setText(temp.get_name());
 	// Set category
-	ui->action_cat_editor->setCurrentIndex((int)temp.get_category());
+	ui->editor_cat->setCurrentIndex((int)temp.get_category());
 	on_action_cat_change(
-		ui->action_cat_editor->itemText((int)temp.get_category()));
+		ui->editor_cat->itemText((int)temp.get_category()));
 	// Set subcategory
-	ui->action_sub_editor->setCurrentIndex(temp.get_sub());
+	ui->editor_sub->setCurrentIndex(temp.get_sub());
 	on_action_sub_change(temp.get_sub());
 	// Set strings (even if they are invalid)
-	ui->action_list1_editor->setCurrentText(temp.get_str(0));
-	ui->action_list2_editor->setCurrentText(temp.get_str(1));
-	ui->action_list3_editor->setCurrentText(temp.get_str(2));
+	ui->editor_str1->setCurrentText(temp.get_str(0));
+	ui->editor_str2->setCurrentText(temp.get_str(1));
+	ui->editor_str3->setCurrentText(temp.get_str(2));
 	// Set doubles (extra jargon for using the message value)
-	for (int i = 0; i < 4; ++i) {
-		set_doubles_usevalue(i, temp.get_num(i) == -1);
-	}
-	ui->usevalue_double1->setChecked(temp.get_num(0) == -1);
-	ui->usevalue_double2->setChecked(temp.get_num(1) == -1);
-	ui->usevalue_double3->setChecked(temp.get_num(2) == -1);
-	ui->usevalue_double4->setChecked(temp.get_num(3) == -1);
+	SET_LCD_STATUS(double1, Disabled, temp.get_num(0) == -1);
+	SET_LCD_STATUS(double2, Disabled, temp.get_num(1) == -1);
+	SET_LCD_STATUS(double3, Disabled, temp.get_num(2) == -1);
+	SET_LCD_STATUS(double4, Disabled, temp.get_num(3) == -1);
 	lcd_double1.reset(temp.get_num(0) == -1 ? 0 : temp.get_num(0));
 	lcd_double2.reset(temp.get_num(1) == -1 ? 0 : temp.get_num(1));
 	lcd_double3.reset(temp.get_num(2) == -1 ? 0 : temp.get_num(2));
@@ -307,16 +339,71 @@ void MidiMGWindow::set_action_view()
 	*current_action = temp;
 }
 
+void MidiMGWindow::set_sub_visible(bool visible) const
+{
+	ui->label_sub->setVisible(visible);
+	ui->editor_sub->setVisible(visible);
+}
+
+void MidiMGWindow::set_strs_visible(bool str1, bool str2, bool str3) const
+{
+	ui->label_str1->setVisible(str1);
+	ui->editor_str1->setVisible(str1);
+	ui->label_str2->setVisible(str2);
+	ui->editor_str2->setVisible(str2);
+	ui->label_str3->setVisible(str3);
+	ui->editor_str3->setVisible(str3);
+}
+
+void MidiMGWindow::set_doubles_visible(bool double1, bool double2, bool double3,
+				       bool double4) const
+{
+	SET_LCD_STATUS(double1, Visible, double1);
+	SET_LCD_STATUS(double2, Visible, double2);
+	SET_LCD_STATUS(double3, Visible, double3);
+	SET_LCD_STATUS(double4, Visible, double4);
+}
+
+void MidiMGWindow::on_message_type_change(const QString &type)
+{
+	current_message->set_type(type);
+	ui->editor_type->setCurrentText(type);
+
+	SET_LCD_STATUS(note, Enabled, current_message->get_note() >= 0);
+	SET_LCD_STATUS(value, Visible, true);
+	SET_LCD_STATUS(value, Enabled, true);
+
+	if (type == "Note On" || type == "Note Off") {
+		ui->label_note->setText("Note #");
+		ui->label_value->setText("Velocity");
+		SET_LCD_STATUS(value, Enabled,
+			       current_message->get_value() >= 0);
+		lcd_value.display();
+	} else if (type == "Control Change") {
+		ui->label_note->setText("Control #");
+		ui->label_value->setText("Value");
+		SET_LCD_STATUS(value, Enabled,
+			       current_message->get_value() >= 0);
+		lcd_value.display();
+	} else if (type == "Program Change") {
+		ui->label_note->setText("Program #");
+		SET_LCD_STATUS(value, Visible, false);
+	} else if (type == "Pitch Bend") {
+		ui->label_note->setText("Pitch Adj.");
+		SET_LCD_STATUS(value, Visible, false);
+	}
+}
+
 void MidiMGWindow::on_action_cat_change(const QString &cat)
 {
 	current_action->set_category(MMGAction::categoryFromString(cat));
 
 	set_sub_visible();
-	set_lists_visible();
+	set_strs_visible();
 	current_action->set_sub(0);
-	set_list1("");
-	set_list2("");
-	set_list3("");
+	set_str1("");
+	set_str2("");
+	set_str3("");
 	set_double1(0.0);
 	set_double2(0.0);
 	set_double3(0.0);
@@ -388,81 +475,27 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 	}
 }
 
-void MidiMGWindow::set_sub_visible(bool visible) const
-{
-	ui->action_sub_label->setVisible(visible);
-	ui->action_sub_editor->setVisible(visible);
-}
-
-void MidiMGWindow::set_lists_visible(bool str1, bool str2, bool str3) const
-{
-	ui->action_list1_label->setVisible(str1);
-	ui->action_list1_editor->setVisible(str1);
-	ui->action_list2_label->setVisible(str2);
-	ui->action_list2_editor->setVisible(str2);
-	ui->action_list3_label->setVisible(str3);
-	ui->action_list3_editor->setVisible(str3);
-}
-
-void MidiMGWindow::set_doubles_visible(bool double1, bool double2, bool double3,
-				       bool double4) const
-{
-	ui->action_double1_label->setVisible(double1);
-	ui->usevalue_double1->setVisible(double1);
-	SET_LCD_STATUS(double1, Visible, double1);
-	ui->action_double2_label->setVisible(double2);
-	ui->usevalue_double2->setVisible(double2);
-	SET_LCD_STATUS(double2, Visible, double2);
-	ui->action_double3_label->setVisible(double3);
-	ui->usevalue_double3->setVisible(double3);
-	SET_LCD_STATUS(double3, Visible, double3);
-	ui->action_double4_label->setVisible(double4);
-	ui->usevalue_double4->setVisible(double4);
-	SET_LCD_STATUS(double4, Visible, double4);
-}
-
-void MidiMGWindow::set_doubles_usevalue(short which, bool disabled) const
-{
-	switch (which) {
-	case 0:
-		SET_LCD_STATUS(double1, Disabled, disabled);
-		break;
-	case 1:
-		SET_LCD_STATUS(double2, Disabled, disabled);
-		break;
-	case 2:
-		SET_LCD_STATUS(double3, Disabled, disabled);
-		break;
-	case 3:
-		SET_LCD_STATUS(double4, Disabled, disabled);
-		break;
-	default:
-		return;
-	}
-	current_action->set_num(which, 0 - disabled);
-}
-
 void MidiMGWindow::set_sub_options(std::initializer_list<QString> list) const
 {
 	set_sub_visible(true);
-	ui->action_sub_label->setText("Options");
-	ui->action_sub_editor->clear();
-	ui->action_sub_editor->addItems(list);
-	ui->action_sub_editor->setCurrentIndex(0);
+	ui->label_sub->setText("Options");
+	ui->editor_sub->clear();
+	ui->editor_sub->addItems(list);
+	ui->editor_sub->setCurrentIndex(0);
 }
 
 void MidiMGWindow::on_action_sub_change(int index)
 {
 	current_action->set_sub(index);
 
-	ui->action_list1_editor->clear();
-	ui->action_list2_editor->clear();
-	ui->action_list3_editor->clear();
+	ui->editor_str1->clear();
+	ui->editor_str2->clear();
+	ui->editor_str3->clear();
 	ui->lcd_double1->display(0);
 	ui->lcd_double2->display(0);
 	ui->lcd_double3->display(0);
 	ui->lcd_double4->display(0);
-	set_lists_visible();
+	set_strs_visible();
 	set_doubles_visible();
 
 	switch (current_action->get_category()) {
@@ -473,59 +506,59 @@ void MidiMGWindow::on_action_sub_change(int index)
 		break;
 	case MMGAction::Category::MMGACTION_STUDIOMODE:
 		if (index == 3) {
-			set_lists_visible(true);
-			ui->action_list1_label->setText("Scene");
-			MMGAction::do_obs_scene_enum(ui->action_list1_editor);
+			set_strs_visible(true);
+			ui->label_str1->setText("Scene");
+			MMGAction::do_obs_scene_enum(ui->editor_str1);
+			ui->editor_str1->addItem("Use Message Value");
 		}
 		break;
 	case MMGAction::Category::MMGACTION_SCENE:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Scene");
-		MMGAction::do_obs_scene_enum(ui->action_list1_editor);
-		ui->action_list1_editor->addItem("Use Message Value");
+		set_strs_visible(true);
+		ui->label_str1->setText("Scene");
+		MMGAction::do_obs_scene_enum(ui->editor_str1);
+		ui->editor_str1->addItem("Use Message Value");
 		break;
 	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Scene");
-		MMGAction::do_obs_scene_enum(ui->action_list1_editor);
+		set_strs_visible(true);
+		ui->label_str1->setText("Scene");
+		MMGAction::do_obs_scene_enum(ui->editor_str1);
 		break;
 	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Source");
+		set_strs_visible(true);
+		ui->label_str1->setText("Source");
 		MMGAction::do_obs_source_enum(
-			ui->action_list1_editor,
+			ui->editor_str1,
 			MMGAction::Category::MMGACTION_SOURCE_PROPS,
 			QString::number(index));
 		break;
 	case MMGAction::Category::MMGACTION_MEDIA:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Source");
-		MMGAction::do_obs_media_enum(ui->action_list1_editor);
+		set_strs_visible(true);
+		ui->label_str1->setText("Source");
+		MMGAction::do_obs_media_enum(ui->editor_str1);
 		break;
 	case MMGAction::Category::MMGACTION_TRANSITION:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Transition");
-		MMGAction::do_obs_transition_enum(ui->action_list1_editor);
+		set_strs_visible(true);
+		ui->label_str1->setText("Transition");
+		MMGAction::do_obs_transition_enum(ui->editor_str1);
 		break;
 	case MMGAction::Category::MMGACTION_FILTER:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Source");
-		MMGAction::do_obs_source_enum(ui->action_list1_editor);
+		set_strs_visible(true);
+		ui->label_str1->setText("Source");
+		MMGAction::do_obs_source_enum(ui->editor_str1);
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Hotkey");
-		MMGAction::do_obs_hotkey_enum(ui->action_list1_editor);
+		set_strs_visible(true);
+		ui->label_str1->setText("Hotkey");
+		MMGAction::do_obs_hotkey_enum(ui->editor_str1);
 		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		set_lists_visible(true);
-		ui->action_list1_label->setText("Device");
-		ui->action_list1_editor->addItems(
-			MMGDevice::get_output_device_names());
+		set_strs_visible(true);
+		ui->label_str1->setText("Device");
+		ui->editor_str1->addItems(MMGDevice::get_output_device_names());
 		break;
 	case MMGAction::Category::MMGACTION_WAIT:
 		set_doubles_visible(true);
-		ui->action_double1_label->setText("Time");
+		ui->label_double1->setText("Time");
 		lcd_double1.set_range(0.0, 1000.0);
 		lcd_double1.set_step(1.0, 10.0);
 		lcd_double1.reset();
@@ -550,39 +583,39 @@ void MidiMGWindow::set_value(double value)
 	current_message->set_value(value);
 }
 
-void MidiMGWindow::set_list1(const QString &value)
+void MidiMGWindow::set_str1(const QString &value)
 {
 	current_action->set_str(0, value);
 
-	set_lists_visible(true);
+	set_strs_visible(true);
 	set_doubles_visible();
 
 	if (value.isEmpty())
 		return;
 
-	ui->action_list2_editor->clear();
+	ui->editor_str2->clear();
 	lcd_double1.set_use_time(false);
 
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
-		set_lists_visible(true, true);
-		ui->action_list2_label->setText("Source");
+		set_strs_visible(true, true);
+		ui->label_str2->setText("Source");
 		MMGAction::do_obs_source_enum(
-			ui->action_list2_editor,
-			MMGAction::Category::MMGACTION_SCENE, value);
+			ui->editor_str2, MMGAction::Category::MMGACTION_SCENE,
+			value);
 		break;
 	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
 		switch ((MMGAction::SourceProperties)current_action->get_sub()) {
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGETO:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Volume");
+			ui->label_double1->setText("Volume");
 			lcd_double1.set_range(0.0, 100.0);
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
 			break;
 		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGEBY:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Volume Adj.");
+			ui->label_double1->setText("Volume Adj.");
 			lcd_double1.set_range(-50.0, 50.0);
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
@@ -595,15 +628,15 @@ void MidiMGWindow::set_list1(const QString &value)
 			break;
 		case MMGAction::SourceProperties::PROPERTY_AUDIO_OFFSET:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Sync Offset");
+			ui->label_double1->setText("Sync Offset");
 			lcd_double1.set_range(0.0, 20000.0);
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
 			break;
 		case MMGAction::SourceProperties::PROPERTY_AUDIO_MONITOR:
-			set_lists_visible(true, true);
-			ui->action_list2_label->setText("Monitor");
-			ui->action_list2_editor->addItems(
+			set_strs_visible(true, true);
+			ui->label_str2->setText("Monitor");
+			ui->editor_str2->addItems(
 				{"Off", "Monitor Only", "Monitor & Output"});
 			break;
 		default:
@@ -615,7 +648,7 @@ void MidiMGWindow::set_list1(const QString &value)
 		switch ((MMGAction::Media)current_action->get_sub()) {
 		case MMGAction::Media::MEDIA_TIME:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Time");
+			ui->label_double1->setText("Time");
 			lcd_double1.set_range(
 				0.0, get_obs_media_length(
 					     current_action->get_str(0)));
@@ -625,7 +658,7 @@ void MidiMGWindow::set_list1(const QString &value)
 		case MMGAction::Media::MEDIA_SKIP_FORWARD_TIME:
 		case MMGAction::Media::MEDIA_SKIP_BACKWARD_TIME:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Time Adj.");
+			ui->label_double1->setText("Time Adj.");
 			lcd_double1.set_range(
 				0.0, get_obs_media_length(
 					     current_action->get_str(0)));
@@ -640,41 +673,40 @@ void MidiMGWindow::set_list1(const QString &value)
 		switch ((MMGAction::Transitions)current_action->get_sub()) {
 		case MMGAction::Transitions::TRANSITION_CURRENT:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Duration");
+			ui->label_double1->setText("Duration");
 			lcd_double1.set_range(0.0, 20000.0);
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
 			break;
 		/*case MMGAction::Transitions::TRANSITION_TBAR:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Position (%)");
+			ui->label_double1->setText("Position (%)");
 			lcd_double1.set_range(0.0, 100.0);
 			lcd_double1.set_step(0.5, 5.0);
 			set_lcd_value(ui->lcd_double1, LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
 			break;*/
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:
-			set_lists_visible(true, true);
-			ui->action_list2_label->setText("Scene");
-			MMGAction::do_obs_scene_enum(ui->action_list2_editor);
+			set_strs_visible(true, true);
+			ui->label_str2->setText("Scene");
+			MMGAction::do_obs_scene_enum(ui->editor_str2);
 			break;
 		default:
 			break;
 		}
 		break;
 	case MMGAction::Category::MMGACTION_FILTER:
-		set_lists_visible(true, true);
-		ui->action_list2_label->setText("Filter");
+		set_strs_visible(true, true);
+		ui->label_str2->setText("Filter");
 		MMGAction::do_obs_filter_enum(
-			ui->action_list2_editor,
+			ui->editor_str2,
 			MMGAction::Category::MMGACTION_SOURCE_PROPS, value);
 		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		set_lists_visible(true, true);
-		ui->action_list2_label->setText("Type");
-		for (int i = 0; i < ui->message_type_editor->count(); ++i) {
-			ui->action_list2_editor->addItem(
-				ui->message_type_editor->itemText(i));
+		set_strs_visible(true, true);
+		ui->label_str2->setText("Type");
+		for (int i = 0; i < ui->editor_type->count(); ++i) {
+			ui->editor_str2->addItem(ui->editor_type->itemText(i));
 		}
 		break;
 	default:
@@ -682,7 +714,7 @@ void MidiMGWindow::set_list1(const QString &value)
 	}
 }
 
-void MidiMGWindow::set_list2(const QString &value)
+void MidiMGWindow::set_str2(const QString &value)
 {
 	current_action->set_str(1, value);
 
@@ -696,8 +728,8 @@ void MidiMGWindow::set_list2(const QString &value)
 		switch ((MMGAction::SourceTransform)current_action->get_sub()) {
 		case MMGAction::SourceTransform::TRANSFORM_POSITION:
 			set_doubles_visible(true, true);
-			ui->action_double1_label->setText("Pos X");
-			ui->action_double2_label->setText("Pos Y");
+			ui->label_double1->setText("Pos X");
+			ui->label_double2->setText("Pos Y");
 			lcd_double1.set_range(0.0, get_obs_dimensions().first);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
@@ -706,60 +738,55 @@ void MidiMGWindow::set_list2(const QString &value)
 			lcd_double2.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_DISPLAY:
-			set_lists_visible(true, true, true);
-			ui->action_list3_label->setText("Action");
-			ui->action_list3_editor->addItems(
-				{"Show", "Hide", "Toggle"});
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Action");
+			ui->editor_str3->addItems({"Show", "Hide", "Toggle"});
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_LOCKED:
-			set_lists_visible(true, true, true);
-			ui->action_list3_label->setText("Action");
-			ui->action_list3_editor->addItems(
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Action");
+			ui->editor_str3->addItems(
 				{"Locked", "Unlocked", "Toggle"});
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_CROP:
 			set_doubles_visible(true, true, true, true);
-			ui->action_double1_label->setText("Top");
-			ui->action_double2_label->setText("Right");
-			ui->action_double3_label->setText("Bottom");
-			ui->action_double4_label->setText("Left");
+			ui->label_double1->setText("Top");
+			ui->label_double2->setText("Right");
+			ui->label_double3->setText("Bottom");
+			ui->label_double4->setText("Left");
 			lcd_double1.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-						.second >>
-					1);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+						     .second >>
+					     1);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
 			lcd_double2.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-						.first >>
-					1);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+						     .first >>
+					     1);
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
 			lcd_double3.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-						.second >>
-					1);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+						     .second >>
+					     1);
 			lcd_double3.set_step(0.5, 5.0);
 			lcd_double3.reset();
 			lcd_double4.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-						.first >>
-					1);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+						     .first >>
+					     1);
 			lcd_double4.set_step(0.5, 5.0);
 			lcd_double4.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_SCALE:
 			set_doubles_visible(true, true);
-			ui->action_double1_label->setText("Scale X");
-			ui->action_double2_label->setText("Scale Y");
+			ui->label_double1->setText("Scale X");
+			ui->label_double2->setText("Scale Y");
 			lcd_double1.set_range(0.2, 5.0);
 			lcd_double1.set_step(0.05, 0.5);
 			lcd_double1.reset(1.0);
@@ -769,27 +796,25 @@ void MidiMGWindow::set_list2(const QString &value)
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_ROTATION:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Rotation (°)");
+			ui->label_double1->setText("Rotation (°)");
 			lcd_double1.set_range(0.0, 360.0);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
 			break;
 		case MMGAction::SourceTransform::TRANSFORM_BOUNDINGBOX:
 			set_doubles_visible(true, true);
-			ui->action_double1_label->setText("Size X");
-			ui->action_double2_label->setText("Size Y");
+			ui->label_double1->setText("Size X");
+			ui->label_double2->setText("Size Y");
 			lcd_double1.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-					.first);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+					     .first);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
 			lcd_double2.set_range(
-				0.0,
-				get_obs_source_dimensions(
-					ui->action_list1_editor->currentText())
-					.second);
+				0.0, get_obs_source_dimensions(
+					     ui->editor_str1->currentText())
+					     .second);
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
 			break;
@@ -800,17 +825,17 @@ void MidiMGWindow::set_list2(const QString &value)
 	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
 		if (current_action->get_sub() == 7) {
 			current_action->set_num(
-				0, ui->action_list2_editor->currentIndex());
+				0, ui->editor_str2->currentIndex());
 		}
 		break;
 	case MMGAction::Category::MMGACTION_TRANSITION:
 		switch ((MMGAction::Transitions)current_action->get_sub()) {
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:
-			set_lists_visible(true, true, true);
-			ui->action_list3_label->setText("Source");
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Source");
 			MMGAction::do_obs_source_enum(
-				ui->action_list3_editor,
+				ui->editor_str3,
 				MMGAction::Category::MMGACTION_SCENE, value);
 			break;
 		default:
@@ -821,11 +846,10 @@ void MidiMGWindow::set_list2(const QString &value)
 		switch ((MMGAction::Filters)current_action->get_sub()) {
 		case MMGAction::Filters::FILTER_REORDER:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Position");
+			ui->label_double1->setText("Position");
 			lcd_double1.set_range(
-				1.0,
-				get_obs_source_filter_count(
-					ui->action_list1_editor->currentText()));
+				1.0, get_obs_source_filter_count(
+					     ui->editor_str1->currentText()));
 			lcd_double1.set_step(1.0, 5.0);
 			lcd_double1.reset();
 			break;
@@ -834,7 +858,7 @@ void MidiMGWindow::set_list2(const QString &value)
 		}
 		break;
 	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		ui->action_double1_label->setText("Channel");
+		ui->label_double1->setText("Channel");
 		lcd_double1.set_range(1.0, 16.0);
 		lcd_double1.set_step(1.0, 5.0);
 		lcd_double1.reset();
@@ -844,21 +868,21 @@ void MidiMGWindow::set_list2(const QString &value)
 		lcd_double3.set_range(0.0, 127.0);
 		lcd_double3.set_step(1.0, 10.0);
 		lcd_double3.reset();
-		str1 = ui->action_list2_editor->currentText();
+		str1 = ui->editor_str2->currentText();
 		if (str1 == "Note On" || str1 == "Note Off") {
 			set_doubles_visible(true, true, true);
-			ui->action_double2_label->setText("Note #");
-			ui->action_double3_label->setText("Velocity");
+			ui->label_double2->setText("Note #");
+			ui->label_double3->setText("Velocity");
 		} else if (str1 == "Control Change") {
 			set_doubles_visible(true, true, true);
-			ui->action_double2_label->setText("Control #");
-			ui->action_double3_label->setText("Value");
+			ui->label_double2->setText("Control #");
+			ui->label_double3->setText("Value");
 		} else if (str1 == "Program Change") {
 			set_doubles_visible(true, true);
-			ui->action_double2_label->setText("Program #");
+			ui->label_double2->setText("Program #");
 		} else if (str1 == "Pitch Bend") {
 			set_doubles_visible(true, true);
-			ui->action_double2_label->setText("Pitch Adj.");
+			ui->label_double2->setText("Pitch Adj.");
 		}
 		break;
 	default:
@@ -866,7 +890,7 @@ void MidiMGWindow::set_list2(const QString &value)
 	}
 }
 
-void MidiMGWindow::set_list3(const QString &value)
+void MidiMGWindow::set_str3(const QString &value)
 {
 	current_action->set_str(2, value);
 
@@ -876,7 +900,7 @@ void MidiMGWindow::set_list3(const QString &value)
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:
 			set_doubles_visible(true);
-			ui->action_double1_label->setText("Duration");
+			ui->label_double1->setText("Duration");
 			lcd_double1.set_range(0.0, 20000.0);
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
@@ -912,7 +936,7 @@ void MidiMGWindow::set_double4(double value)
 
 void MidiMGWindow::on_add_click()
 {
-	switch (ui->structure_editor->property("mode").value<MMGModes>()) {
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_BINDING:
 		current_binding = current_device->add();
 		add_widget_item(MMGModes::MMGMODE_BINDING,
@@ -938,10 +962,10 @@ void MidiMGWindow::on_add_click()
 
 void MidiMGWindow::on_remove_click()
 {
-	QListWidgetItem *current = ui->structure_editor->currentItem();
+	QListWidgetItem *current = ui->editor_structure->currentItem();
 	if (!current)
 		return;
-	switch (ui->structure_editor->property("mode").value<MMGModes>()) {
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 
 	case MMGModes::MMGMODE_BINDING:
 		current_device->remove(current_binding);
@@ -962,20 +986,20 @@ void MidiMGWindow::on_remove_click()
 		return;
 	}
 
-	ui->structure_editor->removeItemWidget(current);
+	ui->editor_structure->removeItemWidget(current);
 	delete current;
-	ui->remove_button->setEnabled(false);
+	ui->button_remove->setEnabled(false);
 	on_list_selection_change(nullptr);
 }
 
 void MidiMGWindow::on_return_click()
 {
 	QListWidgetItem *current_item = nullptr;
-	switch (ui->structure_editor->property("mode").value<MMGModes>()) {
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_PREFERENCES:
 	case MMGModes::MMGMODE_BINDING:
 		switch_structure_pane(MMGModes::MMGMODE_DEVICE);
-		current_item = ui->structure_editor->findItems(
+		current_item = ui->editor_structure->findItems(
 			current_device->get_name(), Qt::MatchCaseSensitive)[0];
 		current_item->setSelected(true);
 		on_list_selection_change(current_item);
@@ -984,7 +1008,7 @@ void MidiMGWindow::on_return_click()
 	case MMGModes::MMGMODE_MESSAGE:
 	case MMGModes::MMGMODE_ACTION:
 		switch_structure_pane(MMGModes::MMGMODE_BINDING);
-		current_item = ui->structure_editor->findItems(
+		current_item = ui->editor_structure->findItems(
 			current_binding->get_name(), Qt::MatchCaseSensitive)[0];
 		current_item->setSelected(true);
 		on_list_selection_change(current_item);
@@ -998,7 +1022,7 @@ void MidiMGWindow::on_return_click()
 void MidiMGWindow::on_binding_mode_select(enum MMGBinding::Mode mode)
 {
 	current_binding->set_mode(mode);
-	ui->binding_mode_description->setText(
+	ui->text_binding_mode->setText(
 		tr(binding_mode_description(mode).qtocs()));
 }
 
@@ -1008,9 +1032,9 @@ QString MidiMGWindow::binding_mode_description(enum MMGBinding::Mode mode) const
 	case MMGBinding::Mode::MMGBINDING_CONSECUTIVE:
 		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).\n\nThis setting is the default.";
 	case MMGBinding::Mode::MMGBINDING_CORRESPONDENCE:
-		return "When multiple messages are positioned consecutively, all action(s) will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
+		return "When multiple messages are used, all action(s) will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
 	case MMGBinding::Mode::MMGBINDING_MULTIPLY:
-		return "When multiple messages are positioned consecutively, all action(s) will each receive ALL of the messages as parameters (if applicable).\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
+		return "When multiple messages are used, all action(s) will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
 	default:
 		return "Error: Invalid description. Report this as a bug from the Preferences page.";
 	}
@@ -1020,7 +1044,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 {
 	QString str = widget_item->text();
 
-	switch (ui->structure_editor->property("mode").value<MMGModes>()) {
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_BINDING:
 		if (!current_binding || current_binding->get_name() == str)
 			break;
@@ -1029,7 +1053,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_binding->set_name(str);
-		ui->binding_name_text->setText(str);
+		ui->text_binding_name->setText(str);
 		break;
 
 	case MMGModes::MMGMODE_MESSAGE:
@@ -1040,7 +1064,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_message->set_name(str);
-		ui->message_name_text->setText(str);
+		ui->text_message_name->setText(str);
 		break;
 
 	case MMGModes::MMGMODE_ACTION:
@@ -1051,7 +1075,7 @@ void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
 			break;
 		}
 		current_action->set_name(str);
-		ui->action_name_text->setText(str);
+		ui->text_action_name->setText(str);
 		break;
 
 	default:
@@ -1067,16 +1091,16 @@ void MidiMGWindow::on_list_selection_change(const QListWidgetItem *current)
 		return;
 	}
 
-	ui->add_button->setEnabled(true);
-	ui->remove_button->setEnabled(true);
-	ui->return_button->setEnabled(true);
+	ui->button_add->setEnabled(true);
+	ui->button_remove->setEnabled(true);
+	ui->button_return->setEnabled(true);
 
-	switch (ui->structure_editor->property("mode").value<MMGModes>()) {
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_DEVICE:
 		current_device = global()->find_device(current->text());
-		ui->add_button->setEnabled(false);
-		ui->remove_button->setEnabled(false);
-		ui->return_button->setEnabled(false);
+		ui->button_add->setEnabled(false);
+		ui->button_remove->setEnabled(false);
+		ui->button_return->setEnabled(false);
 		set_device_view();
 		ui->pages->setCurrentIndex(1);
 		break;
@@ -1110,56 +1134,56 @@ void MidiMGWindow::on_element_drag(const QModelIndex &parent, int start,
 	Q_UNUSED(end);
 	Q_UNUSED(dest);
 	current_binding->move_elements(
-		ui->structure_editor->property("mode").value<MMGModes>(), start,
+		ui->editor_structure->property("mode").value<MMGModes>(), start,
 		row);
 }
 
 void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 {
-	ui->structure_editor->clear();
-	ui->structure_editor->setProperty("mode", QVariant::fromValue(mode));
-	ui->add_button->setEnabled(true);
-	ui->remove_button->setEnabled(false);
-	ui->return_button->setEnabled(true);
+	ui->editor_structure->clear();
+	ui->editor_structure->setProperty("mode", QVariant::fromValue(mode));
+	ui->button_add->setEnabled(true);
+	ui->button_remove->setEnabled(false);
+	ui->button_return->setEnabled(true);
 	switch (mode) {
 	case MMGModes::MMGMODE_PREFERENCES:
-		ui->add_button->setEnabled(false);
-		ui->structure_label->setText(tr("Preferences"));
+		ui->button_add->setEnabled(false);
+		ui->label_structure->setText(tr("Preferences"));
 		ui->pages->setCurrentIndex(5);
 		return;
 	case MMGModes::MMGMODE_DEVICE:
-		ui->add_button->setEnabled(false);
-		ui->return_button->setEnabled(false);
-		for (const QString &name : get_device_names()) {
+		ui->button_add->setEnabled(false);
+		ui->button_return->setEnabled(false);
+		for (const QString &name : global()->get_device_names()) {
 			add_widget_item(mode, name);
 		}
-		ui->structure_label->setText(tr("Devices"));
+		ui->label_structure->setText(tr("Devices"));
 		break;
 	case MMGModes::MMGMODE_BINDING:
 		for (const MMGBinding *const binding_el :
 		     current_device->get_bindings()) {
 			add_widget_item(mode, binding_el->get_name());
 		}
-		ui->structure_label->setText(tr("Bindings"));
+		ui->label_structure->setText(tr("Bindings"));
 		break;
 	case MMGModes::MMGMODE_MESSAGE:
 		for (const MMGMessage *const message_el :
 		     current_binding->get_messages()) {
 			add_widget_item(mode, message_el->get_name());
 		}
-		ui->structure_label->setText(tr("Messages"));
+		ui->label_structure->setText(tr("Messages"));
 		break;
 	case MMGModes::MMGMODE_ACTION:
 		for (const MMGAction *const action_el :
 		     current_binding->get_actions()) {
 			add_widget_item(mode, action_el->get_name());
 		}
-		ui->structure_label->setText(tr("Actions"));
+		ui->label_structure->setText(tr("Actions"));
 		break;
 	default:
-		ui->add_button->setEnabled(false);
-		ui->return_button->setEnabled(false);
-		ui->structure_label->setText(tr("Error"));
+		ui->button_add->setEnabled(false);
+		ui->button_return->setEnabled(false);
+		ui->label_structure->setText(tr("Error"));
 		ui->pages->setCurrentIndex(0);
 		return;
 	}
@@ -1195,7 +1219,7 @@ void MidiMGWindow::add_widget_item(MMGModes type, const QString &name) const
 		delete widget_item;
 		return;
 	}
-	ui->structure_editor->addItem(widget_item);
+	ui->editor_structure->addItem(widget_item);
 }
 
 void MidiMGWindow::export_bindings()
@@ -1232,3 +1256,9 @@ MidiMGWindow::~MidiMGWindow()
 {
 	delete ui;
 }
+
+#undef SET_LCD_STATUS
+#undef CONNECT_LCD
+#undef INIT_LCD
+#undef SET_TOOLTIP
+#undef SET_LCD_TOOLTIP

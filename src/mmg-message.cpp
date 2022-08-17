@@ -160,7 +160,8 @@ const libremidi::message MMGMessage::to_libremidi_message() const
 	} else if (type == "Program Change") {
 		return libremidi::message::program_change(channel, value);
 	} else if (type == "Pitch Bend") {
-		return libremidi::message::pitch_bend(channel, note, value);
+		return libremidi::message::pitch_bend(
+			channel, note >= 64 ? ((note - 64) << 1) : 0, note);
 	}
 	throw 1;
 }

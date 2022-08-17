@@ -28,12 +28,11 @@ public:
 	void clear();
 	MMGDevice *find_device(const QString &name);
 	MMGDevice *get_active_device() const;
+	const QStringList get_device_names() const;
 	bool is_running() const { return active; };
 	void set_running(bool on) { active = on; };
 
 	uint get_next_error_default() { return ++error_device_count; };
-
-	const MMGDevices &get_devices() { return devices; };
 
 	static QString get_filepath();
 

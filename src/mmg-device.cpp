@@ -30,6 +30,12 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 				add(new MMGBinding(json_binding.toObject()));
 		}
 	}
+	if (MMGUtils::json_key_exists(data, "default_names",
+				      QJsonValue::Array)) {
+		next_default_names[0] = data["default_names"][0].toInteger(0);
+		next_default_names[1] = data["default_names"][1].toInteger(0);
+		next_default_names[2] = data["default_names"][2].toInteger(0);
+	}
 	open_input_port();
 	open_output_port();
 }
@@ -44,6 +50,11 @@ void MMGDevice::json(QJsonObject &device_obj) const
 		json_bindings += json_binding;
 	}
 	device_obj["bindings"] = json_bindings;
+	QJsonArray json_default_names;
+	json_default_names.append((qint64)next_default_names[0]);
+	json_default_names.append((qint64)next_default_names[1]);
+	json_default_names.append((qint64)next_default_names[2]);
+	device_obj["default_names"] = json_default_names;
 }
 
 MMGBinding *MMGDevice::add(MMGBinding *const el)

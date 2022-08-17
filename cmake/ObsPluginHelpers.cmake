@@ -618,6 +618,7 @@ else()
         "$<$<CONFIG:DEBUG>:LINKER\:/INCREMENTAL\:NO>"
         "$<$<CONFIG:RELWITHDEBINFO>:LINKER\:/INCREMENTAL\:NO;/OPT\:ICF>")
     endif()
+
   endif()
 
   # Helper function for plugin targets (Windows and Linux version)

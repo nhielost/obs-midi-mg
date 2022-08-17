@@ -115,37 +115,37 @@ void MMGBinding::remove(MMGAction *const el)
 	actions.removeAt(index_of(el));
 }
 
-int MMGBinding::index_of(MMGMessage *const el) const
+size_t MMGBinding::index_of(MMGMessage *const el) const
 {
 	return messages.indexOf(el);
 }
 
-int MMGBinding::index_of(MMGAction *const el) const
+size_t MMGBinding::index_of(MMGAction *const el) const
 {
 	return actions.indexOf(el);
 }
 
-int MMGBinding::message_size() const
+size_t MMGBinding::message_size() const
 {
 	return messages.size();
 }
 
-int MMGBinding::action_size() const
+size_t MMGBinding::action_size() const
 {
 	return actions.size();
 }
 
-void MMGBinding::move_elements(MMGModes mode, int from, int to)
+void MMGBinding::move_elements(MMGModes mode, size_t from, size_t to)
 {
 	switch (mode) {
 	case MMGModes::MMGMODE_MESSAGE:
-		if (from < 0 || from >= message_size())
+		if (from >= message_size())
 			break;
 		to == message_size() ? messages.append(messages.takeAt(from))
 				     : messages.move(from, to);
 		break;
 	case MMGModes::MMGMODE_ACTION:
-		if (from < 0 || from >= action_size())
+		if (from >= action_size())
 			break;
 		to == action_size() ? actions.append(actions.takeAt(from))
 				    : actions.move(from, to);
@@ -166,8 +166,8 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 	if (!is_valid())
 		return;
 	// Variable initialization to appease compilers
-	int saved_message_index = 0;
-	int action_index = 0;
+	size_t saved_message_index = 0;
+	size_t action_index = 0;
 	// Check the incoming message with the next message
 	if (!get_messages()[current_message_index]->is_acceptable(
 		    incoming.get())) {

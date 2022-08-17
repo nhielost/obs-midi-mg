@@ -158,6 +158,15 @@ MMGDevice *MMGConfig::get_active_device() const
 	return nullptr;
 }
 
+const QStringList MMGConfig::get_device_names() const
+{
+	QStringList names;
+	for (MMGDevice *const device : devices) {
+		names.append(device->get_name());
+	}
+	return names;
+}
+
 QString MMGConfig::get_filepath()
 {
 	return "obs-midi-mg-config.json";

@@ -25,10 +25,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 namespace MMGUtils {
 
 // LCDData
-LCDData::LCDData(QLCDNumber *lcd_ptr, std::function<void(double)> func)
+LCDData::LCDData(QLCDNumber *lcd_ptr)
 {
 	lcd = lcd_ptr;
-	value_func = func;
 }
 
 void LCDData::set_range(double min, double max)
@@ -78,15 +77,18 @@ void LCDData::reset(double value)
 
 void LCDData::display()
 {
-	if (use_time) {
-		lcd->display(QTime(internal_val / 3600.0,
-				   fmod(internal_val / 60.0, 60.0),
-				   fmod(internal_val, 60.0))
-				     .toString("hh:mm:ss"));
+	if (lcd->isEnabled()) {
+		if (use_time) {
+			lcd->display(QTime(internal_val / 3600.0,
+					   fmod(internal_val / 60.0, 60.0),
+					   fmod(internal_val, 60.0))
+					     .toString("hh:mm:ss"));
+		} else {
+			lcd->display(internal_val);
+		}
 	} else {
-		lcd->display(internal_val);
+		lcd->display(lcd->digitCount() == 8 ? "   OFF  " : "OFF");
 	}
-	value_func(internal_val);
 }
 // End LCDData
 
@@ -153,10 +155,13 @@ void call_midi_callback(const libremidi::message &message)
 	if (!global()->is_running())
 		return;
 	MMGSharedMessage incoming(new MMGMessage(message));
-	for (MMGDevice *const device : global()->get_devices()) {
+	QString prev_active_device = global()->get_active_device()->get_name();
+	for (const QString &name : global()->get_device_names()) {
+		MMGDevice *const device = global()->find_device(name);
 		if (device->input_port_open())
 			device->do_all_actions(incoming);
 	}
+	global()->find_device(prev_active_device);
 }
 
 bool bool_from_str(const QString &str)

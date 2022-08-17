@@ -29,8 +29,12 @@ public:
 	explicit MidiMGWindow(QWidget *parent);
 	~MidiMGWindow() override;
 
+protected:
+	bool eventFilter(QObject *obj, QEvent *event) override;
+
 private:
 	Ui::MidiMGWindow *ui;
+
 	MMGUtils::LCDData lcd_channel;
 	MMGUtils::LCDData lcd_note;
 	MMGUtils::LCDData lcd_value;
@@ -38,6 +42,11 @@ private:
 	MMGUtils::LCDData lcd_double2;
 	MMGUtils::LCDData lcd_double3;
 	MMGUtils::LCDData lcd_double4;
+
+	MMGDevice *current_device = nullptr;
+	MMGBinding *current_binding = nullptr;
+	MMGMessage *current_message = nullptr;
+	MMGAction *current_action = nullptr;
 
 	/* enum class BindingTransfer {
 		MIDIMGWINDOW_KEEP_APPEND,
@@ -49,7 +58,6 @@ private:
 	void connect_ui_signals();
 	void configure_lcd_widgets();
 
-	const QStringList get_device_names() const;
 	QString binding_mode_description(enum MMGBinding::Mode mode) const;
 	void switch_structure_pane(enum MMGModes mode);
 	void set_device_view();
@@ -57,19 +65,18 @@ private:
 	void set_message_view();
 	void set_action_view();
 	void set_sub_visible(bool visible = false) const;
-	void set_lists_visible(bool str1 = false, bool str2 = false,
-			       bool str3 = false) const;
+	void set_strs_visible(bool str1 = false, bool str2 = false,
+			      bool str3 = false) const;
 	void set_doubles_visible(bool double1 = false, bool double2 = false,
 				 bool double3 = false,
 				 bool double4 = false) const;
-	void set_doubles_usevalue(short which, bool disabled) const;
 	void set_sub_options(std::initializer_list<QString> list) const;
 	void set_channel(double value);
 	void set_note(double value);
 	void set_value(double value);
-	void set_list1(const QString &value);
-	void set_list2(const QString &value);
-	void set_list3(const QString &value);
+	void set_str1(const QString &value);
+	void set_str2(const QString &value);
+	void set_str3(const QString &value);
 	void set_double1(double value);
 	void set_double2(double value);
 	void set_double3(double value);
@@ -79,11 +86,6 @@ private:
 	void import_bindings();
 	void i_need_help() const;
 	void report_a_bug() const;
-
-	MMGDevice *current_device = nullptr;
-	MMGBinding *current_binding = nullptr;
-	MMGMessage *current_message = nullptr;
-	MMGAction *current_action = nullptr;
 
 public slots:
 	void show_window();
