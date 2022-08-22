@@ -32,6 +32,20 @@ MMGConfig::MMGConfig()
 	load();
 }
 
+void MMGConfig::check_device_default_names()
+{
+	for (const MMGDevice *device : devices) {
+		if (device->get_name().startsWith("Untitled Device ")) {
+			QString name = device->get_name();
+			qulonglong num =
+				QVariant(name.remove("Untitled Device "))
+					.toULongLong();
+			if (num > MMGDevice::get_next_default())
+				MMGDevice::set_next_default(num);
+		}
+	}
+}
+
 void MMGConfig::load(const QString &path_str)
 {
 	auto default_path = obs_module_config_path(get_filepath().qtocs());
@@ -61,6 +75,9 @@ void MMGConfig::load(const QString &path_str)
 				devices.append(new MMGDevice(obj.toObject()));
 			}
 		}
+		// Load preferences
+		if (json_is_valid(doc["preferences"], QJsonValue::Object))
+			settings = MMGSettings(doc["preferences"].toObject());
 	}
 	// Check for devices currently connected that are not included
 	// and include them if necessary
@@ -88,15 +105,8 @@ void MMGConfig::load(const QString &path_str)
 			devices.last()->open_output_port();
 		}
 	}
-
-	active = doc["active"].toBool(true);
-	// Set the active device to the first device name
-	// if the active_device property is unspecified.
-	// If there are no devices, there is no active device.
-	active_device_name = devices.first()
-				     ? doc["active_device"].toString(
-					       devices.first()->get_name())
-				     : "Error";
+	// Check for any unaffiliated devices (i.e. created by obs-midi-mg)
+	check_device_default_names();
 }
 
 void MMGConfig::save(const QString &path_str) const
@@ -109,10 +119,14 @@ void MMGConfig::save(const QString &path_str) const
 	}
 	QJsonObject config_obj;
 	config_obj["config"] = config_array;
+
 	config_obj["savedate"] = QDateTime::currentDateTime().toString(
 		"yyyy-MM-dd hh-mm-ss-zzz");
-	config_obj["active"] = active;
-	config_obj["active_device"] = active_device_name;
+
+	QJsonObject json_settings;
+	settings.json(json_settings);
+	config_obj["preferences"] = json_settings;
+
 	OBSDataAutoRelease save_data =
 		obs_data_create_from_json(QJsonDocument(config_obj).toJson());
 	auto default_path = obs_module_config_path(get_filepath().qtocs());
@@ -134,24 +148,12 @@ MMGDevice *MMGConfig::find_device(const QString &name)
 {
 	for (MMGDevice *const device : devices) {
 		if (device->get_name() == name) {
-			active_device_name = name;
 			if (!device->input_port_open()) {
 				device->open_input_port();
 			}
 			if (!device->output_port_open()) {
 				device->open_output_port();
 			}
-			return device;
-		}
-	}
-	active_device_name = "Untitled Device 1";
-	return nullptr;
-}
-
-MMGDevice *MMGConfig::get_active_device() const
-{
-	for (MMGDevice *const device : devices) {
-		if (device->get_name() == active_device_name) {
 			return device;
 		}
 	}

@@ -265,7 +265,7 @@
     <number>0</number>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>3</number>
    </property>
    <widget class="QWidget" name="empty_page">
     <property name="palette">
@@ -889,7 +889,7 @@
        <x>0</x>
        <y>90</y>
        <width>341</width>
-       <height>171</height>
+       <height>181</height>
       </rect>
      </property>
      <property name="sizePolicy">
@@ -926,7 +926,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label_type">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -948,7 +948,7 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="editor_type">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="MinimumExpanding">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -989,7 +989,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_channel">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -1008,7 +1008,7 @@
       <item row="2" column="0">
        <widget class="QLabel" name="label_note">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -1033,7 +1033,7 @@
          <bool>false</bool>
         </property>
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -2404,7 +2404,7 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="editor_cat">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -2442,22 +2442,22 @@
         </item>
         <item>
          <property name="text">
-          <string>Switching Scenes</string>
+          <string>Scene Switching</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Source Transform</string>
+          <string>Video Sources</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Source Properties</string>
+          <string>Audio Sources</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Media</string>
+          <string>Media Sources</string>
          </property>
         </item>
         <item>
@@ -2477,12 +2477,27 @@
         </item>
         <item>
          <property name="text">
-          <string>Send MIDI Message</string>
+          <string>Profiles</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>Wait</string>
+          <string>Scene Collections</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>OBS Studio UI</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>MIDI</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Timeout</string>
          </property>
         </item>
        </widget>
@@ -2509,7 +2524,7 @@
       <item row="1" column="1">
        <widget class="QComboBox" name="editor_sub">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -2550,7 +2565,7 @@
       <item row="2" column="1">
        <widget class="QComboBox" name="editor_str1">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -2589,7 +2604,7 @@
       <item row="3" column="1">
        <widget class="QComboBox" name="editor_str2">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -2627,7 +2642,7 @@
       <item row="4" column="1">
        <widget class="QComboBox" name="editor_str3">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -4599,6 +4614,53 @@
      </property>
      <property name="alignment">
       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="text_tooltips_enable">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>130</y>
+       <width>301</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>This will allow a tooltip to appear when hovering over any field in the Messages and Actions menus.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="editor_tooltips_enable">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>110</y>
+       <width>321</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+     <property name="text">
+      <string>Enable Tooltips</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
      </property>
     </widget>
    </widget>

@@ -18,6 +18,17 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-message.h"
 
+qulonglong MMGMessage::next_default = 0;
+
+MMGMessage::MMGMessage()
+{
+	name = get_next_default_name();
+	channel = 1;
+	type = "Note On";
+	note = 0;
+	value = -1;
+}
+
 MMGMessage::MMGMessage(const libremidi::message &message)
 {
 	name = "";
@@ -29,8 +40,9 @@ MMGMessage::MMGMessage(const libremidi::message &message)
 
 MMGMessage::MMGMessage(const QJsonObject &obj)
 {
-	name = obj["name"].toString(
-		MMGUtils::next_default_name(MMGModes::MMGMODE_MESSAGE));
+	name = obj["name"].toString();
+	if (name.isEmpty())
+		name = get_next_default_name();
 	channel = obj["channel"].toInt(1);
 	type = obj["type"].toString("Note On");
 	note = obj["note"].toInt(0);
@@ -46,19 +58,23 @@ void MMGMessage::json(QJsonObject &message_obj) const
 	message_obj["value"] = value;
 }
 
+QString MMGMessage::get_next_default_name()
+{
+	return QVariant(++MMGMessage::next_default)
+		.toString()
+		.prepend("Untitled Message ");
+}
+
 int MMGMessage::get_midi_note(const libremidi::message &mess)
 {
-	int part = -1;
 	switch (mess.get_message_type()) {
 	case libremidi::message_type::NOTE_OFF:
 	case libremidi::message_type::NOTE_ON:
 	case libremidi::message_type::CONTROL_CHANGE:
-		part = 1;
-		break;
+		return mess[1];
 	default:
 		return 0;
 	}
-	return mess[part];
 }
 
 int MMGMessage::get_midi_value(const libremidi::message &mess)
@@ -137,7 +153,7 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 	}
 }
 
-bool MMGMessage::is_acceptable(MMGMessage *test) const
+bool MMGMessage::is_acceptable(const MMGMessage *test) const
 {
 	bool isTrue = true;
 	isTrue &= (channel == test->get_channel());

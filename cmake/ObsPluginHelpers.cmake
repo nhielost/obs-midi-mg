@@ -595,7 +595,6 @@ else()
                 /D_UNICODE
                 /D_CRT_SECURE_NO_WARNINGS
                 /D_CRT_NONSTDC_NO_WARNINGS)
-
       # Set default Visual Studio linker options.
       #
       # * Enable removal of functions and data that are never used,

@@ -120,48 +120,16 @@ bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type)
 	}
 }
 
-QString next_default_name(MMGModes mode)
-{
-	if (!global() || (mode != MMGModes::MMGMODE_DEVICE &&
-			  !global()->get_active_device()))
-		return "";
-
-	switch (mode) {
-	case MMGModes::MMGMODE_DEVICE:
-		return "Untitled Device " +
-		       QVariant(global()->get_next_error_default()).toString();
-	case MMGModes::MMGMODE_BINDING:
-		return "Untitled Binding " +
-		       QVariant(global()->get_active_device()
-					->get_next_binding_default())
-			       .toString();
-	case MMGModes::MMGMODE_MESSAGE:
-		return "Untitled Message " +
-		       QVariant(global()->get_active_device()
-					->get_next_message_default())
-			       .toString();
-	case MMGModes::MMGMODE_ACTION:
-		return "Untitled Action " +
-		       QVariant(global()->get_active_device()
-					->get_next_action_default())
-			       .toString();
-	default:
-		return "";
-	}
-}
-
 void call_midi_callback(const libremidi::message &message)
 {
-	if (!global()->is_running())
+	if (!global()->preferences().active)
 		return;
 	MMGSharedMessage incoming(new MMGMessage(message));
-	QString prev_active_device = global()->get_active_device()->get_name();
 	for (const QString &name : global()->get_device_names()) {
 		MMGDevice *const device = global()->find_device(name);
 		if (device->input_port_open())
 			device->do_all_actions(incoming);
 	}
-	global()->find_device(prev_active_device);
 }
 
 bool bool_from_str(const QString &str)

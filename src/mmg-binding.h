@@ -22,7 +22,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 class MMGBinding {
 public:
-	MMGBinding() = default;
+	explicit MMGBinding();
 	explicit MMGBinding(const QJsonObject &obj);
 	~MMGBinding()
 	{
@@ -44,7 +44,7 @@ public:
 	Mode get_mode() const { return (Mode)mode; };
 
 	void set_name(const QString &val) { name = val; };
-	void set_mode(Mode val) { mode = (int)val; };
+	void set_mode(Mode val) { mode = (short)val; };
 
 	MMGMessage *add_message(MMGMessage *const el = new MMGMessage);
 	void insert_message(int index, MMGMessage *const el);
@@ -68,14 +68,23 @@ public:
 
 	void move_elements(MMGModes mode, size_t from, size_t to);
 
+	static qulonglong get_next_default() { return next_default; };
+	static void set_next_default(qulonglong num) { next_default = num; };
+	static QString get_next_default_name();
+
 private:
-	QString name = MMGUtils::next_default_name(MMGModes::MMGMODE_BINDING);
-	int mode = 1;
+	QString name;
+	short mode;
 	QList<MMGMessage *> messages;
 	QList<MMGAction *> actions;
 	QList<MMGSharedMessage> saved_messages;
 
-	int current_message_index = 0;
+	size_t current_message_index = 0;
+
+	static qulonglong next_default;
+
+	void check_message_default_names();
+	void check_action_default_names();
 };
 
 using MMGBindingList = QList<MMGBinding *>;

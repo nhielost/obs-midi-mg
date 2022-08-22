@@ -75,7 +75,5 @@ std::pair<uint, uint> get_obs_source_dimensions(const QString &name);
 uint get_obs_scene_count();
 double get_obs_media_length(const QString &name);
 qulonglong get_obs_source_filter_count(const QString &name);
-
-QString next_default_name(MMGModes mode);
 }
 Q_DECLARE_METATYPE(MMGUtils::LCDData);

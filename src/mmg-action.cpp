@@ -32,10 +32,27 @@ struct R {
 	QString r_v;
 };
 
+qulonglong MMGAction::next_default = 0;
+
+MMGAction::MMGAction()
+{
+	name = get_next_default_name();
+	category = 0;
+	subcategory = 0;
+	set_str(0, "");
+	set_str(1, "");
+	set_str(2, "");
+	set_num(0, 0.0);
+	set_num(1, 0.0);
+	set_num(2, 0.0);
+	set_num(3, 0.0);
+}
+
 MMGAction::MMGAction(const QJsonObject &obj)
 {
-	name = obj["name"].toString(
-		next_default_name(MMGModes::MMGMODE_ACTION));
+	name = obj["name"].toString();
+	if (name.isEmpty())
+		name = get_next_default_name();
 	category = obj["category"].toInt(0);
 	subcategory = obj["sub"].toInt(0);
 	set_str(0, obj["str1"].toString());
@@ -62,6 +79,13 @@ void MMGAction::json(QJsonObject &action_obj) const
 	action_obj["num4"] = get_num(3);
 }
 
+QString MMGAction::get_next_default_name()
+{
+	return QVariant(++MMGAction::next_default)
+		.toString()
+		.prepend("Untitled Action ");
+}
+
 MMGAction::Category MMGAction::categoryFromString(const QString &str)
 {
 	if (str == "None") {
@@ -74,24 +98,30 @@ MMGAction::Category MMGAction::categoryFromString(const QString &str)
 		return MMGAction::Category::MMGACTION_VIRCAM;
 	} else if (str == "Studio Mode") {
 		return MMGAction::Category::MMGACTION_STUDIOMODE;
-	} else if (str == "Switching Scenes") {
+	} else if (str == "Scene Switching") {
 		return MMGAction::Category::MMGACTION_SCENE;
-	} else if (str == "Source Transform") {
-		return MMGAction::Category::MMGACTION_SOURCE_TRANS;
-	} else if (str == "Source Properties") {
-		return MMGAction::Category::MMGACTION_SOURCE_PROPS;
-	} else if (str == "Media") {
-		return MMGAction::Category::MMGACTION_MEDIA;
+	} else if (str == "Video Sources") {
+		return MMGAction::Category::MMGACTION_SOURCE_VIDEO;
+	} else if (str == "Audio Sources") {
+		return MMGAction::Category::MMGACTION_SOURCE_AUDIO;
+	} else if (str == "Media Sources") {
+		return MMGAction::Category::MMGACTION_SOURCE_MEDIA;
 	} else if (str == "Transitions") {
 		return MMGAction::Category::MMGACTION_TRANSITION;
 	} else if (str == "Filters") {
 		return MMGAction::Category::MMGACTION_FILTER;
 	} else if (str == "Hotkeys") {
 		return MMGAction::Category::MMGACTION_HOTKEY;
-	} else if (str == "Send MIDI Message") {
-		return MMGAction::Category::MMGACTION_MIDIMESSAGE;
-	} else if (str == "Wait") {
-		return MMGAction::Category::MMGACTION_WAIT;
+	} else if (str == "Profiles") {
+		return MMGAction::Category::MMGACTION_PROFILE;
+	} else if (str == "Scene Collections") {
+		return MMGAction::Category::MMGACTION_COLLECTION;
+	} else if (str == "OBS Studio UI") {
+		return MMGAction::Category::MMGACTION_UI;
+	} else if (str == "MIDI") {
+		return MMGAction::Category::MMGACTION_MIDI;
+	} else if (str == "Timeout") {
+		return MMGAction::Category::MMGACTION_TIMEOUT;
 	}
 	return MMGAction::Category::MMGACTION_NONE;
 }
@@ -130,24 +160,21 @@ void MMGAction::do_obs_source_enum(QComboBox *list,
 						    source)))
 					return true;
 				break;
-			case MMGAction::Category::MMGACTION_SOURCE_PROPS:
+			case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
 				if (obs_source_get_type(source) !=
 				    OBS_SOURCE_TYPE_INPUT)
 					return true;
-				switch (r->r_v.toInt()) {
-				case 5:
-					if ((obs_source_get_output_flags(
-						     source) &
-					     OBS_SOURCE_VIDEO) == 0)
-						return true;
-					break;
-				default:
-					if ((obs_source_get_output_flags(
-						     source) &
-					     OBS_SOURCE_AUDIO) == 0)
-						return true;
-					break;
-				}
+				if (!(obs_source_get_output_flags(source) &
+				      OBS_SOURCE_VIDEO))
+					return true;
+				break;
+			case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
+				if (obs_source_get_type(source) !=
+				    OBS_SOURCE_TYPE_INPUT)
+					return true;
+				if (!(obs_source_get_output_flags(source) &
+				      OBS_SOURCE_AUDIO))
+					return true;
 				break;
 			default:
 				if (obs_source_get_type(source) !=
@@ -174,8 +201,8 @@ void MMGAction::do_obs_media_enum(QComboBox *list,
 	obs_enum_sources(
 		[](void *param, obs_source_t *source) {
 			auto r = reinterpret_cast<R *>(param);
-			if ((obs_source_get_output_flags(source) &
-			     OBS_SOURCE_CONTROLLABLE_MEDIA) == 0)
+			if (!(obs_source_get_output_flags(source) &
+			      OBS_SOURCE_CONTROLLABLE_MEDIA))
 				return true;
 
 			r->c->addItem(obs_source_get_name(source));
@@ -210,7 +237,7 @@ void MMGAction::do_obs_filter_enum(QComboBox *list,
 				   MMGAction::Category restriction_t,
 				   const QString &rest)
 {
-	if (restriction_t == MMGAction::Category::MMGACTION_SOURCE_PROPS) {
+	if (restriction_t == MMGAction::Category::MMGACTION_SOURCE_VIDEO) {
 		OBSSourceAutoRelease source =
 			obs_get_source_by_name(rest.qtocs());
 		obs_source_enum_filters(
@@ -258,76 +285,76 @@ void MMGAction::do_obs_hotkey_enum(QComboBox *list)
 		list);
 }
 
-void MMGAction::do_action(const MMGMessage *const parameter)
+void MMGAction::do_action(const MMGSharedMessage &params)
 {
 	switch (get_category()) {
 	case MMGAction::Category::MMGACTION_NONE:
-		do_action_none((MMGAction::None)subcategory);
+		do_action_none(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_STREAM:
-		do_action_stream((MMGAction::Stream)subcategory);
+		do_action_stream(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_RECORD:
-		do_action_record((MMGAction::Record)subcategory);
+		do_action_record(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_VIRCAM:
-		do_action_virtual_cam((MMGAction::VirtualCam)subcategory);
+		do_action_virtual_cam(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_STUDIOMODE:
-		do_action_studio_mode((MMGAction::StudioMode)subcategory,
-				      get_str(0), parameter->get_value());
+		do_action_studio_mode(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_SCENE:
-		do_action_scenes((MMGAction::Scenes)subcategory, get_str(0),
-				 parameter->get_value());
+		do_action_scenes(this, params.get());
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
-		do_action_source_transform(
-			(MMGAction::SourceTransform)subcategory, strs, nums,
-			parameter->get_value());
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
+		do_action_video_source(this, params.get());
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
-		do_action_source_properties(
-			(MMGAction::SourceProperties)subcategory, get_str(0),
-			get_num(0), parameter->get_value());
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
+		do_action_audio_source(this, params.get());
 		break;
-	case MMGAction::Category::MMGACTION_MEDIA:
-		do_action_media((MMGAction::Media)subcategory, get_str(0),
-				get_num(0), parameter->get_value());
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
+		do_action_media_source(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_TRANSITION:
-		do_action_transitions((MMGAction::Transitions)subcategory, strs,
-				      get_num(0), parameter->get_value());
+		do_action_transitions(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_FILTER:
-		do_action_filters((MMGAction::Filters)subcategory, strs,
-				  (int)get_num(0), parameter->get_value());
+		do_action_filters(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
-		do_action_hotkeys((MMGAction::Hotkeys)subcategory, get_str(0),
-				  parameter->get_value());
+		do_action_hotkeys(this, params.get());
 		break;
-	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
-		do_action_send_midi((MMGAction::SendMidi)subcategory, strs,
-				    nums, parameter->get_value());
+	case MMGAction::Category::MMGACTION_PROFILE:
+		do_action_profiles(this, params.get());
 		break;
-	case MMGAction::Category::MMGACTION_WAIT:
-		do_action_sleep((MMGAction::Sleep)subcategory,
-				(ulong)get_num(0));
+	case MMGAction::Category::MMGACTION_COLLECTION:
+		do_action_collections(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_UI:
+		do_action_ui(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_MIDI:
+		do_action_midi(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_TIMEOUT:
+		do_action_pause(this, params.get());
 		break;
 	default:
 		break;
 	}
 }
 
-void MMGAction::do_action_none(None kind)
+void MMGAction::do_action_none(const MMGAction *params, const MMGMessage *midi)
 {
-	Q_UNUSED(kind);
+	Q_UNUSED(params);
+	Q_UNUSED(midi);
 }
 
-void MMGAction::do_action_stream(Stream kind)
+void MMGAction::do_action_stream(const MMGAction *params,
+				 const MMGMessage *midi)
 {
-	switch (kind) {
+	Q_UNUSED(midi);
+	switch ((MMGAction::Stream)params->get_sub()) {
 	case MMGAction::Stream::STREAM_ON:
 		obs_frontend_streaming_start();
 		break;
@@ -346,9 +373,11 @@ void MMGAction::do_action_stream(Stream kind)
 	}
 }
 
-void MMGAction::do_action_record(Record kind)
+void MMGAction::do_action_record(const MMGAction *params,
+				 const MMGMessage *midi)
 {
-	switch (kind) {
+	Q_UNUSED(midi);
+	switch ((MMGAction::Record)params->get_sub()) {
 	case MMGAction::Record::RECORD_ON:
 		obs_frontend_recording_start();
 		break;
@@ -376,9 +405,11 @@ void MMGAction::do_action_record(Record kind)
 	}
 }
 
-void MMGAction::do_action_virtual_cam(VirtualCam kind)
+void MMGAction::do_action_virtual_cam(const MMGAction *params,
+				      const MMGMessage *midi)
 {
-	switch (kind) {
+	Q_UNUSED(midi);
+	switch ((MMGAction::VirtualCam)params->get_sub()) {
 	case MMGAction::VirtualCam::VIRCAM_ON:
 		obs_frontend_start_virtualcam();
 		break;
@@ -397,9 +428,12 @@ void MMGAction::do_action_virtual_cam(VirtualCam kind)
 	}
 }
 
-void MMGAction::do_action_studio_mode(StudioMode kind, const QString &scene,
-				      uint value)
+void MMGAction::do_action_studio_mode(const MMGAction *params,
+				      const MMGMessage *midi)
 {
+	if (params->get_str(0) == "Use Message Value" &&
+	    (uint)midi->get_value() >= get_obs_scene_count())
+		return;
 	// For new Studio Mode activation (pre 28.0.0 method encounters threading errors)
 	auto set_studio_mode = [](bool on) {
 		if (obs_frontend_preview_program_mode_active() == on)
@@ -413,11 +447,11 @@ void MMGAction::do_action_studio_mode(StudioMode kind, const QString &scene,
 			&on, true);
 	};
 	char **scene_names = obs_frontend_get_scene_names();
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(
-		scene == "Use Message Value" ? scene_names[value]
-					     : scene.qtocs());
-	OBSSourceAutoRelease source_obs_scene = obs_scene_get_source(obs_scene);
-	switch (kind) {
+	OBSSourceAutoRelease source_obs_scene =
+		obs_get_source_by_name(params->get_str(0) == "Use Message Value"
+					       ? scene_names[midi->get_value()]
+					       : params->get_str(0).qtocs());
+	switch ((MMGAction::StudioMode)params->get_sub()) {
 	case MMGAction::StudioMode::STUDIOMODE_ON:
 		set_studio_mode(true);
 		break;
@@ -441,15 +475,18 @@ void MMGAction::do_action_studio_mode(StudioMode kind, const QString &scene,
 	bfree(scene_names);
 }
 
-void MMGAction::do_action_scenes(Scenes kind, const QString &scene, uint value)
+void MMGAction::do_action_scenes(const MMGAction *params,
+				 const MMGMessage *midi)
 {
 	char **scene_names = obs_frontend_get_scene_names();
-	if (scene == "Use Message Value" && value >= get_obs_scene_count())
+	if (params->get_str(0) == "Use Message Value" &&
+	    (uint)midi->get_value() >= get_obs_scene_count())
 		return;
-	OBSSourceAutoRelease source_obs_scene = obs_get_source_by_name(
-		scene == "Use Message Value" ? scene_names[value]
-					     : scene.qtocs());
-	switch (kind) {
+	OBSSourceAutoRelease source_obs_scene =
+		obs_get_source_by_name(params->get_str(0) == "Use Message Value"
+					       ? scene_names[midi->get_value()]
+					       : params->get_str(0).qtocs());
+	switch ((MMGAction::Scenes)params->get_sub()) {
 	case MMGAction::Scenes::SCENE_SCENE:
 		if (!source_obs_scene)
 			break;
@@ -461,14 +498,13 @@ void MMGAction::do_action_scenes(Scenes kind, const QString &scene, uint value)
 	bfree(scene_names);
 }
 
-void MMGAction::do_action_source_transform(SourceTransform kind,
-					   const QString strs[4],
-					   const double nums[4], uint value)
+void MMGAction::do_action_video_source(const MMGAction *params,
+				       const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_scene_source =
-		obs_get_source_by_name(strs[0].qtocs());
+		obs_get_source_by_name(params->get_str(0).qtocs());
 	OBSSourceAutoRelease obs_source =
-		obs_get_source_by_name(strs[1].qtocs());
+		obs_get_source_by_name(params->get_str(1).qtocs());
 	if (!obs_source || !obs_scene_source)
 		return;
 	OBSSceneItemAutoRelease obs_sceneitem = obs_scene_sceneitem_from_source(
@@ -477,164 +513,190 @@ void MMGAction::do_action_source_transform(SourceTransform kind,
 		return;
 	vec2 coordinates;
 	obs_sceneitem_crop crop;
-	switch (kind) {
-	case MMGAction::SourceTransform::TRANSFORM_POSITION:
-		vec2_set(&coordinates, nums[0], nums[1]);
+
+	switch ((MMGAction::VideoSources)params->get_sub()) {
+	case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
+		vec2_set(&coordinates,
+			 num_or_value(params->get_num(0), midi->get_value(),
+				      get_obs_dimensions().first),
+			 num_or_value(params->get_num(1), midi->get_value(),
+				      get_obs_dimensions().second));
 		obs_sceneitem_set_pos(obs_sceneitem, &coordinates);
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_DISPLAY:
-		if (strs[2] == "Toggle") {
+	case MMGAction::VideoSources::SOURCE_VIDEO_DISPLAY:
+		if (params->get_str(2) == "Toggle") {
 			obs_sceneitem_set_visible(
 				obs_sceneitem,
 				!obs_sceneitem_visible(obs_sceneitem));
 		} else {
-			obs_sceneitem_set_visible(obs_sceneitem,
-						  bool_from_str(strs[2]));
+			obs_sceneitem_set_visible(
+				obs_sceneitem,
+				bool_from_str(params->get_str(2)));
 		}
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_LOCKED:
-		if (strs[2] == "Toggle") {
+	case MMGAction::VideoSources::SOURCE_VIDEO_LOCKED:
+		if (params->get_str(2) == "Toggle") {
 			obs_sceneitem_set_locked(
 				obs_sceneitem,
 				!obs_sceneitem_locked(obs_sceneitem));
 		} else {
-			obs_sceneitem_set_locked(obs_sceneitem,
-						 bool_from_str(strs[2]));
+			obs_sceneitem_set_locked(
+				obs_sceneitem,
+				bool_from_str(params->get_str(2)));
 		}
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_CROP:
+	case MMGAction::VideoSources::SOURCE_VIDEO_CROP:
 		crop.top = num_or_value(
-			nums[0], value,
-			get_obs_source_dimensions(strs[1]).second >> 1);
+			params->get_num(0), midi->get_value(),
+			get_obs_source_dimensions(params->get_str(1)).second >>
+				1);
 		crop.right = num_or_value(
-			nums[1], value,
-			get_obs_source_dimensions(strs[1]).first >> 1);
+			params->get_num(1), midi->get_value(),
+			get_obs_source_dimensions(params->get_str(1)).first >>
+				1);
 		crop.bottom = num_or_value(
-			nums[2], value,
-			get_obs_source_dimensions(strs[1]).second >> 1);
+			params->get_num(2), midi->get_value(),
+			get_obs_source_dimensions(params->get_str(1)).second >>
+				1);
 		crop.left = num_or_value(
-			nums[3], value,
-			get_obs_source_dimensions(strs[1]).first >> 1);
+			params->get_num(3), midi->get_value(),
+			get_obs_source_dimensions(params->get_str(1)).first >>
+				1);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_SCALE:
-		vec2_set(&coordinates, nums[0], nums[1]);
+	case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
+		// This is incomplete
+		vec2_set(&coordinates, params->get_num(0), params->get_num(1));
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_ROTATION:
-		obs_sceneitem_set_rot(obs_sceneitem,
-				      num_or_value(nums[0], value, 360.0));
+	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
+		if (params->get_num(0) == -1 && midi->get_value() > 5)
+			return;
+		obs_sceneitem_set_scale_filter(
+			obs_sceneitem,
+			(obs_scale_type)num_or_value(params->get_num(0),
+						     midi->get_value(), 128.0));
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_BOUNDINGBOX:
-		vec2_set(&coordinates, nums[0], nums[1]);
+	case MMGAction::VideoSources::SOURCE_VIDEO_ROTATION:
+		obs_sceneitem_set_rot(obs_sceneitem,
+				      num_or_value(params->get_num(0),
+						   midi->get_value(), 360.0));
+		break;
+	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDINGBOX:
+		vec2_set(&coordinates,
+			 num_or_value(params->get_num(0), midi->get_value(),
+				      get_obs_dimensions().first),
+			 num_or_value(params->get_num(1), midi->get_value(),
+				      get_obs_dimensions().second));
 		obs_sceneitem_set_bounds(obs_sceneitem, &coordinates);
 		break;
-	case MMGAction::SourceTransform::TRANSFORM_RESET:
+	case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
+		if (params->get_num(0) == -1 && midi->get_value() > 6)
+			return;
+		obs_sceneitem_set_blending_mode(
+			obs_sceneitem,
+			(obs_blending_type)num_or_value(
+				params->get_num(0), midi->get_value(), 128.0));
+		break;
+	case MMGAction::VideoSources::SOURCE_VIDEO_SCREENSHOT:
+		obs_frontend_take_source_screenshot(obs_source);
 		break;
 	default:
 		break;
 	}
 }
 
-void MMGAction::do_action_source_properties(SourceProperties kind,
-					    const QString &source, double num,
-					    uint value)
+void MMGAction::do_action_audio_source(const MMGAction *params,
+				       const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
-		obs_get_source_by_name(source.qtocs());
+		obs_get_source_by_name(params->get_str(0).qtocs());
 	if (!obs_source)
 		return;
-	uint32_t flags = obs_source_get_output_flags(obs_source);
-	bool flags_contain_audio = (flags & OBS_SOURCE_AUDIO) >> 1;
-	bool flags_contain_video = (flags & OBS_SOURCE_VIDEO) >> 0;
+	if (!(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO))
+		return;
 
-	switch (kind) {
-	case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGETO:
-		if (!flags_contain_audio)
-			break;
+	switch ((MMGAction::AudioSources)params->get_sub()) {
+	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGETO:
 		// Value only has range 0-127, meaning full volume cannot be achieved (as it is divided by 128).
 		// Adding one allows the capability of full volume - at the cost of removing mute capability.
-		obs_source_set_volume(obs_source,
-				      num_or_value(num, value + 1, 100.0) /
-					      100.0);
+		obs_source_set_volume(
+			obs_source, num_or_value(params->get_num(0),
+						 midi->get_value() + 1, 100.0) /
+					    100.0);
 		break;
-	case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGEBY:
-		if (!flags_contain_audio)
-			break;
+	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
 		if (obs_source_get_volume(obs_source) * 100.0 +
-			    num_or_value(num, value - 64, 100.0) >=
+			    num_or_value(params->get_num(0),
+					 midi->get_value() - 64, 100.0) >=
 		    100.0) {
 			obs_source_set_volume(obs_source, 1);
 		} else if (obs_source_get_volume(obs_source) * 100.0 +
-				   num_or_value(num, value - 64, 100.0) <=
+				   num_or_value(params->get_num(0),
+						midi->get_value() - 64,
+						100.0) <=
 			   0.0) {
 			obs_source_set_volume(obs_source, 0);
 		} else {
 			obs_source_set_volume(
 				obs_source,
 				obs_source_get_volume(obs_source) +
-					(num_or_value(num, value - 64, 100.0) /
+					(num_or_value(params->get_num(0),
+						      midi->get_value() - 64,
+						      100.0) /
 					 100.0));
 		}
 		break;
-	case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_ON:
-		if (!flags_contain_audio)
-			break;
+	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_ON:
 		obs_source_set_muted(obs_source, true);
 		break;
-	case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_OFF:
-		if (!flags_contain_audio)
-			break;
+	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_OFF:
 		obs_source_set_muted(obs_source, false);
 		break;
-	case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_TOGGLE_ONOFF:
-		if (!flags_contain_audio)
-			break;
+	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
 		obs_source_set_muted(obs_source, !obs_source_muted(obs_source));
 		break;
-	case MMGAction::SourceProperties::PROPERTY_SCREENSHOT:
-		if (!flags_contain_video)
-			break;
-		obs_frontend_take_source_screenshot(obs_source);
+	case MMGAction::AudioSources::SOURCE_AUDIO_OFFSET:
+		// Multiplier is 3200 here to make it so that the sync offset is incremented by 25.
+		// Hard limit is set at 3175 ms
+		obs_source_set_sync_offset(
+			obs_source, num_or_value(params->get_num(0),
+						 midi->get_value(), 3200.0) *
+					    1000000);
 		break;
-	case MMGAction::SourceProperties::PROPERTY_AUDIO_OFFSET:
-		if (!flags_contain_audio)
-			break;
-		obs_source_set_sync_offset(obs_source,
-					   num_or_value(num, value, 20000.0) *
-						   1000000);
-		break;
-	case MMGAction::SourceProperties::PROPERTY_AUDIO_MONITOR:
-		if (!flags_contain_audio)
-			break;
+	case MMGAction::AudioSources::SOURCE_AUDIO_MONITOR:
 		obs_source_set_monitoring_type(
 			obs_source,
 			(obs_monitoring_type)(num_or_value(
-				num, value >= 3 ? 0 : value, 128.0)));
+				params->get_num(0),
+				midi->get_value() >= 3 ? 0 : midi->get_value(),
+				128.0)));
 		break;
-	case MMGAction::SourceProperties::PROPERTY_CUSTOM:
+	case MMGAction::AudioSources::SOURCE_AUDIO_CUSTOM:
 		break;
 	default:
 		break;
 	}
 }
 
-void MMGAction::do_action_media(Media kind, const QString &source, double time,
-				uint value)
+void MMGAction::do_action_media_source(const MMGAction *params,
+				       const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
-		obs_get_source_by_name(source.qtocs());
+		obs_get_source_by_name(params->get_str(0).qtocs());
 	if (!obs_source)
 		return;
-	if ((obs_source_get_output_flags(obs_source) &
-	     OBS_SOURCE_CONTROLLABLE_MEDIA) == 0)
+	if (!(obs_source_get_output_flags(obs_source) &
+	      OBS_SOURCE_CONTROLLABLE_MEDIA))
 		return;
 	obs_media_state state = obs_source_media_get_state(obs_source);
-	auto new_time = (int64_t)(num_or_value(time, value,
-					       get_obs_media_length(source)) *
-				  1000);
-	switch (kind) {
-	case MMGAction::Media::MEDIA_TOGGLE_PLAYPAUSE:
+	auto new_time =
+		(int64_t)(num_or_value(
+				  params->get_num(0), midi->get_value(),
+				  get_obs_media_length(params->get_str(0))) *
+			  1000);
+	switch ((MMGAction::MediaSources)params->get_sub()) {
+	case MMGAction::MediaSources::SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
 		switch (state) {
 		case OBS_MEDIA_STATE_PLAYING:
 			obs_source_media_play_pause(obs_source, true);
@@ -650,27 +712,27 @@ void MMGAction::do_action_media(Media kind, const QString &source, double time,
 			break;
 		}
 		break;
-	case MMGAction::Media::MEDIA_RESTART:
+	case MMGAction::MediaSources::SOURCE_MEDIA_RESTART:
 		obs_source_media_restart(obs_source);
 		break;
-	case MMGAction::Media::MEDIA_STOP:
+	case MMGAction::MediaSources::SOURCE_MEDIA_STOP:
 		obs_source_media_stop(obs_source);
 		break;
-	case MMGAction::Media::MEDIA_TIME:
+	case MMGAction::MediaSources::SOURCE_MEDIA_TIME:
 		obs_source_media_set_time(obs_source, new_time);
 		break;
-	case MMGAction::Media::MEDIA_SKIP_FORWARD_TRACK:
+	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TRACK:
 		obs_source_media_next(obs_source);
 		break;
-	case MMGAction::Media::MEDIA_SKIP_BACKWARD_TRACK:
+	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TRACK:
 		obs_source_media_previous(obs_source);
 		break;
-	case MMGAction::Media::MEDIA_SKIP_FORWARD_TIME:
+	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TIME:
 		obs_source_media_set_time(
 			obs_source,
 			obs_source_media_get_time(obs_source) + new_time);
 		break;
-	case MMGAction::Media::MEDIA_SKIP_BACKWARD_TIME:
+	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TIME:
 		obs_source_media_set_time(
 			obs_source,
 			obs_source_media_get_time(obs_source) - new_time);
@@ -680,22 +742,24 @@ void MMGAction::do_action_media(Media kind, const QString &source, double time,
 	}
 }
 
-void MMGAction::do_action_transitions(Transitions kind, const QString names[4],
-				      double time, uint value)
+void MMGAction::do_action_transitions(const MMGAction *params,
+				      const MMGMessage *midi)
 {
-	Q_UNUSED(value);
+	Q_UNUSED(midi);
 	OBSSourceAutoRelease obs_transition =
-		obs_get_transition_by_name(names[0].qtocs());
+		obs_get_transition_by_name(params->get_str(0).qtocs());
 	if (!obs_transition)
 		obs_transition = obs_frontend_get_current_transition();
 	int obs_transition_time =
-		time == 0 ? obs_frontend_get_transition_duration() : time;
+		params->get_num(0) == 0 ? obs_frontend_get_transition_duration()
+					: params->get_num(0);
 	OBSSourceAutoRelease obs_source =
-		obs_get_source_by_name(names[2].qtocs());
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(names[1].qtocs());
+		obs_get_source_by_name(params->get_str(2).qtocs());
+	OBSSceneAutoRelease obs_scene =
+		obs_get_scene_by_name(params->get_str(1).qtocs());
 	OBSSceneItemAutoRelease obs_sceneitem =
 		obs_scene_sceneitem_from_source(obs_scene, obs_source);
-	switch (kind) {
+	switch ((MMGAction::Transitions)params->get_sub()) {
 	case MMGAction::Transitions::TRANSITION_CURRENT:
 		obs_frontend_set_current_transition(obs_transition);
 		obs_frontend_set_transition_duration(obs_transition_time);
@@ -703,7 +767,7 @@ void MMGAction::do_action_transitions(Transitions kind, const QString names[4],
 	/*case MMGAction::Transitions::TRANSITION_TBAR:
 		if (!obs_frontend_preview_program_mode_active())
 			break;
-		obs_frontend_set_tbar_position((int)(num_or_value(time, value, 100.0) * 10.24));
+		obs_frontend_set_tbar_position((int)(num_or_value(time, midi->get_value(), 100.0) * 10.24));
 		obs_frontend_release_tbar();
 		break;*/
 	case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
@@ -727,16 +791,16 @@ void MMGAction::do_action_transitions(Transitions kind, const QString names[4],
 	}
 }
 
-void MMGAction::do_action_filters(Filters kind, const QString names[4],
-				  int index, uint value)
+void MMGAction::do_action_filters(const MMGAction *params,
+				  const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
-		obs_get_source_by_name(names[0].qtocs());
-	OBSSourceAutoRelease obs_filter =
-		obs_source_get_filter_by_name(obs_source, names[1].qtocs());
+		obs_get_source_by_name(params->get_str(0).qtocs());
+	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(
+		obs_source, params->get_str(1).qtocs());
 	if (!obs_filter)
 		return;
-	switch (kind) {
+	switch ((MMGAction::Filters)params->get_sub()) {
 	case MMGAction::Filters::FILTER_SHOW:
 		obs_source_set_enabled(obs_filter, true);
 		break;
@@ -748,12 +812,13 @@ void MMGAction::do_action_filters(Filters kind, const QString names[4],
 				       !obs_source_enabled(obs_filter));
 		break;
 	case MMGAction::Filters::FILTER_REORDER:
-		if (num_or_value(index - 1, value, 128.0) >=
-		    obs_source_filter_count(obs_source))
+		if (num_or_value(params->get_num(0) - 1, midi->get_value(),
+				 128.0) >= obs_source_filter_count(obs_source))
 			break;
 		obs_source_filter_set_order(obs_source, obs_filter,
 					    OBS_ORDER_MOVE_TOP);
-		for (int i = 0; i < num_or_value(index - 1, value, 128.0);
+		for (int i = 0; i < num_or_value(params->get_num(0) - 1,
+						 midi->get_value(), 128.0);
 		     ++i) {
 			obs_source_filter_set_order(obs_source, obs_filter,
 						    OBS_ORDER_MOVE_DOWN);
@@ -766,15 +831,16 @@ void MMGAction::do_action_filters(Filters kind, const QString names[4],
 	}
 }
 
-void MMGAction::do_action_hotkeys(Hotkeys kind, const QString &name, uint value)
+void MMGAction::do_action_hotkeys(const MMGAction *params,
+				  const MMGMessage *midi)
 {
-	Q_UNUSED(value);
+	Q_UNUSED(midi);
 	struct HotkeyRequestBody {
 		QString hotkey_name;
 		obs_hotkey_id hotkey_id;
 	};
 	HotkeyRequestBody req;
-	req.hotkey_name = name;
+	req.hotkey_name = params->get_str(0);
 	req.hotkey_id = -1;
 
 	obs_enum_hotkeys(
@@ -795,7 +861,7 @@ void MMGAction::do_action_hotkeys(Hotkeys kind, const QString &name, uint value)
 	if (req.hotkey_id == (size_t)(-1))
 		return;
 
-	switch (kind) {
+	switch ((MMGAction::Hotkeys)params->get_sub()) {
 	case MMGAction::Hotkeys::HOTKEY_HOTKEY:
 		obs_hotkey_trigger_routed_callback(req.hotkey_id, true);
 		break;
@@ -804,32 +870,67 @@ void MMGAction::do_action_hotkeys(Hotkeys kind, const QString &name, uint value)
 	}
 }
 
-void MMGAction::do_action_send_midi(SendMidi kind, const QString strs[4],
-				    const double nums[4], uint value)
+void MMGAction::do_action_profiles(const MMGAction *params,
+				   const MMGMessage *midi)
+{
+	Q_UNUSED(params);
+	Q_UNUSED(midi);
+}
+
+void MMGAction::do_action_collections(const MMGAction *params,
+				      const MMGMessage *midi)
+{
+	Q_UNUSED(params);
+	Q_UNUSED(midi);
+}
+
+void MMGAction::do_action_ui(const MMGAction *params, const MMGMessage *midi)
+{
+	Q_UNUSED(params);
+	Q_UNUSED(midi);
+}
+
+void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 {
 	libremidi::message message;
-	if (strs[1] == "Note On") {
+	int channel = params->get_num(0) < 1 ? 1 : params->get_num(0);
+	if (params->get_str(1) == "Note On") {
 		message = libremidi::message::note_on(
-			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
-	} else if (strs[1] == "Note Off") {
+			channel,
+			num_or_value(params->get_num(1), midi->get_note(),
+				     128.0),
+			num_or_value(params->get_num(2), midi->get_value(),
+				     128.0));
+	} else if (params->get_str(1) == "Note Off") {
 		message = libremidi::message::note_off(
-			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
-	} else if (strs[1] == "Control Change") {
+			channel,
+			num_or_value(params->get_num(1), midi->get_note(),
+				     128.0),
+			num_or_value(params->get_num(2), midi->get_value(),
+				     128.0));
+	} else if (params->get_str(1) == "Control Change") {
 		message = libremidi::message::control_change(
-			nums[0], nums[1], num_or_value(nums[2], value, 128.0));
-	} else if (strs[1] == "Program Change") {
+			channel,
+			num_or_value(params->get_num(1), midi->get_note(),
+				     128.0),
+			num_or_value(params->get_num(2), midi->get_value(),
+				     128.0));
+	} else if (params->get_str(1) == "Program Change") {
 		message = libremidi::message::program_change(
-			nums[0], num_or_value(nums[1], value, 128.0));
-	} else if (strs[1] == "Pitch Bend") {
-		int num1 = num_or_value(nums[1], value, 128.0);
+			channel, num_or_value(params->get_num(1),
+					      midi->get_value(), 128.0));
+	} else if (params->get_str(1) == "Pitch Bend") {
+		int num1 = num_or_value(params->get_num(1), midi->get_value(),
+					128.0);
 		message = libremidi::message::pitch_bend(
-			nums[0], num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
+			channel, num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
 	} else {
 		// Message type is invalid
 		return;
 	}
-	if (kind == MMGAction::SendMidi::SENDMIDI_SENDMIDI) {
-		MMGDevice *const output = global()->find_device(strs[0]);
+	if (params->get_sub() == 0) {
+		MMGDevice *const output =
+			global()->find_device(params->get_str(0));
 		if (!output)
 			return;
 		if (!output->output_port_open())
@@ -838,16 +939,18 @@ void MMGAction::do_action_send_midi(SendMidi kind, const QString strs[4],
 	}
 }
 
-void MMGAction::do_action_sleep(Sleep kind, ulong duration, uint value)
+void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
 {
-	switch (kind) {
-	case MMGAction::Sleep::WAIT_MS:
+	switch ((MMGAction::Timeout)params->get_sub()) {
+	case MMGAction::Timeout::TIMEOUT_MS:
 		std::this_thread::sleep_for(std::chrono::milliseconds(
-			(int)num_or_value(duration, value, 128.0)));
+			(int)num_or_value(params->get_num(0), midi->get_value(),
+					  128.0)));
 		break;
-	case MMGAction::Sleep::WAIT_S:
+	case MMGAction::Timeout::TIMEOUT_S:
 		std::this_thread::sleep_for(std::chrono::seconds(
-			(int)num_or_value(duration, value, 128.0)));
+			(int)num_or_value(params->get_num(0), midi->get_value(),
+					  128.0)));
 		break;
 	default:
 		break;

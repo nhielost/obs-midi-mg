@@ -79,8 +79,7 @@ To adjust other settings or view this page, click the *Preferences* button in th
 The coming updates will hopefully introduce these new features:
 
 - A transfer bindings between devices feature (for when a device has disconnected or is unavailable)
-- Using more elements of the message than just the value (planned for 1.2.0)
-- More actions involving external features such as Scene Collections, Themes, and other settings
+- More actions involving external features such as Scene Collections, Themes, and other settings (planned for 1.3.0)
 - MIDI Output device support - send a message when an event in OBS Studio occurs (well underway!)
 
 ## Feedback

@@ -60,11 +60,13 @@ using namespace MMGUtils;
 	lcd_##kind = LCDData(ui->lcd_##kind); \
 	ui->lcd_##kind->installEventFilter(this)
 
-#define SET_TOOLTIP(element, text) ui->element->setToolTip(tr(text))
+#define SET_TOOLTIP(element, text)                 \
+	if (global()->preferences().tooltips) {    \
+		ui->element->setToolTip(tr(text)); \
+	}
 
 #define SET_LCD_TOOLTIP(element, text)                         \
 	SET_TOOLTIP(lcd_##element, text);                      \
-	SET_TOOLTIP(label_##element, text);                    \
 	SET_TOOLTIP(down_major_##element,                      \
 		    QVariant(lcd_##element.get_major_step())   \
 			    .toString()                        \
@@ -84,7 +86,7 @@ using namespace MMGUtils;
 		    QVariant(lcd_##element.get_major_step())   \
 			    .toString()                        \
 			    .prepend("Adjust this value by ")  \
-			    .qtocs())
+			    .qtocs());
 
 MidiMGWindow::MidiMGWindow(QWidget *parent)
 	: QDialog(parent, Qt::Dialog), ui(new Ui::MidiMGWindow)
@@ -115,10 +117,12 @@ bool MidiMGWindow::eventFilter(QObject *obj, QEvent *event)
 	if (event->type() == QEvent::MouseButtonRelease) {
 		QString name = obj->objectName();
 		if (name == "lcd_note") {
-			/*set_value(0 - ui->lcd_note->isEnabled());
-			SET_LCD_STATUS(note, Disabled,
-				       ui->lcd_note->isEnabled());
-			lcd_note.display();*/
+			if (!ui->lcd_value->isVisible()) {
+				SET_LCD_STATUS(note, Disabled,
+					       ui->lcd_note->isEnabled());
+				set_note(ui->lcd_note->isEnabled() - 1);
+				lcd_note.reset(current_message->get_value());
+			}
 		} else if (name == "lcd_value") {
 			set_value(0 - ui->lcd_value->isEnabled());
 			SET_LCD_STATUS(value, Disabled,
@@ -154,7 +158,6 @@ void MidiMGWindow::show_window()
 {
 	setVisible(!isVisible());
 	ui->editor_structure->clearSelection();
-	current_device = global()->get_active_device();
 	switch_structure_pane(MMGModes::MMGMODE_DEVICE);
 	ui->pages->setCurrentIndex(0);
 }
@@ -216,7 +219,13 @@ void MidiMGWindow::connect_ui_signals()
 		switch_structure_pane(MMGModes::MMGMODE_PREFERENCES);
 	});
 	connect(ui->editor_global_enable, &QCheckBox::toggled, this,
-		[&](bool toggled) { global()->set_running(toggled); });
+		[&](bool toggled) {
+			global()->preferences().active = toggled;
+		});
+	connect(ui->editor_tooltips_enable, &QCheckBox::toggled, this,
+		[&](bool toggled) {
+			global()->preferences().tooltips = toggled;
+		});
 	connect(ui->button_export, &QPushButton::clicked, this,
 		&MidiMGWindow::export_bindings);
 	connect(ui->button_import, &QPushButton::clicked, this,
@@ -255,16 +264,6 @@ void MidiMGWindow::configure_lcd_widgets()
 	lcd_double2.set_step(0.1, 1.0);
 	lcd_double3.set_step(0.1, 1.0);
 	lcd_double4.set_step(0.1, 1.0);
-
-	SET_LCD_TOOLTIP(
-		channel,
-		"This is the channel that the binding will look for in an incoming message.\nThis value will always be required.");
-	SET_LCD_TOOLTIP(
-		note,
-		"This is the note or control that the binding will look for in an incoming message.\nIf this is set to OFF, this value is not required.");
-	SET_LCD_TOOLTIP(
-		value,
-		"This is the value that the binding will look for in an incoming message.\nIf this set to OFF, this value is not required.");
 }
 
 void MidiMGWindow::set_device_view()
@@ -305,6 +304,16 @@ void MidiMGWindow::set_message_view()
 	// Re-set current_message to the correct one
 	*current_message = temp;
 
+	SET_LCD_TOOLTIP(
+		channel,
+		"This is the channel that the binding will look for in an incoming message.\nThis value will always be required.");
+	SET_LCD_TOOLTIP(
+		note,
+		"This is the note or control that the binding will look for in an incoming message.\nIf this is set to OFF, this value is not required.");
+	SET_LCD_TOOLTIP(
+		value,
+		"This is the value that the binding will look for in an incoming message.\nIf this set to OFF, this value is not required.");
+
 	on_message_type_change(temp.get_type());
 }
 
@@ -337,6 +346,10 @@ void MidiMGWindow::set_action_view()
 	lcd_double4.reset(temp.get_num(3) == -1 ? 0 : temp.get_num(3));
 	// Re-set current_action to the correct one
 	*current_action = temp;
+
+	SET_TOOLTIP(editor_cat, "Choose the type of action to execute.");
+	SET_TOOLTIP(editor_sub,
+		    "Choose which action to execute out of these options.");
 }
 
 void MidiMGWindow::set_sub_visible(bool visible) const
@@ -369,7 +382,7 @@ void MidiMGWindow::on_message_type_change(const QString &type)
 	current_message->set_type(type);
 	ui->editor_type->setCurrentText(type);
 
-	SET_LCD_STATUS(note, Enabled, current_message->get_note() >= 0);
+	SET_LCD_STATUS(note, Enabled, true);
 	SET_LCD_STATUS(value, Visible, true);
 	SET_LCD_STATUS(value, Enabled, true);
 
@@ -378,19 +391,27 @@ void MidiMGWindow::on_message_type_change(const QString &type)
 		ui->label_value->setText("Velocity");
 		SET_LCD_STATUS(value, Enabled,
 			       current_message->get_value() >= 0);
+		lcd_note.reset(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Control Change") {
 		ui->label_note->setText("Control #");
 		ui->label_value->setText("Value");
 		SET_LCD_STATUS(value, Enabled,
 			       current_message->get_value() >= 0);
+		lcd_note.reset(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Program Change") {
 		ui->label_note->setText("Program #");
 		SET_LCD_STATUS(value, Visible, false);
+		SET_LCD_STATUS(note, Enabled,
+			       current_message->get_value() >= 0);
+		lcd_note.reset(current_message->get_value());
 	} else if (type == "Pitch Bend") {
 		ui->label_note->setText("Pitch Adj.");
 		SET_LCD_STATUS(value, Visible, false);
+		SET_LCD_STATUS(note, Enabled,
+			       current_message->get_value() >= 0);
+		lcd_note.reset(current_message->get_value());
 	}
 }
 
@@ -434,20 +455,21 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 	case MMGAction::Category::MMGACTION_SCENE:
 		on_action_sub_change(0);
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
-		set_sub_options(
-			{"Move Source", "Display Source", "Source Locking",
-			 "Source Crop", "Source Scale", "Rotate Source",
-			 "Source Bounding Box", "Reset Source Transform"});
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
+		set_sub_options({"Move Source", "Display Source",
+				 "Source Locking", "Source Crop",
+				 "Source Scale", "Source Scale Filtering",
+				 "Rotate Source", "Source Bounding Box",
+				 "Source Blending Mode",
+				 "Take Source Screenshot"});
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
 		set_sub_options(
 			{"Change Source Volume To", "Change Source Volume By",
 			 "Mute Source", "Unmute Source", "Toggle Source Mute",
-			 "Take Source Screenshot", "Source Audio Offset",
-			 "Source Audio Monitor"});
+			 "Source Audio Offset", "Source Audio Monitor"});
 		break;
-	case MMGAction::Category::MMGACTION_MEDIA:
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
 		set_sub_options({"Play or Pause", "Restart", "Stop",
 				 "Set Track Time", "Next Track",
 				 "Previous Track", "Skip Forward Time",
@@ -466,10 +488,17 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 				 "Reorder Filter Appearance"});
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
-	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
 		on_action_sub_change(0);
 		break;
-	case MMGAction::Category::MMGACTION_WAIT:
+	case MMGAction::Category::MMGACTION_PROFILE:
+	case MMGAction::Category::MMGACTION_COLLECTION:
+	case MMGAction::Category::MMGACTION_UI:
+		set_sub_options({"Coming Soon!"});
+		break;
+	case MMGAction::Category::MMGACTION_MIDI:
+		on_action_sub_change(0);
+		break;
+	case MMGAction::Category::MMGACTION_TIMEOUT:
 		set_sub_options({"Wait in Milliseconds", "Wait in Seconds"});
 		break;
 	}
@@ -510,6 +539,9 @@ void MidiMGWindow::on_action_sub_change(int index)
 			ui->label_str1->setText("Scene");
 			MMGAction::do_obs_scene_enum(ui->editor_str1);
 			ui->editor_str1->addItem("Use Message Value");
+			SET_TOOLTIP(
+				editor_str1,
+				"Select the scene to change the preview to.\nThe option \"Use Message Value\" allows for the value of the message to be used in place of the scene name.\nThe value 0 is for the first scene, 1 for the second, and so on.\nThis means that if there are more than 128 scenes, this will not be able to switch to them.");
 		}
 		break;
 	case MMGAction::Category::MMGACTION_SCENE:
@@ -517,51 +549,73 @@ void MidiMGWindow::on_action_sub_change(int index)
 		ui->label_str1->setText("Scene");
 		MMGAction::do_obs_scene_enum(ui->editor_str1);
 		ui->editor_str1->addItem("Use Message Value");
+		SET_TOOLTIP(
+			editor_str1,
+			"Select the scene to change to.\nThe option \"Use Message Value\" allows for the value of the message to be used in place of the scene name.\nThe value 0 is for the first scene, 1 for the second, and so on.\nThis means that if there are more than 128 scenes, this will not be able to switch to them.");
+
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
 		set_strs_visible(true);
 		ui->label_str1->setText("Scene");
 		MMGAction::do_obs_scene_enum(ui->editor_str1);
+		SET_TOOLTIP(
+			editor_str1,
+			"Select the scene in which the video source is to be used.");
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
 		set_strs_visible(true);
 		ui->label_str1->setText("Source");
 		MMGAction::do_obs_source_enum(
 			ui->editor_str1,
-			MMGAction::Category::MMGACTION_SOURCE_PROPS,
-			QString::number(index));
+			MMGAction::Category::MMGACTION_SOURCE_AUDIO);
+		SET_TOOLTIP(editor_str1, "Select the audio source to be used.");
 		break;
-	case MMGAction::Category::MMGACTION_MEDIA:
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
 		set_strs_visible(true);
 		ui->label_str1->setText("Source");
 		MMGAction::do_obs_media_enum(ui->editor_str1);
+		SET_TOOLTIP(editor_str1, "Select the media source to be used.");
 		break;
 	case MMGAction::Category::MMGACTION_TRANSITION:
 		set_strs_visible(true);
 		ui->label_str1->setText("Transition");
 		MMGAction::do_obs_transition_enum(ui->editor_str1);
+		SET_TOOLTIP(editor_str1, "Select the transition to be used.");
 		break;
 	case MMGAction::Category::MMGACTION_FILTER:
 		set_strs_visible(true);
 		ui->label_str1->setText("Source");
 		MMGAction::do_obs_source_enum(ui->editor_str1);
+		SET_TOOLTIP(
+			editor_str1,
+			"Select the source containing the filter to be edited.");
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
 		set_strs_visible(true);
 		ui->label_str1->setText("Hotkey");
 		MMGAction::do_obs_hotkey_enum(ui->editor_str1);
+		SET_TOOLTIP(editor_str1, "Select the hotkey to be activated.");
 		break;
-	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+	case MMGAction::Category::MMGACTION_PROFILE:
+	case MMGAction::Category::MMGACTION_COLLECTION:
+	case MMGAction::Category::MMGACTION_UI:
+		break;
+	case MMGAction::Category::MMGACTION_MIDI:
 		set_strs_visible(true);
 		ui->label_str1->setText("Device");
 		ui->editor_str1->addItems(MMGDevice::get_output_device_names());
+		SET_TOOLTIP(editor_str1,
+			    "Select the output device to send the message to.");
 		break;
-	case MMGAction::Category::MMGACTION_WAIT:
+	case MMGAction::Category::MMGACTION_TIMEOUT:
 		set_doubles_visible(true);
 		ui->label_double1->setText("Time");
 		lcd_double1.set_range(0.0, 1000.0);
 		lcd_double1.set_step(1.0, 10.0);
 		lcd_double1.reset();
+		SET_LCD_TOOLTIP(
+			double1,
+			"This is how much time the action will pause for before moving on to the next action (in the units specified).\nUsing the value for this action limits the largest possible wait time to 128 instead of the default 1000 units.");
 		break;
 	default:
 		break;
@@ -575,7 +629,11 @@ void MidiMGWindow::set_channel(double value)
 
 void MidiMGWindow::set_note(double value)
 {
-	current_message->set_note(value);
+	if (ui->lcd_value->isVisible()) {
+		current_message->set_note(value);
+	} else {
+		set_value(value);
+	}
 }
 
 void MidiMGWindow::set_value(double value)
@@ -597,56 +655,70 @@ void MidiMGWindow::set_str1(const QString &value)
 	lcd_double1.set_use_time(false);
 
 	switch (current_action->get_category()) {
-	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
 		set_strs_visible(true, true);
 		ui->label_str2->setText("Source");
 		MMGAction::do_obs_source_enum(
 			ui->editor_str2, MMGAction::Category::MMGACTION_SCENE,
 			value);
+		SET_TOOLTIP(editor_str2,
+			    "Select a source within the scene selected above.");
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
-		switch ((MMGAction::SourceProperties)current_action->get_sub()) {
-		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGETO:
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
+		switch ((MMGAction::AudioSources)current_action->get_sub()) {
+		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGETO:
 			set_doubles_visible(true);
 			ui->label_double1->setText("Volume");
 			lcd_double1.set_range(0.0, 100.0);
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Adjust the source volume to a certain percentage.\nUsing the message value will not allow for setting the volume to 0 - use the Mute option if this is desired.");
 			break;
-		case MMGAction::SourceProperties::PROPERTY_VOLUME_CHANGEBY:
+		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
 			set_doubles_visible(true);
 			ui->label_double1->setText("Volume Adj.");
 			lcd_double1.set_range(-50.0, 50.0);
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Increase or decrease the source volume by a certain percentage.\nUsing the message value of 0 corresponds to -50%, use the value 64 for 0% change.");
 			break;
-		case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_ON:
-		case MMGAction::SourceProperties::PROPERTY_VOLUME_MUTE_OFF:
-		case MMGAction::SourceProperties::
-			PROPERTY_VOLUME_MUTE_TOGGLE_ONOFF:
-		case MMGAction::SourceProperties::PROPERTY_SCREENSHOT:
+		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_ON:
+		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_OFF:
+		case MMGAction::AudioSources::
+			SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
 			break;
-		case MMGAction::SourceProperties::PROPERTY_AUDIO_OFFSET:
+		case MMGAction::AudioSources::SOURCE_AUDIO_OFFSET:
 			set_doubles_visible(true);
 			ui->label_double1->setText("Sync Offset");
 			lcd_double1.set_range(0.0, 20000.0);
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Change the audio sync offset in milliseconds.\nThe message value uses 25ms increments.\nThe hard limit for using the value is 3175ms, compared to the fixed 20,000ms limit.");
+
 			break;
-		case MMGAction::SourceProperties::PROPERTY_AUDIO_MONITOR:
+		case MMGAction::AudioSources::SOURCE_AUDIO_MONITOR:
 			set_strs_visible(true, true);
 			ui->label_str2->setText("Monitor");
 			ui->editor_str2->addItems(
 				{"Off", "Monitor Only", "Monitor & Output"});
 			break;
+			SET_TOOLTIP(
+				editor_str2,
+				"Select the monitor to use for the source selected above.");
 		default:
 			break;
 		}
 		break;
-	case MMGAction::Category::MMGACTION_MEDIA:
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
 		lcd_double1.set_use_time(true);
-		switch ((MMGAction::Media)current_action->get_sub()) {
-		case MMGAction::Media::MEDIA_TIME:
+		switch ((MMGAction::MediaSources)current_action->get_sub()) {
+		case MMGAction::MediaSources::SOURCE_MEDIA_TIME:
 			set_doubles_visible(true);
 			ui->label_double1->setText("Time");
 			lcd_double1.set_range(
@@ -654,9 +726,12 @@ void MidiMGWindow::set_str1(const QString &value)
 					     current_action->get_str(0)));
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"This will set the time of the current track of the media source selected above.\nUsing the message value will divide the track into equal sections.\nThe value of 0 is the beginning, and the value of 127 is just before the end.");
 			break;
-		case MMGAction::Media::MEDIA_SKIP_FORWARD_TIME:
-		case MMGAction::Media::MEDIA_SKIP_BACKWARD_TIME:
+		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TIME:
+		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TIME:
 			set_doubles_visible(true);
 			ui->label_double1->setText("Time Adj.");
 			lcd_double1.set_range(
@@ -664,6 +739,9 @@ void MidiMGWindow::set_str1(const QString &value)
 					     current_action->get_str(0)));
 			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"This will skip time of the current track of the media source selected above.\nUsing the message value will divide the track into equal sections.\nThe value of 0 is the current time, and increasing values move outward from that position.");
 			break;
 		default:
 			break;
@@ -677,6 +755,9 @@ void MidiMGWindow::set_str1(const QString &value)
 			lcd_double1.set_range(0.0, 20000.0);
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Adjust the duration of the transition if necessary.\nLeaving the value at 0 will use the default value.\nThe message value uses 25ms increments.\nThe hard limit for using the value is 3175ms, compared to the fixed 20,000ms limit.");
 			break;
 		/*case MMGAction::Transitions::TRANSITION_TBAR:
 			set_doubles_visible(true);
@@ -691,6 +772,9 @@ void MidiMGWindow::set_str1(const QString &value)
 			ui->label_str2->setText("Scene");
 			MMGAction::do_obs_scene_enum(ui->editor_str2);
 			break;
+			SET_TOOLTIP(
+				editor_str2,
+				"Select which scene the source transition should be applied.");
 		default:
 			break;
 		}
@@ -700,14 +784,15 @@ void MidiMGWindow::set_str1(const QString &value)
 		ui->label_str2->setText("Filter");
 		MMGAction::do_obs_filter_enum(
 			ui->editor_str2,
-			MMGAction::Category::MMGACTION_SOURCE_PROPS, value);
+			MMGAction::Category::MMGACTION_SOURCE_VIDEO, value);
 		break;
-	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+	case MMGAction::Category::MMGACTION_MIDI:
 		set_strs_visible(true, true);
 		ui->label_str2->setText("Type");
 		for (int i = 0; i < ui->editor_type->count(); ++i) {
 			ui->editor_str2->addItem(ui->editor_type->itemText(i));
 		}
+		SET_TOOLTIP(editor_str2, "Select the type of message to send.");
 		break;
 	default:
 		break;
@@ -721,12 +806,10 @@ void MidiMGWindow::set_str2(const QString &value)
 	if (value.isEmpty())
 		return;
 
-	QString str1;
-
 	switch (current_action->get_category()) {
-	case MMGAction::Category::MMGACTION_SOURCE_TRANS:
-		switch ((MMGAction::SourceTransform)current_action->get_sub()) {
-		case MMGAction::SourceTransform::TRANSFORM_POSITION:
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
+		switch ((MMGAction::VideoSources)current_action->get_sub()) {
+		case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
 			set_doubles_visible(true, true);
 			ui->label_double1->setText("Pos X");
 			ui->label_double2->setText("Pos Y");
@@ -736,54 +819,70 @@ void MidiMGWindow::set_str2(const QString &value)
 			lcd_double2.set_range(0.0, get_obs_dimensions().second);
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Set the selected source's horizontal position on the selected scene.\nUsing the message value will increment the display width.\nA value of 0 corresponds to the far left, and a value of 127 corresponds to the far right.");
+			SET_LCD_TOOLTIP(
+				double2,
+				"Set the selected source's vertical position on the selected scene.\nUsing the message value will increment the display height.\nA value of 0 corresponds to the top, and a value of 127 corresponds to the bottom.");
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_DISPLAY:
+		case MMGAction::VideoSources::SOURCE_VIDEO_DISPLAY:
 			set_strs_visible(true, true, true);
 			ui->label_str3->setText("Action");
 			ui->editor_str3->addItems({"Show", "Hide", "Toggle"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select how to display the selected source on the selected scene.");
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_LOCKED:
+		case MMGAction::VideoSources::SOURCE_VIDEO_LOCKED:
 			set_strs_visible(true, true, true);
 			ui->label_str3->setText("Action");
 			ui->editor_str3->addItems(
 				{"Locked", "Unlocked", "Toggle"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the lock state of the selected source on the selected scene.");
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_CROP:
+		case MMGAction::VideoSources::SOURCE_VIDEO_CROP:
 			set_doubles_visible(true, true, true, true);
 			ui->label_double1->setText("Top");
 			ui->label_double2->setText("Right");
 			ui->label_double3->setText("Bottom");
 			ui->label_double4->setText("Left");
 			lcd_double1.set_range(
-				0.0, get_obs_source_dimensions(
-					     ui->editor_str1->currentText())
-						     .second >>
-					     1);
+				0.0,
+				get_obs_source_dimensions(value).second >> 1);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
 			lcd_double2.set_range(
-				0.0, get_obs_source_dimensions(
-					     ui->editor_str1->currentText())
-						     .first >>
-					     1);
+				0.0,
+				get_obs_source_dimensions(value).first >> 1);
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
 			lcd_double3.set_range(
-				0.0, get_obs_source_dimensions(
-					     ui->editor_str1->currentText())
-						     .second >>
-					     1);
+				0.0,
+				get_obs_source_dimensions(value).second >> 1);
 			lcd_double3.set_step(0.5, 5.0);
 			lcd_double3.reset();
 			lcd_double4.set_range(
-				0.0, get_obs_source_dimensions(
-					     ui->editor_str1->currentText())
-						     .first >>
-					     1);
+				0.0,
+				get_obs_source_dimensions(value).first >> 1);
 			lcd_double4.set_step(0.5, 5.0);
 			lcd_double4.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Set the selected source's cropped length (from the top) on the selected scene.\nUsing the message value will increment the source height.\nA value of 0 corresponds to the top of the source, and a value of 127 corresponds to the center of the source.");
+			SET_LCD_TOOLTIP(
+				double2,
+				"Set the selected source's cropped length (from the right) on the selected scene.\nUsing the message value will increment the source width.\nA value of 0 corresponds to the far right of the source, and a value of 127 corresponds to the center of the source.");
+			SET_LCD_TOOLTIP(
+				double3,
+				"Set the selected source's cropped length (from the bottom) on the selected scene.\nUsing the message value will increment the source height.\nA value of 0 corresponds to the bottom of the source, and a value of 127 corresponds to the center of the source.");
+			SET_LCD_TOOLTIP(
+				double4,
+				"Set the selected source's cropped length (from the left) on the selected scene.\nUsing the message value will increment the source width.\nA value of 0 corresponds to the far left of the source, and a value of 127 corresponds to the center of the source.");
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_SCALE:
+		case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
 			set_doubles_visible(true, true);
 			ui->label_double1->setText("Scale X");
 			ui->label_double2->setText("Scale Y");
@@ -794,14 +893,27 @@ void MidiMGWindow::set_str2(const QString &value)
 			lcd_double2.set_step(0.05, 0.5);
 			lcd_double2.reset(1.0);
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_ROTATION:
+		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Filtering");
+			ui->editor_str3->addItems(
+				{"Disable", "Point", "Bilinear", "Bicubic",
+				 "Lanczos", "Area", "Use Message Value"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the scale filter to set on the selected source in the selected scene.");
+			break;
+		case MMGAction::VideoSources::SOURCE_VIDEO_ROTATION:
 			set_doubles_visible(true);
-			ui->label_double1->setText("Rotation (°)");
+			ui->label_double1->setText("Rotation");
 			lcd_double1.set_range(0.0, 360.0);
 			lcd_double1.set_step(0.5, 5.0);
 			lcd_double1.reset();
+			SET_LCD_TOOLTIP(
+				double1,
+				"Set the rotation of the selected source on the selected scene.\nThis value is in degrees.\nUsing the message value corresponds to the full rotation of a source.\nA value of 0 is 0 degrees, and a value of 127 is roughly 357 degrees.");
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_BOUNDINGBOX:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDINGBOX:
 			set_doubles_visible(true, true);
 			ui->label_double1->setText("Size X");
 			ui->label_double2->setText("Size Y");
@@ -818,12 +930,24 @@ void MidiMGWindow::set_str2(const QString &value)
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
 			break;
-		case MMGAction::SourceTransform::TRANSFORM_RESET:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Blend Mode");
+			ui->editor_str3->addItems(
+				{"Normal", "Additive", "Subtract", "Screen",
+				 "Multiply", "Lighten", "Darken",
+				 "Use Message Value"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the blend mode to set on the selected source in the selected scene.");
+			break;
+		case MMGAction::VideoSources::SOURCE_VIDEO_SCREENSHOT:
+		case MMGAction::VideoSources::SOURCE_VIDEO_CUSTOM:
 			break;
 		}
 		break;
-	case MMGAction::Category::MMGACTION_SOURCE_PROPS:
-		if (current_action->get_sub() == 7) {
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
+		if (current_action->get_sub() == 6) {
 			current_action->set_num(
 				0, ui->editor_str2->currentIndex());
 		}
@@ -837,6 +961,9 @@ void MidiMGWindow::set_str2(const QString &value)
 			MMGAction::do_obs_source_enum(
 				ui->editor_str3,
 				MMGAction::Category::MMGACTION_SCENE, value);
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the source on the selected scene the transition should be applied to.");
 			break;
 		default:
 			break;
@@ -851,39 +978,50 @@ void MidiMGWindow::set_str2(const QString &value)
 				1.0, get_obs_source_filter_count(
 					     ui->editor_str1->currentText()));
 			lcd_double1.set_step(1.0, 5.0);
-			lcd_double1.reset();
+			lcd_double1.reset(1.0);
+			SET_LCD_TOOLTIP(
+				double1,
+				"Set the position that the filter should appear at.");
 			break;
 		default:
 			break;
 		}
 		break;
-	case MMGAction::Category::MMGACTION_MIDIMESSAGE:
+	case MMGAction::Category::MMGACTION_MIDI:
 		ui->label_double1->setText("Channel");
 		lcd_double1.set_range(1.0, 16.0);
 		lcd_double1.set_step(1.0, 5.0);
-		lcd_double1.reset();
+		lcd_double1.reset(1.0);
 		lcd_double2.set_range(0.0, 127.0);
 		lcd_double2.set_step(1.0, 10.0);
 		lcd_double2.reset();
 		lcd_double3.set_range(0.0, 127.0);
 		lcd_double3.set_step(1.0, 10.0);
 		lcd_double3.reset();
-		str1 = ui->editor_str2->currentText();
-		if (str1 == "Note On" || str1 == "Note Off") {
+		if (value == "Note On" || value == "Note Off") {
 			set_doubles_visible(true, true, true);
 			ui->label_double2->setText("Note #");
 			ui->label_double3->setText("Velocity");
-		} else if (str1 == "Control Change") {
+		} else if (value == "Control Change") {
 			set_doubles_visible(true, true, true);
 			ui->label_double2->setText("Control #");
 			ui->label_double3->setText("Value");
-		} else if (str1 == "Program Change") {
+		} else if (value == "Program Change") {
 			set_doubles_visible(true, true);
 			ui->label_double2->setText("Program #");
-		} else if (str1 == "Pitch Bend") {
+		} else if (value == "Pitch Bend") {
 			set_doubles_visible(true, true);
 			ui->label_double2->setText("Pitch Adj.");
 		}
+		SET_LCD_TOOLTIP(
+			double1,
+			"Set the channel for the message.\nThis value CANNOT be used as a message value!");
+		SET_LCD_TOOLTIP(
+			double2,
+			"Set the note or control for the message.\nUsing the message note or control value corresponds 1:1.");
+		SET_LCD_TOOLTIP(
+			double3,
+			"Set the value for the message.\nUsing the message value corresponds 1:1.");
 		break;
 	default:
 		break;
@@ -895,6 +1033,20 @@ void MidiMGWindow::set_str3(const QString &value)
 	current_action->set_str(2, value);
 
 	switch (current_action->get_category()) {
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
+		switch ((MMGAction::VideoSources)current_action->get_sub()) {
+		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
+			if (value == "Use Message Value") {
+				set_double1(-1);
+			} else {
+				set_double1(ui->editor_str2->currentIndex());
+			}
+			break;
+		default:
+			break;
+		}
+		break;
 	case MMGAction::Category::MMGACTION_TRANSITION:
 		switch ((MMGAction::Transitions)current_action->get_sub()) {
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
@@ -905,6 +1057,9 @@ void MidiMGWindow::set_str3(const QString &value)
 			lcd_double1.set_step(25.0, 250.0);
 			lcd_double1.reset();
 			break;
+			SET_LCD_TOOLTIP(
+				double1,
+				"Adjust the duration of the transition if necessary.\nLeaving the value at 0 will use the default value.\nThe message value uses 25ms increments.\nThe hard limit for using the value is 3175ms, compared to the fixed 20,000ms limit.");
 		default:
 			break;
 		}
@@ -997,6 +1152,9 @@ void MidiMGWindow::on_return_click()
 	QListWidgetItem *current_item = nullptr;
 	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_PREFERENCES:
+		switch_structure_pane(MMGModes::MMGMODE_DEVICE);
+		on_list_selection_change(nullptr);
+		break;
 	case MMGModes::MMGMODE_BINDING:
 		switch_structure_pane(MMGModes::MMGMODE_DEVICE);
 		current_item = ui->editor_structure->findItems(
@@ -1032,9 +1190,9 @@ QString MidiMGWindow::binding_mode_description(enum MMGBinding::Mode mode) const
 	case MMGBinding::Mode::MMGBINDING_CONSECUTIVE:
 		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).\n\nThis setting is the default.";
 	case MMGBinding::Mode::MMGBINDING_CORRESPONDENCE:
-		return "When multiple messages are used, all action(s) will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
+		return "When multiple messages are used, all actions will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
 	case MMGBinding::Mode::MMGBINDING_MULTIPLY:
-		return "When multiple messages are used, all action(s) will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
+		return "When multiple messages are used, all actions will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
 	default:
 		return "Error: Invalid description. Report this as a bug from the Preferences page.";
 	}
@@ -1237,7 +1395,6 @@ void MidiMGWindow::import_bindings()
 		this, tr("Open Bindings File..."), "", "JSON Files (*.json)");
 	if (!filepath.isNull())
 		global()->load(filepath);
-	current_device = global()->get_active_device();
 }
 
 void MidiMGWindow::i_need_help() const

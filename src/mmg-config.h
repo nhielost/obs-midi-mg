@@ -18,6 +18,24 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-device.h"
 
+struct MMGSettings {
+	bool active = true;
+	bool tooltips = true;
+
+	MMGSettings() = default;
+	explicit MMGSettings(const QJsonObject &settings_obj)
+	{
+		active = settings_obj["active"].toBool(true);
+		tooltips = settings_obj["tooltips"].toBool(true);
+	}
+
+	void json(QJsonObject &settings_obj) const
+	{
+		settings_obj["active"] = active;
+		settings_obj["tooltips"] = tooltips;
+	}
+};
+
 class MMGConfig {
 public:
 	MMGConfig();
@@ -27,19 +45,15 @@ public:
 	void save(const QString &path_str = QString()) const;
 	void clear();
 	MMGDevice *find_device(const QString &name);
-	MMGDevice *get_active_device() const;
 	const QStringList get_device_names() const;
-	bool is_running() const { return active; };
-	void set_running(bool on) { active = on; };
-
-	uint get_next_error_default() { return ++error_device_count; };
+	MMGSettings &preferences() { return settings; };
 
 	static QString get_filepath();
 
 private:
 	MMGDevices devices;
-	bool active;
-	QString active_device_name;
-	uint error_device_count = 0;
+	MMGSettings settings;
+
+	void check_device_default_names();
 };
 Q_DECLARE_METATYPE(MMGConfig);

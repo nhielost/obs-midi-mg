@@ -21,7 +21,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 class MMGMessage {
 public:
-	MMGMessage() = default;
+	explicit MMGMessage();
 
 	explicit MMGMessage(const libremidi::message &message);
 	explicit MMGMessage(const QJsonObject &obj);
@@ -40,19 +40,25 @@ public:
 	void set_note(int val) { note = val; };
 	void set_value(int val) { value = val; };
 
-	bool is_acceptable(MMGMessage *test) const;
+	bool is_acceptable(const MMGMessage *test) const;
 	const libremidi::message to_libremidi_message() const;
 
 	static QString get_midi_type(const libremidi::message &mess);
 	static int get_midi_note(const libremidi::message &mess);
 	static int get_midi_value(const libremidi::message &mess);
 
+	static qulonglong get_next_default() { return next_default; };
+	static void set_next_default(qulonglong num) { next_default = num; };
+	static QString get_next_default_name();
+
 private:
-	QString name = MMGUtils::next_default_name(MMGModes::MMGMODE_MESSAGE);
-	QString type = "Note On";
-	int channel = 1;
-	int note = 0;
-	int value = -1;
+	QString name;
+	int channel;
+	QString type;
+	int note;
+	int value;
+
+	static qulonglong next_default;
 };
 
 using MMGMessageList = QList<MMGMessage *>;

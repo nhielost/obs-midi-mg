@@ -32,9 +32,6 @@ public:
 	void set_name(const QString &val) { name = val; };
 
 	const MMGBindingList &get_bindings() const { return bindings; };
-	uint get_next_binding_default() { return ++next_default_names[0]; }
-	uint get_next_message_default() { return ++next_default_names[1]; }
-	uint get_next_action_default() { return ++next_default_names[2]; }
 
 	MMGBinding *add(MMGBinding *const el = new MMGBinding);
 	void remove(MMGBinding *const el);
@@ -58,12 +55,19 @@ public:
 	static QStringList get_output_device_names();
 	static int get_output_port_number(const QString &deviceName);
 
+	static qulonglong get_next_default() { return next_default; };
+	static void set_next_default(qulonglong num) { next_default = num; };
+	static QString get_next_default_name();
+
 private:
 	QString name;
 	MMGBindingList bindings;
 	libremidi::midi_in input_device;
 	libremidi::midi_out output_device;
-	uint next_default_names[3]{0, 0, 0};
+
+	static qulonglong next_default;
+
+	void check_binding_default_names();
 };
 
 using MMGDevices = QList<MMGDevice *>;
