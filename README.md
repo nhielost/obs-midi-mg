@@ -87,3 +87,7 @@ The coming updates will hopefully introduce these new features:
 I would love to hear honestly from you about this plugin. Feel free to share some ideas and don't be afraid to report an issue!
 
 [Click here to go to the Issues Page](https://github.com/nhielost/obs-midi-mg/issues).
+
+## Credits
+
+I have to give a shoutout to [@cpyarger](https://github.com/cpyarger) and [@Alzy](https://github.com/alzy) for the inspiration of this plugin. Many ideas found in obs-midi-mg can be found in their plugin. Without [obs-midi](https://github.com/cpyarger/obs-midi/), obs-midi-mg would have never been possible. 
