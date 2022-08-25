@@ -36,6 +36,7 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 	check_binding_default_names();
 	open_input_port();
 	open_output_port();
+	blog(LOG_DEBUG, "Device created.");
 }
 
 void MMGDevice::json(QJsonObject &device_obj) const
@@ -48,6 +49,15 @@ void MMGDevice::json(QJsonObject &device_obj) const
 		json_bindings += json_binding;
 	}
 	device_obj["bindings"] = json_bindings;
+}
+
+void MMGDevice::blog(int log_status, const QString &message) const
+{
+	QString temp_msg = "Device {";
+	temp_msg.append(get_name());
+	temp_msg.append("} -> ");
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
 }
 
 QString MMGDevice::get_next_default_name()
@@ -112,6 +122,7 @@ void MMGDevice::open_input_port()
 	if (get_input_port_number(name) >= 0) {
 		input_device.set_callback(MMGUtils::call_midi_callback);
 		input_device.open_port(get_input_port_number(name));
+		blog(LOG_INFO, "Input port successfully opened.");
 	}
 }
 
@@ -119,6 +130,7 @@ void MMGDevice::open_output_port()
 {
 	if (get_output_port_number(name) >= 0) {
 		output_device.open_port(get_output_port_number(name));
+		blog(LOG_INFO, "Output port successfully opened.");
 	}
 }
 
@@ -126,11 +138,13 @@ void MMGDevice::close_input_port()
 {
 	input_device.cancel_callback();
 	input_device.close_port();
+	blog(LOG_INFO, "Input port closed.");
 }
 
 void MMGDevice::close_output_port()
 {
 	output_device.close_port();
+	blog(LOG_INFO, "Output port closed.");
 }
 
 bool MMGDevice::input_port_open() const

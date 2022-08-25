@@ -24,12 +24,15 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <util/platform.h>
 
 #include <QDateTime>
+#include <QFile>
 
 using namespace MMGUtils;
 
-MMGConfig::MMGConfig()
+void MMGConfig::blog(int log_status, const QString &message) const
 {
-	load();
+	QString temp_msg = "Config -> ";
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
 }
 
 void MMGConfig::check_device_default_names()
@@ -48,21 +51,41 @@ void MMGConfig::check_device_default_names()
 
 void MMGConfig::load(const QString &path_str)
 {
+	blog(LOG_INFO, "Loading configuration...");
+
 	auto default_path = obs_module_config_path(get_filepath().qtocs());
-	OBSDataAutoRelease midi_config;
-	if (os_file_exists(default_path) || !path_str.isNull()) {
-		midi_config = obs_data_create_from_json_file(
-			!path_str.isNull() ? qPrintable(path_str)
-					   : default_path);
+	QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
+	file.open(QFile::ReadOnly | QFile::Text);
+	QByteArray config_contents;
+	if (file.exists()) {
+		QString log_str = "Loading configuration file data from ";
+		log_str.append(file.fileName());
+		log_str.append("...");
+		blog(LOG_INFO, log_str);
+
+		config_contents = file.readAll();
+
+		/*midi_config = obs_data_create_from_json_file(
+			!path_str.isEmpty() ? qPrintable(path_str)
+					   : default_path);*/
 	} else {
-		midi_config = obs_data_create();
-		obs_data_save_json_safe(midi_config, default_path, ".tmp",
-					".bkp");
+		blog(LOG_INFO,
+		     "Configuration file not found. Loading new data...");
+		config_contents = "{}";
 	}
+	file.close();
 	bfree(default_path);
 
+	QJsonParseError parse_err;
 	QJsonDocument doc =
-		QJsonDocument::fromJson(obs_data_get_json(midi_config));
+		QJsonDocument::fromJson(config_contents, &parse_err);
+	if (parse_err.error != QJsonParseError::NoError) {
+		blog(LOG_INFO,
+		     "Configuration file data could not be loaded. Reason: ");
+		blog(LOG_INFO, parse_err.errorString());
+	} else {
+		blog(LOG_INFO, "Configuration file data loaded. Extracting...");
+	}
 
 	if (!devices.isEmpty())
 		clear();
@@ -79,6 +102,7 @@ void MMGConfig::load(const QString &path_str)
 		if (json_is_valid(doc["preferences"], QJsonValue::Object))
 			settings = MMGSettings(doc["preferences"].toObject());
 	}
+	blog(LOG_INFO, "Configuration file data extraction complete.");
 	// Check for devices currently connected that are not included
 	// and include them if necessary
 	for (const QString &name : MMGDevice::get_input_device_names()) {
@@ -105,8 +129,10 @@ void MMGConfig::load(const QString &path_str)
 			devices.last()->open_output_port();
 		}
 	}
+	blog(LOG_INFO, "New devices loaded.");
 	// Check for any unaffiliated devices (i.e. created by obs-midi-mg)
 	check_device_default_names();
+	blog(LOG_INFO, "Configuration loading complete.");
 }
 
 void MMGConfig::save(const QString &path_str) const
@@ -127,14 +153,21 @@ void MMGConfig::save(const QString &path_str) const
 	settings.json(json_settings);
 	config_obj["preferences"] = json_settings;
 
-	OBSDataAutoRelease save_data =
-		obs_data_create_from_json(QJsonDocument(config_obj).toJson());
 	auto default_path = obs_module_config_path(get_filepath().qtocs());
-	obs_data_save_json_safe(save_data,
-				!path_str.isNull() ? qPrintable(path_str)
-						   : default_path,
-				".tmp", ".bkp");
-
+	QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
+	file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
+	qlonglong result = file.write(
+		QJsonDocument(config_obj).toJson(QJsonDocument::Compact));
+	if (result < 0) {
+		blog(LOG_INFO, "Configuration unable to be saved. Reason: ");
+		blog(LOG_INFO, file.errorString());
+	} else {
+		QString log_str = "Configuration successfully saved to ";
+		log_str.append(file.fileName());
+		log_str.append(".");
+		blog(LOG_INFO, log_str);
+	}
+	file.close();
 	bfree(default_path);
 }
 

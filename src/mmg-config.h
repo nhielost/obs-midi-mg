@@ -38,8 +38,10 @@ struct MMGSettings {
 
 class MMGConfig {
 public:
-	MMGConfig();
+	MMGConfig() { load(); };
 	~MMGConfig() { clear(); };
+
+	void blog(int log_status, const QString &message) const;
 
 	void load(const QString &path_str = QString());
 	void save(const QString &path_str = QString()) const;

@@ -23,6 +23,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QAction>
 #include <QMainWindow>
+#include <QDir>
 
 #include <obs-module.h>
 #include <obs-frontend-api.h>
@@ -35,24 +36,46 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 static MidiMGWindow *plugin_window;
 Configuration global_config;
 
+void _blog(int log_status, const QString &message)
+{
+	QString temp_msg = "Main -> ";
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
+}
+
 bool obs_module_load(void)
 {
-	blog(LOG_INFO, "Loading...");
+	_blog(LOG_INFO, "Loading plugin...");
+
+	// Create the obs-midi-mg dir in plugin_config if it doesn't exist
+	auto *config_path = obs_module_config_path("");
+	if (!QDir(config_path).exists())
+		QDir().mkdir(config_path);
+	bfree(config_path);
+
+	// Load the configuration
 	global_config = Configuration(new MMGConfig());
+
+	// Load the UI Window
 	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
 	plugin_window = new MidiMGWindow(mainWindow);
+
+	// Load the menu button (Tools -> obs-midi-mg Setup)
 	const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
 	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		menu_action_text);
 	QObject::connect(menu_action, &QAction::triggered, plugin_window,
 			 &MidiMGWindow::show_window);
-	blog(LOG_INFO, "Loading Successful");
+
+	// Done
+	_blog(LOG_INFO, "Plugin loaded.");
 	return true;
 }
 
 void obs_module_unload()
 {
 	global_config.reset();
+	_blog(LOG_INFO, "Plugin unloaded.");
 }
 
 Configuration global()

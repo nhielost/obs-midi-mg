@@ -32,6 +32,7 @@ public:
 	};
 
 	void json(QJsonObject &binding_obj) const;
+	void blog(int log_status, const QString &message) const;
 
 	enum class Mode {
 		MMGBINDING_INVALID,

@@ -27,6 +27,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLCDNumber>
 #include <QDateTime>
 
+void global_blog(int log_status, QString &message);
+
 namespace MMGUtils {
 
 class LCDData {

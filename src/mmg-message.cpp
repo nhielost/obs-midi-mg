@@ -27,6 +27,7 @@ MMGMessage::MMGMessage()
 	type = "Note On";
 	note = 0;
 	value = -1;
+	blog(LOG_DEBUG, "Empty message created.");
 }
 
 MMGMessage::MMGMessage(const libremidi::message &message)
@@ -47,6 +48,7 @@ MMGMessage::MMGMessage(const QJsonObject &obj)
 	type = obj["type"].toString("Note On");
 	note = obj["note"].toInt(0);
 	value = obj["value"].toInt(-1);
+	blog(LOG_DEBUG, "Message created.");
 }
 
 void MMGMessage::json(QJsonObject &message_obj) const
@@ -56,6 +58,15 @@ void MMGMessage::json(QJsonObject &message_obj) const
 	message_obj["type"] = type;
 	message_obj["note"] = note;
 	message_obj["value"] = value;
+}
+
+void MMGMessage::blog(int log_status, const QString &message) const
+{
+	QString temp_msg = "Message {";
+	temp_msg.append(get_name());
+	temp_msg.append("} -> ");
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
 }
 
 QString MMGMessage::get_next_default_name()

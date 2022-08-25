@@ -121,6 +121,8 @@ public:
 	enum class MidiMessage { MIDI_MIDI };
 	enum class Timeout { TIMEOUT_MS, TIMEOUT_S };
 
+	void blog(int log_status, const QString &message) const;
+
 	const QString get_name() const { return name; };
 	Category get_category() const { return (Category)category; };
 	int get_sub() const { return subcategory; };

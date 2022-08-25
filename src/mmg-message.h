@@ -27,6 +27,7 @@ public:
 	explicit MMGMessage(const QJsonObject &obj);
 
 	void json(QJsonObject &message_obj) const;
+	void blog(int log_status, const QString &message) const;
 
 	const QString get_name() const { return name; };
 	const QString get_type() const { return type; };

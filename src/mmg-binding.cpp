@@ -24,6 +24,7 @@ MMGBinding::MMGBinding()
 {
 	name = get_next_default_name();
 	mode = 1;
+	blog(LOG_DEBUG, "Empty binding created.");
 }
 
 MMGBinding::MMGBinding(const QJsonObject &obj)
@@ -54,6 +55,7 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 	}
 	check_message_default_names();
 	check_action_default_names();
+	blog(LOG_DEBUG, "Binding created.");
 }
 
 void MMGBinding::json(QJsonObject &binding_obj) const
@@ -74,6 +76,15 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 		act_arr += json_chi;
 	}
 	binding_obj["actions"] = act_arr;
+}
+
+void MMGBinding::blog(int log_status, const QString &message) const
+{
+	QString temp_msg = "Binding {";
+	temp_msg.append(get_name());
+	temp_msg.append("} -> ");
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
 }
 
 QString MMGBinding::get_next_default_name()
@@ -206,20 +217,26 @@ bool MMGBinding::is_valid()
 void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 {
 	// Check if binding contains a message
-	if (!is_valid())
+	if (!is_valid()) {
+		blog(LOG_DEBUG, "Binding does not contain a message!");
 		return;
+	}
 	// Variable initialization to appease compilers
 	size_t saved_message_index = 0;
 	size_t action_index = 0;
 	// Check the incoming message with the next message
 	if (!get_messages()[current_message_index]->is_acceptable(
 		    incoming.get())) {
+		blog(LOG_DEBUG,
+		     "Message received is not acceptable. Restarting...");
 		goto reset_binding;
 	}
 	// Append the incoming message to a message list so it can be used (for Correspondence and Multiply Mode)
 	saved_messages.append(incoming);
 	// Checks if the message is the last message
 	if (current_message_index + 1 < message_size()) {
+		blog(LOG_DEBUG,
+		     "Message received has been accepted, but is not the final message.");
 		++current_message_index;
 		return;
 	}
@@ -259,4 +276,5 @@ reset_binding:
 	// Reset everything (on failure or on completion)
 	current_message_index = 0;
 	saved_messages.clear();
+	blog(LOG_DEBUG, "Restarted.");
 }

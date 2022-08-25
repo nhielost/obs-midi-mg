@@ -46,6 +46,7 @@ MMGAction::MMGAction()
 	set_num(1, 0.0);
 	set_num(2, 0.0);
 	set_num(3, 0.0);
+	blog(LOG_DEBUG, "Empty action created.");
 }
 
 MMGAction::MMGAction(const QJsonObject &obj)
@@ -62,6 +63,7 @@ MMGAction::MMGAction(const QJsonObject &obj)
 	set_num(1, obj["num2"].toDouble());
 	set_num(2, obj["num3"].toDouble());
 	set_num(3, obj["num4"].toDouble());
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGAction::json(QJsonObject &action_obj) const
@@ -77,6 +79,15 @@ void MMGAction::json(QJsonObject &action_obj) const
 	action_obj["num2"] = get_num(1);
 	action_obj["num3"] = get_num(2);
 	action_obj["num4"] = get_num(3);
+}
+
+void MMGAction::blog(int log_status, const QString &message) const
+{
+	QString temp_msg = "Action {";
+	temp_msg.append(get_name());
+	temp_msg.append("} -> ");
+	temp_msg.append(message);
+	global_blog(log_status, temp_msg);
 }
 
 QString MMGAction::get_next_default_name()
@@ -346,8 +357,8 @@ void MMGAction::do_action(const MMGSharedMessage &params)
 
 void MMGAction::do_action_none(const MMGAction *params, const MMGMessage *midi)
 {
-	Q_UNUSED(params);
 	Q_UNUSED(midi);
+	params->blog(LOG_INFO, "<None> executed.");
 }
 
 void MMGAction::do_action_stream(const MMGAction *params,
@@ -371,6 +382,7 @@ void MMGAction::do_action_stream(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Stream> executed.");
 }
 
 void MMGAction::do_action_record(const MMGAction *params,
@@ -403,6 +415,7 @@ void MMGAction::do_action_record(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Record> executed.");
 }
 
 void MMGAction::do_action_virtual_cam(const MMGAction *params,
@@ -426,6 +439,7 @@ void MMGAction::do_action_virtual_cam(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Virtual Camera> executed.");
 }
 
 void MMGAction::do_action_studio_mode(const MMGAction *params,
@@ -473,6 +487,7 @@ void MMGAction::do_action_studio_mode(const MMGAction *params,
 		break;
 	}
 	bfree(scene_names);
+	params->blog(LOG_INFO, "<Studio Mode> executed.");
 }
 
 void MMGAction::do_action_scenes(const MMGAction *params,
@@ -496,6 +511,7 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 		break;
 	}
 	bfree(scene_names);
+	params->blog(LOG_INFO, "<Scene Switching> executed.");
 }
 
 void MMGAction::do_action_video_source(const MMGAction *params,
@@ -604,6 +620,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Video Sources> executed.");
 }
 
 void MMGAction::do_action_audio_source(const MMGAction *params,
@@ -677,6 +694,7 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Audio Sources> executed.");
 }
 
 void MMGAction::do_action_media_source(const MMGAction *params,
@@ -740,6 +758,7 @@ void MMGAction::do_action_media_source(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Media Sources> executed.");
 }
 
 void MMGAction::do_action_transitions(const MMGAction *params,
@@ -789,6 +808,7 @@ void MMGAction::do_action_transitions(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Transitions> executed.");
 }
 
 void MMGAction::do_action_filters(const MMGAction *params,
@@ -829,6 +849,7 @@ void MMGAction::do_action_filters(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Filters> executed.");
 }
 
 void MMGAction::do_action_hotkeys(const MMGAction *params,
@@ -868,6 +889,7 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Hotkeys> executed.");
 }
 
 void MMGAction::do_action_profiles(const MMGAction *params,
@@ -875,6 +897,7 @@ void MMGAction::do_action_profiles(const MMGAction *params,
 {
 	Q_UNUSED(params);
 	Q_UNUSED(midi);
+	params->blog(LOG_INFO, "<Profiles> executed.");
 }
 
 void MMGAction::do_action_collections(const MMGAction *params,
@@ -882,12 +905,14 @@ void MMGAction::do_action_collections(const MMGAction *params,
 {
 	Q_UNUSED(params);
 	Q_UNUSED(midi);
+	params->blog(LOG_INFO, "<Scene Collections> executed.");
 }
 
 void MMGAction::do_action_ui(const MMGAction *params, const MMGMessage *midi)
 {
 	Q_UNUSED(params);
 	Q_UNUSED(midi);
+	params->blog(LOG_INFO, "<OBS Studio UI> executed.");
 }
 
 void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
@@ -937,6 +962,7 @@ void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 			output->open_output_port();
 		output->output_send(message);
 	}
+	params->blog(LOG_INFO, "<MIDI> executed.");
 }
 
 void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
@@ -955,4 +981,5 @@ void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
 	default:
 		break;
 	}
+	params->blog(LOG_INFO, "<Pause> executed.");
 }
