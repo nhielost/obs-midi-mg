@@ -28,6 +28,16 @@ void global_blog(int log_status, QString &message)
 	blog(log_status, qPrintable(message));
 }
 
+size_t get_name_count(char **names)
+{
+	size_t count = 0;
+	while (names[count] != 0) {
+		++count;
+	}
+	bfree(names);
+	return count;
+}
+
 namespace MMGUtils {
 
 // LCDData
@@ -157,15 +167,19 @@ std::pair<uint, uint> get_obs_source_dimensions(const QString &name)
 	return {obs_source_get_width(source), obs_source_get_height(source)};
 }
 
-uint get_obs_scene_count()
+size_t get_obs_scene_count()
 {
-	char **scene_names = obs_frontend_get_scene_names();
-	uint count = 0;
-	while (scene_names[count] != 0) {
-		++count;
-	}
-	bfree(scene_names);
-	return count;
+	return get_name_count(obs_frontend_get_scene_names());
+}
+
+size_t get_obs_profile_count()
+{
+	return get_name_count(obs_frontend_get_profiles());
+}
+
+size_t get_obs_collection_count()
+{
+	return get_name_count(obs_frontend_get_scene_collections());
 }
 
 double get_obs_media_length(const QString &name)

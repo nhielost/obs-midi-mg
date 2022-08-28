@@ -120,7 +120,7 @@
        <enum>Qt::IgnoreAction</enum>
       </property>
       <property name="selectionMode">
-       <enum>QAbstractItemView::NoSelection</enum>
+       <enum>QAbstractItemView::ContiguousSelection</enum>
       </property>
       <property name="movement">
        <enum>QListView::Snap</enum>
@@ -265,7 +265,7 @@
     <number>0</number>
    </property>
    <property name="currentIndex">
-    <number>3</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="empty_page">
     <property name="palette">
@@ -643,7 +643,7 @@
        <x>10</x>
        <y>90</y>
        <width>111</width>
-       <height>27</height>
+       <height>28</height>
       </rect>
      </property>
      <property name="font">
@@ -686,7 +686,7 @@
        <x>130</x>
        <y>90</y>
        <width>201</width>
-       <height>27</height>
+       <height>28</height>
       </rect>
      </property>
      <property name="sizePolicy">
@@ -2483,11 +2483,6 @@
         <item>
          <property name="text">
           <string>Scene Collections</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>OBS Studio UI</string>
          </property>
         </item>
         <item>

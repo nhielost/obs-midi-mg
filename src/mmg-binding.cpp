@@ -221,9 +221,18 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 		blog(LOG_DEBUG, "Binding does not contain a message!");
 		return;
 	}
+
 	// Variable initialization to appease compilers
 	size_t saved_message_index = 0;
 	size_t action_index = 0;
+
+	// Check if the next message exists
+	if (!get_messages().value(current_message_index)) {
+		blog(LOG_DEBUG,
+		     "Binding is no longer valid. Restarting...");
+		goto reset_binding;
+	}
+
 	// Check the incoming message with the next message
 	if (!get_messages()[current_message_index]->is_acceptable(
 		    incoming.get())) {

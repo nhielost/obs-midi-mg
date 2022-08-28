@@ -488,12 +488,9 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 				 "Reorder Filter Appearance"});
 		break;
 	case MMGAction::Category::MMGACTION_HOTKEY:
-		on_action_sub_change(0);
-		break;
 	case MMGAction::Category::MMGACTION_PROFILE:
 	case MMGAction::Category::MMGACTION_COLLECTION:
-	case MMGAction::Category::MMGACTION_UI:
-		set_sub_options({"Coming Soon!"});
+		on_action_sub_change(0);
 		break;
 	case MMGAction::Category::MMGACTION_MIDI:
 		on_action_sub_change(0);
@@ -597,8 +594,22 @@ void MidiMGWindow::on_action_sub_change(int index)
 		SET_TOOLTIP(editor_str1, "Select the hotkey to be activated.");
 		break;
 	case MMGAction::Category::MMGACTION_PROFILE:
+		set_strs_visible(true);
+		ui->label_str1->setText("Profile");
+		MMGAction::do_obs_profile_enum(ui->editor_str1);
+		ui->editor_str1->addItem("Use Message Value");
+		SET_TOOLTIP(
+			editor_str1,
+			"Select the profile to be switched to.\nThe option \"Use Message Value\" allows for the value of the message to be used in place of the profile name.\nThe value 0 is for the first profile, 1 for the second, and so on.\nThis means that if there are more than 128 profiles, this will not be able to switch to them.");
+		break;
 	case MMGAction::Category::MMGACTION_COLLECTION:
-	case MMGAction::Category::MMGACTION_UI:
+		set_strs_visible(true);
+		ui->label_str1->setText("Collection");
+		MMGAction::do_obs_collection_enum(ui->editor_str1);
+		ui->editor_str1->addItem("Use Message Value");
+		SET_TOOLTIP(
+			editor_str1,
+			"Select the scene collection to be switched to.\nThe option \"Use Message Value\" allows for the value of the message to be used in place of the scene collection name.\nThe value 0 is for the first scene collection, 1 for the second, and so on.\nThis means that if there are more than 128 scene collections, this will not be able to switch to them.");
 		break;
 	case MMGAction::Category::MMGACTION_MIDI:
 		set_strs_visible(true);
@@ -764,7 +775,7 @@ void MidiMGWindow::set_str1(const QString &value)
 			ui->label_double1->setText("Position (%)");
 			lcd_double1.set_range(0.0, 100.0);
 			lcd_double1.set_step(0.5, 5.0);
-			set_lcd_value(ui->lcd_double1, LCDButtons::MIDIMGWINDOW_NEUTRAL_RESET);
+			lcd_double1.reset();
 			break;*/
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:

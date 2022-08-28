@@ -5,8 +5,6 @@ Allows MIDI devices to interact with OBS Studio.
 ### This plugin will not work in OBS Studio versions below 28.0.0 due to its usage of Qt 6, meaning that any users using an OS below Windows 10 or MacOS 10.15 will not be able to use this plugin.
 (This may be addressed at a later date.)
 
-### As of version 1.1.1, this plugin will display properly on both *Dark* and *Yami* themes.
-
 ## Description
 
 Connect MIDI devices and seamlessly integrate with OBS Studio! This plugin offers:
@@ -79,7 +77,6 @@ To adjust other settings or view this page, click the *Preferences* button in th
 The coming updates will hopefully introduce these new features:
 
 - A transfer bindings between devices feature (for when a device has disconnected or is unavailable)
-- More actions involving external features such as Scene Collections, Themes, and other settings (planned for 1.3.0)
 - MIDI Output device support - send a message when an event in OBS Studio occurs (well underway!)
 
 ## Feedback

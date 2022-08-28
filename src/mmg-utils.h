@@ -74,7 +74,9 @@ bool bool_from_str(const QString &str);
 
 std::pair<uint, uint> get_obs_dimensions();
 std::pair<uint, uint> get_obs_source_dimensions(const QString &name);
-uint get_obs_scene_count();
+size_t get_obs_scene_count();
+size_t get_obs_profile_count();
+size_t get_obs_collection_count();
 double get_obs_media_length(const QString &name);
 qulonglong get_obs_source_filter_count(const QString &name);
 }

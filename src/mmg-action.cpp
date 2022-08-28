@@ -127,8 +127,6 @@ MMGAction::Category MMGAction::categoryFromString(const QString &str)
 		return MMGAction::Category::MMGACTION_PROFILE;
 	} else if (str == "Scene Collections") {
 		return MMGAction::Category::MMGACTION_COLLECTION;
-	} else if (str == "OBS Studio UI") {
-		return MMGAction::Category::MMGACTION_UI;
 	} else if (str == "MIDI") {
 		return MMGAction::Category::MMGACTION_MIDI;
 	} else if (str == "Timeout") {
@@ -296,6 +294,28 @@ void MMGAction::do_obs_hotkey_enum(QComboBox *list)
 		list);
 }
 
+void MMGAction::do_obs_profile_enum(QComboBox *list)
+{
+	char **profile_names = obs_frontend_get_profiles();
+
+	for (int i = 0; profile_names[i] != 0; ++i) {
+		list->addItem(profile_names[i]);
+	}
+
+	bfree(profile_names);
+}
+
+void MMGAction::do_obs_collection_enum(QComboBox *list)
+{
+	char **collection_names = obs_frontend_get_scene_collections();
+
+	for (int i = 0; collection_names[i] != 0; ++i) {
+		list->addItem(collection_names[i]);
+	}
+
+	bfree(collection_names);
+}
+
 void MMGAction::do_action(const MMGSharedMessage &params)
 {
 	switch (get_category()) {
@@ -340,9 +360,6 @@ void MMGAction::do_action(const MMGSharedMessage &params)
 		break;
 	case MMGAction::Category::MMGACTION_COLLECTION:
 		do_action_collections(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_UI:
-		do_action_ui(this, params.get());
 		break;
 	case MMGAction::Category::MMGACTION_MIDI:
 		do_action_midi(this, params.get());
@@ -895,24 +912,77 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 void MMGAction::do_action_profiles(const MMGAction *params,
 				   const MMGMessage *midi)
 {
-	Q_UNUSED(params);
-	Q_UNUSED(midi);
+	char **profile_names = obs_frontend_get_profiles();
+
+	if (params->get_str(0) == "Use Message Value" &&
+	    (uint)midi->get_value() >= get_obs_profile_count())
+		return;
+
+	// For new Profile change (pre 28.0.0 method encounters threading errors)
+	auto set_profile = [](const char *name) {
+		char *current_profile = obs_frontend_get_current_profile();
+		if (name == current_profile) {
+			bfree(current_profile);
+			return;
+		}
+		bfree(current_profile);
+		obs_queue_task(
+			OBS_TASK_UI,
+			[](void *param) {
+				auto profile_name = (char **)param;
+				obs_frontend_set_current_profile(*profile_name);
+			},
+			&name, true);
+	};
+
+	if (params->get_sub() == 0) {
+		if (!(obs_frontend_streaming_active() ||
+		      obs_frontend_recording_active() ||
+		      obs_frontend_virtualcam_active())) {
+			set_profile(params->get_str(0) == "Use Message Value"
+					    ? profile_names[midi->get_value()]
+					    : params->get_str(0).qtocs());
+		}
+	}
+
+	bfree(profile_names);
 	params->blog(LOG_INFO, "<Profiles> executed.");
 }
 
 void MMGAction::do_action_collections(const MMGAction *params,
 				      const MMGMessage *midi)
 {
-	Q_UNUSED(params);
-	Q_UNUSED(midi);
-	params->blog(LOG_INFO, "<Scene Collections> executed.");
-}
+	char **collection_names = obs_frontend_get_scene_collections();
 
-void MMGAction::do_action_ui(const MMGAction *params, const MMGMessage *midi)
-{
-	Q_UNUSED(params);
-	Q_UNUSED(midi);
-	params->blog(LOG_INFO, "<OBS Studio UI> executed.");
+	if (params->get_str(0) == "Use Message Value" &&
+	    (uint)midi->get_value() >= get_obs_collection_count())
+		return;
+
+	// For new Scene Collection change (pre 28.0.0 method encounters threading errors)
+	auto set_collection = [](const char *name) {
+		char *current_collection = obs_frontend_get_current_scene_collection();
+		if (name == current_collection) {
+			bfree(current_collection);
+			return;
+		}
+		bfree(current_collection);
+		obs_queue_task(
+			OBS_TASK_UI,
+			[](void *param) {
+				auto collection_name = (char **)param;
+				obs_frontend_set_current_scene_collection(*collection_name);
+			},
+			&name, true);
+	};
+
+	if (params->get_sub() == 0) {
+		set_collection(params->get_str(0) == "Use Message Value"
+				    ? collection_names[midi->get_value()]
+				    : params->get_str(0).qtocs());
+	}
+
+	bfree(collection_names);
+	params->blog(LOG_INFO, "<Scene Collections> executed.");
 }
 
 void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)

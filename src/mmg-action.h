@@ -45,7 +45,6 @@ public:
 		MMGACTION_HOTKEY,
 		MMGACTION_PROFILE,
 		MMGACTION_COLLECTION,
-		MMGACTION_UI,
 		MMGACTION_MIDI,
 		MMGACTION_TIMEOUT
 	};
@@ -117,7 +116,6 @@ public:
 	enum class Hotkeys { HOTKEY_HOTKEY };
 	enum class Profiles { PROFILE_PROFILE };
 	enum class Collections { COLLECTION_COLLECTION };
-	enum class OBSUI { UI_UI };
 	enum class MidiMessage { MIDI_MIDI };
 	enum class Timeout { TIMEOUT_MS, TIMEOUT_S };
 
@@ -179,6 +177,8 @@ public:
 				   MMGAction::Category::MMGACTION_NONE,
 			   const QString &rest = "");
 	static void do_obs_hotkey_enum(QComboBox *list);
+	static void do_obs_profile_enum(QComboBox *list);
+	static void do_obs_collection_enum(QComboBox *list);
 
 	static qulonglong get_next_default() { return next_default; };
 	static void set_next_default(qulonglong num) { next_default = num; };
@@ -221,8 +221,6 @@ private:
 				       const MMGMessage *midi);
 	static void do_action_collections(const MMGAction *params,
 					  const MMGMessage *midi);
-	static void do_action_ui(const MMGAction *params,
-				 const MMGMessage *midi);
 	static void do_action_midi(const MMGAction *params,
 				   const MMGMessage *midi);
 	static void do_action_pause(const MMGAction *params,
