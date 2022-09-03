@@ -143,7 +143,7 @@ MMGMessage *MMGBinding::add_message(MMGMessage *const el)
 	return el;
 }
 
-void MMGBinding::insert_message(int index, MMGMessage *const el)
+void MMGBinding::insert_message(size_t index, MMGMessage *const el)
 {
 	messages.insert(index, el);
 }
@@ -159,7 +159,7 @@ MMGAction *MMGBinding::add_action(MMGAction *const el)
 	return el;
 }
 
-void MMGBinding::insert_action(int index, MMGAction *const el)
+void MMGBinding::insert_action(size_t index, MMGAction *const el)
 {
 	actions.insert(index, el);
 }
@@ -228,8 +228,7 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 
 	// Check if the next message exists
 	if (!get_messages().value(current_message_index)) {
-		blog(LOG_DEBUG,
-		     "Binding is no longer valid. Restarting...");
+		blog(LOG_DEBUG, "Binding is no longer valid. Restarting...");
 		goto reset_binding;
 	}
 

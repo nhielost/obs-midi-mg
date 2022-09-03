@@ -51,11 +51,21 @@ public:
 	MMGSettings &preferences() { return settings; };
 
 	static QString get_filepath();
+	static void
+	set_listening_callback(std::function<void(MMGMessage *)> callback)
+	{
+		cb = callback;
+	};
+	static void set_listening(bool value) { listening = value; };
+	static bool is_listening(MMGMessage *incoming);
 
 private:
 	MMGDevices devices;
 	MMGSettings settings;
 
 	void check_device_default_names();
+
+	static bool listening;
+	static std::function<void(MMGMessage *)> cb;
 };
 Q_DECLARE_METATYPE(MMGConfig);

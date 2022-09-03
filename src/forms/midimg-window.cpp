@@ -107,6 +107,19 @@ MidiMGWindow::MidiMGWindow(QWidget *parent)
 	configure_lcd_widgets();
 
 	connect_ui_signals();
+
+	global()->set_listening_callback([this](MMGMessage *incoming) {
+		// Check the validity of the message type (whether it is one of the five
+		// supported types)
+		if (ui->editor_type->findText(incoming->get_type()) == -1)
+			return;
+		current_message->set_type(incoming->get_type());
+		current_message->set_channel(incoming->get_channel());
+		current_message->set_note(incoming->get_note());
+		current_message->set_value(incoming->get_value());
+		set_message_view();
+		ui->button_listen->setChecked(false);
+	});
 }
 
 bool MidiMGWindow::eventFilter(QObject *obj, QEvent *event)
@@ -191,6 +204,8 @@ void MidiMGWindow::connect_ui_signals()
 	// Message Display Connections
 	connect(ui->editor_type, &QComboBox::currentTextChanged, this,
 		&MidiMGWindow::on_message_type_change);
+	connect(ui->button_listen, &QAbstractButton::toggled, this,
+		&MidiMGWindow::on_message_listen);
 	// Action Display Connections
 	connect(ui->editor_cat, &QComboBox::currentTextChanged, this,
 		&MidiMGWindow::on_action_cat_change);
@@ -413,6 +428,13 @@ void MidiMGWindow::on_message_type_change(const QString &type)
 			       current_message->get_value() >= 0);
 		lcd_note.reset(current_message->get_value());
 	}
+}
+
+void MidiMGWindow::on_message_listen(bool toggled)
+{
+	global()->set_listening(toggled);
+	ui->button_listen->setText(toggled ? "Listening..."
+					   : "Listen for Message...");
 }
 
 void MidiMGWindow::on_action_cat_change(const QString &cat)

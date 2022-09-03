@@ -28,6 +28,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+bool MMGConfig::listening = false;
+std::function<void(MMGMessage *)> MMGConfig::cb = 0;
+
 void MMGConfig::blog(int log_status, const QString &message) const
 {
 	QString temp_msg = "Config -> ";
@@ -191,6 +194,22 @@ MMGDevice *MMGConfig::find_device(const QString &name)
 		}
 	}
 	return nullptr;
+}
+
+bool MMGConfig::is_listening(MMGMessage *incoming)
+{
+	if (listening) {
+		obs_queue_task(
+			OBS_TASK_UI,
+			[](void *param) {
+				auto incoming =
+					static_cast<MMGMessage *>(param);
+				cb(incoming);
+			},
+			incoming, true);
+		return true;
+	}
+	return false;
 }
 
 const QStringList MMGConfig::get_device_names() const

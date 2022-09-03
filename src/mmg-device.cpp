@@ -119,7 +119,11 @@ MMGBinding *MMGDevice::find_binding(const QString &name)
 
 void MMGDevice::open_input_port()
 {
-	if (get_input_port_number(name) >= 0) {
+	if (input_port_open()) {
+		close_input_port();
+	}
+	if (get_input_port_number(name) != -1) {
+		blog(LOG_INFO, "Opening input port...");
 		input_device.set_callback(MMGUtils::call_midi_callback);
 		input_device.open_port(get_input_port_number(name));
 		blog(LOG_INFO, "Input port successfully opened.");
@@ -128,7 +132,11 @@ void MMGDevice::open_input_port()
 
 void MMGDevice::open_output_port()
 {
-	if (get_output_port_number(name) >= 0) {
+	if (output_port_open()) {
+		close_output_port();
+	}
+	if (get_output_port_number(name) != -1) {
+		blog(LOG_INFO, "Opening output port...");
 		output_device.open_port(get_output_port_number(name));
 		blog(LOG_INFO, "Output port successfully opened.");
 	}
@@ -206,12 +214,12 @@ QStringList MMGDevice::get_output_device_names()
 	return outputs;
 }
 
-int MMGDevice::get_input_port_number(const QString &device_name)
+uint MMGDevice::get_input_port_number(const QString &device_name)
 {
 	return get_input_device_names().indexOf(device_name);
 }
 
-int MMGDevice::get_output_port_number(const QString &device_name)
+uint MMGDevice::get_output_port_number(const QString &device_name)
 {
 	return get_output_device_names().indexOf(device_name);
 }

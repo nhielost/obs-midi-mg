@@ -52,9 +52,9 @@ public:
 	void do_all_actions(const MMGSharedMessage &message);
 
 	static QStringList get_input_device_names();
-	static int get_input_port_number(const QString &deviceName);
+	static uint get_input_port_number(const QString &deviceName);
 	static QStringList get_output_device_names();
-	static int get_output_port_number(const QString &deviceName);
+	static uint get_output_port_number(const QString &deviceName);
 
 	static qulonglong get_next_default() { return next_default; };
 	static void set_next_default(qulonglong num) { next_default = num; };

@@ -653,11 +653,17 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 	switch ((MMGAction::AudioSources)params->get_sub()) {
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGETO:
 		// Value only has range 0-127, meaning full volume cannot be achieved (as it is divided by 128).
-		// Adding one allows the capability of full volume - at the cost of removing mute capability.
-		obs_source_set_volume(
-			obs_source, num_or_value(params->get_num(0),
-						 midi->get_value() + 1, 100.0) /
-					    100.0);
+		// Adding one allows the capability of full volume.
+		// ADDITION: Removing 1% from the value and changing it to 0% for muting is not as noticable.
+		if (params->get_num(0) == -1 && midi->get_value() == 0) {
+			obs_source_set_volume(obs_source, 0);
+		} else {
+			obs_source_set_volume(
+				obs_source,
+				num_or_value(params->get_num(0),
+					     midi->get_value() + 1, 100.0) /
+					100.0);
+		}
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
 		if (obs_source_get_volume(obs_source) * 100.0 +
@@ -960,7 +966,8 @@ void MMGAction::do_action_collections(const MMGAction *params,
 
 	// For new Scene Collection change (pre 28.0.0 method encounters threading errors)
 	auto set_collection = [](const char *name) {
-		char *current_collection = obs_frontend_get_current_scene_collection();
+		char *current_collection =
+			obs_frontend_get_current_scene_collection();
 		if (name == current_collection) {
 			bfree(current_collection);
 			return;
@@ -970,15 +977,16 @@ void MMGAction::do_action_collections(const MMGAction *params,
 			OBS_TASK_UI,
 			[](void *param) {
 				auto collection_name = (char **)param;
-				obs_frontend_set_current_scene_collection(*collection_name);
+				obs_frontend_set_current_scene_collection(
+					*collection_name);
 			},
 			&name, true);
 	};
 
 	if (params->get_sub() == 0) {
 		set_collection(params->get_str(0) == "Use Message Value"
-				    ? collection_names[midi->get_value()]
-				    : params->get_str(0).qtocs());
+				       ? collection_names[midi->get_value()]
+				       : params->get_str(0).qtocs());
 	}
 
 	bfree(collection_names);

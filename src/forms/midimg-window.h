@@ -91,6 +91,7 @@ public slots:
 	void show_window();
 private slots:
 	void on_message_type_change(const QString &type);
+	void on_message_listen(bool toggled);
 	void on_action_cat_change(const QString &cat);
 	void on_action_sub_change(int index);
 	void on_list_selection_change(const QListWidgetItem *current);

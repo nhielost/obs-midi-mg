@@ -90,21 +90,17 @@ int MMGMessage::get_midi_note(const libremidi::message &mess)
 
 int MMGMessage::get_midi_value(const libremidi::message &mess)
 {
-	int part = -1;
 	switch (mess.get_message_type()) {
 	case libremidi::message_type::NOTE_ON:
 	case libremidi::message_type::NOTE_OFF:
 	case libremidi::message_type::CONTROL_CHANGE:
 	case libremidi::message_type::PITCH_BEND:
-		part = 2;
-		break;
+		return mess[2];
 	case libremidi::message_type::PROGRAM_CHANGE:
-		part = 1;
-		break;
+		return mess[1];
 	default:
-		break;
+		return -1;
 	}
-	return mess[part];
 }
 
 QString MMGMessage::get_midi_type(const libremidi::message &mess)

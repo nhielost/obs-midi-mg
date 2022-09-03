@@ -48,10 +48,10 @@ public:
 	void set_mode(Mode val) { mode = (short)val; };
 
 	MMGMessage *add_message(MMGMessage *const el = new MMGMessage);
-	void insert_message(int index, MMGMessage *const el);
+	void insert_message(size_t index, MMGMessage *const el);
 	void remove(MMGMessage *const el);
 	MMGAction *add_action(MMGAction *const el = new MMGAction);
-	void insert_action(int index, MMGAction *const el);
+	void insert_action(size_t index, MMGAction *const el);
 	void remove(MMGAction *const el);
 
 	size_t index_of(MMGMessage *const el) const;
