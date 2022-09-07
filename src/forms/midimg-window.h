@@ -90,6 +90,7 @@ private:
 public slots:
 	void show_window();
 private slots:
+	void on_device_active_change(bool toggled);
 	void on_message_type_change(const QString &type);
 	void on_message_listen(bool toggled);
 	void on_action_cat_change(const QString &cat);

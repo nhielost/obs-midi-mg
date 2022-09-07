@@ -35,6 +35,7 @@ public:
 		MMGACTION_STREAM,
 		MMGACTION_RECORD,
 		MMGACTION_VIRCAM,
+		MMGACTION_REPBUF,
 		MMGACTION_STUDIOMODE,
 		MMGACTION_SCENE,
 		MMGACTION_SOURCE_VIDEO,
@@ -60,6 +61,12 @@ public:
 		RECORD_TOGGLE_PAUSE
 	};
 	enum class VirtualCam { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
+	enum class ReplayBuffer {
+		REPBUF_ON,
+		REPBUF_OFF,
+		REPBUF_TOGGLE_ONOFF,
+		REPBUF_SAVE
+	};
 	enum class StudioMode {
 		STUDIOMODE_ON,
 		STUDIOMODE_OFF,
@@ -201,6 +208,8 @@ private:
 				     const MMGMessage *midi);
 	static void do_action_virtual_cam(const MMGAction *params,
 					  const MMGMessage *midi);
+	static void do_action_replay_buffer(const MMGAction *params,
+					    const MMGMessage *midi);
 	static void do_action_studio_mode(const MMGAction *params,
 					  const MMGMessage *midi);
 	static void do_action_scenes(const MMGAction *params,

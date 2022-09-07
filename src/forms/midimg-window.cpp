@@ -60,9 +60,9 @@ using namespace MMGUtils;
 	lcd_##kind = LCDData(ui->lcd_##kind); \
 	ui->lcd_##kind->installEventFilter(this)
 
-#define SET_TOOLTIP(element, text)                 \
-	if (global()->preferences().tooltips) {    \
-		ui->element->setToolTip(tr(text)); \
+#define SET_TOOLTIP(element, text)                    \
+	if (global()->preferences().get_tooltips()) { \
+		ui->element->setToolTip(tr(text));    \
 	}
 
 #define SET_LCD_TOOLTIP(element, text)                         \
@@ -170,6 +170,7 @@ bool MidiMGWindow::eventFilter(QObject *obj, QEvent *event)
 void MidiMGWindow::show_window()
 {
 	setVisible(!isVisible());
+	global()->load_new_devices();
 	ui->editor_structure->clearSelection();
 	switch_structure_pane(MMGModes::MMGMODE_DEVICE);
 	ui->pages->setCurrentIndex(0);
@@ -226,6 +227,8 @@ void MidiMGWindow::connect_ui_signals()
 	connect(ui->button_return, &QPushButton::clicked, this,
 		&MidiMGWindow::on_return_click);
 	// Device Buttons
+	connect(ui->button_active_device, &QAbstractButton::toggled, this,
+		&MidiMGWindow::on_device_active_change);
 	connect(ui->button_edit_input_bindings, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_BINDING); });
 	// connect(ui->transfer_bindings_button, &QPushButton::clicked, this, [&]() { on_button_click(UiButtons::MIDIMGWINDOW_TRANSFER_BINDINGS); });
@@ -235,11 +238,11 @@ void MidiMGWindow::connect_ui_signals()
 	});
 	connect(ui->editor_global_enable, &QCheckBox::toggled, this,
 		[&](bool toggled) {
-			global()->preferences().active = toggled;
+			global()->preferences().set_active(toggled);
 		});
 	connect(ui->editor_tooltips_enable, &QCheckBox::toggled, this,
 		[&](bool toggled) {
-			global()->preferences().tooltips = toggled;
+			global()->preferences().set_tooltips(toggled);
 		});
 	connect(ui->button_export, &QPushButton::clicked, this,
 		&MidiMGWindow::export_bindings);
@@ -288,11 +291,16 @@ void MidiMGWindow::set_device_view()
 	ui->text_device_name->setText(current_device->get_name());
 	ui->text_status_input->setText(current_device->input_device_status());
 	ui->text_status_output->setText(current_device->output_device_status());
+	ui->button_active_device->setChecked(
+		current_device->get_name() ==
+		global()->get_active_device_name());
+	on_device_active_change(current_device->get_name() ==
+				global()->get_active_device_name());
 	// list.removeOne(current->text());
 	// ui->transfer_bindings_name_editor->clear();
 	// ui->transfer_bindings_name_editor->addItems(list);
 	ui->button_edit_input_bindings->setEnabled(
-		ui->text_status_input->text() == "Active");
+		ui->text_status_input->text() == "Ready");
 	ui->button_edit_output_bindings->setEnabled(false);
 }
 
@@ -392,6 +400,19 @@ void MidiMGWindow::set_doubles_visible(bool double1, bool double2, bool double3,
 	SET_LCD_STATUS(double4, Visible, double4);
 }
 
+void MidiMGWindow::on_device_active_change(bool toggled)
+{
+	if (!toggled &&
+	    global()->get_active_device_name() == current_device->get_name()) {
+		ui->button_active_device->setChecked(true);
+		return;
+	}
+	if (toggled)
+		global()->set_active_device_name(current_device->get_name());
+	ui->button_active_device->setText(toggled ? "Device is Active"
+						  : "Set As Active Device...");
+}
+
 void MidiMGWindow::on_message_type_change(const QString &type)
 {
 	current_message->set_type(type);
@@ -468,6 +489,10 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 	case MMGAction::Category::MMGACTION_VIRCAM:
 		set_sub_options({"Start Virtual Camera", "Stop Virtual Camera",
 				 "Toggle Virtual Camera"});
+		break;
+	case MMGAction::Category::MMGACTION_REPBUF:
+		set_sub_options({"Start Replay Buffer", "Stop Replay Buffer",
+				 "Toggle Replay Buffer", "Save Replay Buffer"});
 		break;
 	case MMGAction::Category::MMGACTION_STUDIOMODE:
 		set_sub_options({"Turn On Studio Mode", "Turn Off Studio Mode",

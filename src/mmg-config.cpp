@@ -28,6 +28,31 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+// MMGSettings
+MMGSettings::MMGSettings(const QJsonObject &settings_obj)
+{
+	set_active(settings_obj["active"].toBool(true));
+	set_tooltips(settings_obj["tooltips"].toBool(true));
+}
+void MMGSettings::json(QJsonObject &settings_obj) const
+{
+	settings_obj["active"] = active;
+	settings_obj["tooltips"] = tooltips;
+}
+
+void MMGSettings::set_active(bool is_active)
+{
+	active = is_active;
+	if (!global())
+		return;
+	if (!active)
+		MMGDevice::close_input_port();
+	else
+		MMGDevice::open_input_port(global()->find_current_device());
+};
+// End MMGSettings
+
+// MMGConfig
 bool MMGConfig::listening = false;
 std::function<void(MMGMessage *)> MMGConfig::cb = 0;
 
@@ -67,10 +92,6 @@ void MMGConfig::load(const QString &path_str)
 		blog(LOG_INFO, log_str);
 
 		config_contents = file.readAll();
-
-		/*midi_config = obs_data_create_from_json_file(
-			!path_str.isEmpty() ? qPrintable(path_str)
-					   : default_path);*/
 	} else {
 		blog(LOG_INFO,
 		     "Configuration file not found. Loading new data...");
@@ -101,40 +122,20 @@ void MMGConfig::load(const QString &path_str)
 				devices.append(new MMGDevice(obj.toObject()));
 			}
 		}
+		// Load active device
+		if (json_is_valid(doc["active_device"], QJsonValue::String)) {
+			active_device_name = doc["active_device"].toString();
+		}
+
 		// Load preferences
 		if (json_is_valid(doc["preferences"], QJsonValue::Object))
 			settings = MMGSettings(doc["preferences"].toObject());
 	}
 	blog(LOG_INFO, "Configuration file data extraction complete.");
-	// Check for devices currently connected that are not included
-	// and include them if necessary
-	for (const QString &name : MMGDevice::get_input_device_names()) {
-		bool device_included = false;
-		for (MMGDevice *device : devices) {
-			device_included |= (device->get_name() == name);
-		}
-		if (!device_included) {
-			devices.append(new MMGDevice());
-			devices.last()->set_name(name);
-			devices.last()->open_input_port();
-			devices.last()->open_output_port();
-		}
-	}
-	for (const QString &name : MMGDevice::get_output_device_names()) {
-		bool device_included = false;
-		for (MMGDevice *device : devices) {
-			device_included |= (device->get_name() == name);
-		}
-		if (!device_included) {
-			devices.append(new MMGDevice());
-			devices.last()->set_name(name);
-			devices.last()->open_input_port();
-			devices.last()->open_output_port();
-		}
-	}
-	blog(LOG_INFO, "New devices loaded.");
+
 	// Check for any unaffiliated devices (i.e. created by obs-midi-mg)
 	check_device_default_names();
+
 	blog(LOG_INFO, "Configuration loading complete.");
 }
 
@@ -155,6 +156,8 @@ void MMGConfig::save(const QString &path_str) const
 	QJsonObject json_settings;
 	settings.json(json_settings);
 	config_obj["preferences"] = json_settings;
+
+	config_obj["active_device"] = active_device_name;
 
 	auto default_path = obs_module_config_path(get_filepath().qtocs());
 	QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
@@ -180,16 +183,50 @@ void MMGConfig::clear()
 	devices.clear();
 }
 
+void MMGConfig::load_new_devices()
+{
+	// Check for devices currently connected that are not included
+	// and include them if necessary
+	for (const QString &name : MMGDevice::get_input_device_names()) {
+		bool device_included = false;
+		for (MMGDevice *device : devices) {
+			device_included |= (device->get_name() == name);
+		}
+		if (!device_included) {
+			devices.append(new MMGDevice());
+			devices.last()->set_name(name);
+		}
+	}
+	for (const QString &name : MMGDevice::get_output_device_names()) {
+		bool device_included = false;
+		for (MMGDevice *device : devices) {
+			device_included |= (device->get_name() == name);
+		}
+		if (!device_included) {
+			devices.append(new MMGDevice());
+			devices.last()->set_name(name);
+		}
+	}
+
+	if (!MMGDevice::input_port_open())
+		MMGDevice::open_input_port(find_current_device());
+
+	blog(LOG_INFO, "New devices loaded.");
+}
+
+void MMGConfig::set_active_device_name(const QString &name)
+{
+	if (active_device_name == name)
+		return;
+	active_device_name = name;
+	if (settings.get_active())
+		MMGDevice::open_input_port(find_current_device());
+}
+
 MMGDevice *MMGConfig::find_device(const QString &name)
 {
 	for (MMGDevice *const device : devices) {
 		if (device->get_name() == name) {
-			if (!device->input_port_open()) {
-				device->open_input_port();
-			}
-			if (!device->output_port_open()) {
-				device->open_output_port();
-			}
 			return device;
 		}
 	}
@@ -225,3 +262,4 @@ QString MMGConfig::get_filepath()
 {
 	return "obs-midi-mg-config.json";
 }
+// End MMGConfig

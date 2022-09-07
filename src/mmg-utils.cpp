@@ -138,16 +138,11 @@ bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type)
 
 void call_midi_callback(const libremidi::message &message)
 {
-	if (!global()->preferences().active)
-		return;
 	MMGSharedMessage incoming(new MMGMessage(message));
 	if (global()->is_listening(incoming.get()))
 		return;
-	for (const QString &name : global()->get_device_names()) {
-		MMGDevice *const device = global()->find_device(name);
-		if (device->input_port_open())
-			device->do_all_actions(incoming);
-	}
+	if (global()->find_current_device()->input_port_open())
+		global()->find_current_device()->do_all_actions(incoming);
 }
 
 bool bool_from_str(const QString &str)

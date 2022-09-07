@@ -34,8 +34,6 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 		}
 	}
 	check_binding_default_names();
-	open_input_port();
-	open_output_port();
 	blog(LOG_DEBUG, "Device created.");
 }
 
@@ -117,64 +115,86 @@ MMGBinding *MMGDevice::find_binding(const QString &name)
 	return nullptr;
 }
 
-void MMGDevice::open_input_port()
+void MMGDevice::open_input_port(MMGDevice *device)
 {
-	if (input_port_open()) {
+	if (!device)
+		return;
+
+	if (input_port_open())
 		close_input_port();
-	}
-	if (get_input_port_number(name) != -1) {
-		blog(LOG_INFO, "Opening input port...");
-		input_device.set_callback(MMGUtils::call_midi_callback);
-		input_device.open_port(get_input_port_number(name));
-		blog(LOG_INFO, "Input port successfully opened.");
+
+	device->blog(LOG_INFO, "Opening input port...");
+	try {
+		input_device()->set_callback(MMGUtils::call_midi_callback);
+		input_device()->open_port(
+			get_input_port_number(device->get_name()));
+		device->blog(LOG_INFO, "Input port successfully opened.");
+	} catch (const libremidi::driver_error &err) {
+		device->blog(LOG_INFO, err.what());
+	} catch (const libremidi::invalid_parameter_error &err) {
+		device->blog(LOG_INFO, err.what());
+	} catch (const libremidi::system_error &err) {
+		device->blog(LOG_INFO, err.what());
 	}
 }
 
-void MMGDevice::open_output_port()
+void MMGDevice::open_output_port(MMGDevice *device)
 {
-	if (output_port_open()) {
+	if (!device)
+		return;
+
+	if (output_port_open())
 		close_output_port();
-	}
-	if (get_output_port_number(name) != -1) {
-		blog(LOG_INFO, "Opening output port...");
-		output_device.open_port(get_output_port_number(name));
-		blog(LOG_INFO, "Output port successfully opened.");
+
+	device->blog(LOG_INFO, "Opening output port...");
+	try {
+		output_device()->open_port(
+			get_output_port_number(device->get_name()));
+		device->blog(LOG_INFO, "Output port successfully opened.");
+	} catch (const libremidi::driver_error &err) {
+		device->blog(LOG_INFO, err.what());
+	} catch (const libremidi::invalid_parameter_error &err) {
+		device->blog(LOG_INFO, err.what());
+	} catch (const libremidi::system_error &err) {
+		device->blog(LOG_INFO, err.what());
 	}
 }
 
 void MMGDevice::close_input_port()
 {
-	input_device.cancel_callback();
-	input_device.close_port();
-	blog(LOG_INFO, "Input port closed.");
+	input_device()->cancel_callback();
+	input_device()->close_port();
+	QString s = "Main -> Input port closed.";
+	global_blog(LOG_INFO, s);
 }
 
 void MMGDevice::close_output_port()
 {
-	output_device.close_port();
-	blog(LOG_INFO, "Output port closed.");
+	output_device()->close_port();
+	QString s = "Main -> Output port closed.";
+	global_blog(LOG_INFO, s);
 }
 
-bool MMGDevice::input_port_open() const
+bool MMGDevice::input_port_open()
 {
-	return input_device.is_port_open();
+	return input_device()->is_port_open();
 }
 
-bool MMGDevice::output_port_open() const
+bool MMGDevice::output_port_open()
 {
-	return output_device.is_port_open();
+	return output_device()->is_port_open();
 }
 
 void MMGDevice::output_send(const libremidi::message &message)
 {
-	output_device.send_message(message);
+	output_device()->send_message(message);
 }
 
 const QString MMGDevice::input_device_status() const
 {
-	if (input_port_open()) {
-		return "Active";
-	} else if (get_output_port_number(name) >= 0) {
+	if (get_input_port_number(name) != -1) {
+		return "Ready";
+	} else if (get_output_port_number(name) != -1) {
 		return "Unavailable";
 	} else {
 		return "Not Connected";
@@ -183,9 +203,9 @@ const QString MMGDevice::input_device_status() const
 
 const QString MMGDevice::output_device_status() const
 {
-	if (output_port_open()) {
-		return "Active";
-	} else if (get_input_port_number(name) >= 0) {
+	if (get_output_port_number(name) != -1) {
+		return "Ready";
+	} else if (get_input_port_number(name) != -1) {
 		return "Unavailable";
 	} else {
 		return "Not Connected";
@@ -195,9 +215,9 @@ const QString MMGDevice::output_device_status() const
 QStringList MMGDevice::get_input_device_names()
 {
 	QStringList inputs;
-	for (uint i = 0; i < libremidi::midi_in().get_port_count(); ++i) {
+	for (uint i = 0; i < input_device()->get_port_count(); ++i) {
 		inputs.append(QString::fromStdString(
-			libremidi::midi_in().get_port_name(i)));
+			input_device()->get_port_name(i)));
 	}
 	return inputs;
 }
@@ -207,9 +227,9 @@ QStringList MMGDevice::get_input_device_names()
 QStringList MMGDevice::get_output_device_names()
 {
 	QStringList outputs;
-	for (uint i = 0; i < libremidi::midi_out().get_port_count(); ++i) {
+	for (uint i = 0; i < output_device()->get_port_count(); ++i) {
 		outputs.append(QString::fromStdString(
-			libremidi::midi_out().get_port_name(i)));
+			output_device()->get_port_name(i)));
 	}
 	return outputs;
 }
@@ -235,6 +255,4 @@ MMGDevice::~MMGDevice()
 {
 	qDeleteAll(bindings);
 	bindings.clear();
-	close_input_port();
-	close_output_port();
 }

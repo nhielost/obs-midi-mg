@@ -21,6 +21,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-config.h"
 
 #include <obs-frontend-api.h>
+#include <util/config-file.h>
 
 #include <thread>
 
@@ -107,6 +108,8 @@ MMGAction::Category MMGAction::categoryFromString(const QString &str)
 		return MMGAction::Category::MMGACTION_RECORD;
 	} else if (str == "Virtual Camera") {
 		return MMGAction::Category::MMGACTION_VIRCAM;
+	} else if (str == "Replay Buffer") {
+		return MMGAction::Category::MMGACTION_REPBUF;
 	} else if (str == "Studio Mode") {
 		return MMGAction::Category::MMGACTION_STUDIOMODE;
 	} else if (str == "Scene Switching") {
@@ -331,6 +334,9 @@ void MMGAction::do_action(const MMGSharedMessage &params)
 	case MMGAction::Category::MMGACTION_VIRCAM:
 		do_action_virtual_cam(this, params.get());
 		break;
+	case MMGAction::Category::MMGACTION_REPBUF:
+		do_action_replay_buffer(this, params.get());
+		break;
 	case MMGAction::Category::MMGACTION_STUDIOMODE:
 		do_action_studio_mode(this, params.get());
 		break;
@@ -384,10 +390,12 @@ void MMGAction::do_action_stream(const MMGAction *params,
 	Q_UNUSED(midi);
 	switch ((MMGAction::Stream)params->get_sub()) {
 	case MMGAction::Stream::STREAM_ON:
-		obs_frontend_streaming_start();
+		if (!obs_frontend_streaming_active())
+			obs_frontend_streaming_start();
 		break;
 	case MMGAction::Stream::STREAM_OFF:
-		obs_frontend_streaming_stop();
+		if (obs_frontend_streaming_active())
+			obs_frontend_streaming_stop();
 		break;
 	case MMGAction::Stream::STREAM_TOGGLE_ONOFF:
 		if (obs_frontend_streaming_active()) {
@@ -408,10 +416,12 @@ void MMGAction::do_action_record(const MMGAction *params,
 	Q_UNUSED(midi);
 	switch ((MMGAction::Record)params->get_sub()) {
 	case MMGAction::Record::RECORD_ON:
-		obs_frontend_recording_start();
+		if (!obs_frontend_recording_active())
+			obs_frontend_recording_start();
 		break;
 	case MMGAction::Record::RECORD_OFF:
-		obs_frontend_recording_stop();
+		if (obs_frontend_recording_active())
+			obs_frontend_recording_stop();
 		break;
 	case MMGAction::Record::RECORD_TOGGLE_ONOFF:
 		if (obs_frontend_recording_active()) {
@@ -421,10 +431,12 @@ void MMGAction::do_action_record(const MMGAction *params,
 		}
 		break;
 	case MMGAction::Record::RECORD_PAUSE:
-		obs_frontend_recording_pause(true);
+		if (!obs_frontend_recording_paused())
+			obs_frontend_recording_pause(true);
 		break;
 	case MMGAction::Record::RECORD_RESUME:
-		obs_frontend_recording_pause(false);
+		if (obs_frontend_recording_paused())
+			obs_frontend_recording_pause(false);
 		break;
 	case MMGAction::Record::RECORD_TOGGLE_PAUSE:
 		obs_frontend_recording_pause(!obs_frontend_recording_paused());
@@ -441,10 +453,12 @@ void MMGAction::do_action_virtual_cam(const MMGAction *params,
 	Q_UNUSED(midi);
 	switch ((MMGAction::VirtualCam)params->get_sub()) {
 	case MMGAction::VirtualCam::VIRCAM_ON:
-		obs_frontend_start_virtualcam();
+		if (!obs_frontend_virtualcam_active())
+			obs_frontend_start_virtualcam();
 		break;
 	case MMGAction::VirtualCam::VIRCAM_OFF:
-		obs_frontend_stop_virtualcam();
+		if (obs_frontend_virtualcam_active())
+			obs_frontend_stop_virtualcam();
 		break;
 	case MMGAction::VirtualCam::VIRCAM_TOGGLE_ONOFF:
 		if (obs_frontend_virtualcam_active()) {
@@ -459,12 +473,54 @@ void MMGAction::do_action_virtual_cam(const MMGAction *params,
 	params->blog(LOG_INFO, "<Virtual Camera> executed.");
 }
 
+void MMGAction::do_action_replay_buffer(const MMGAction *params,
+					const MMGMessage *midi)
+{
+	config_t *obs_config = obs_frontend_get_profile_config();
+	if (!config_get_bool(obs_config, "SimpleOutput", "RecRB")) {
+		params->blog(
+			LOG_INFO,
+			"<Replay Buffer> action failed - Replay Buffers are not enabled.");
+		return;
+	}
+
+	Q_UNUSED(midi);
+	switch ((MMGAction::ReplayBuffer)params->get_sub()) {
+	case MMGAction::ReplayBuffer::REPBUF_ON:
+		if (!obs_frontend_replay_buffer_active())
+			obs_frontend_replay_buffer_start();
+		break;
+	case MMGAction::ReplayBuffer::REPBUF_OFF:
+		if (obs_frontend_replay_buffer_active())
+			obs_frontend_replay_buffer_stop();
+		break;
+	case MMGAction::ReplayBuffer::REPBUF_TOGGLE_ONOFF:
+		if (obs_frontend_replay_buffer_active()) {
+			obs_frontend_replay_buffer_stop();
+		} else {
+			obs_frontend_replay_buffer_start();
+		}
+		break;
+	case MMGAction::ReplayBuffer::REPBUF_SAVE:
+		if (obs_frontend_replay_buffer_active())
+			obs_frontend_replay_buffer_save();
+		break;
+	default:
+		break;
+	}
+	params->blog(LOG_INFO, "<Replay Buffer> executed.");
+}
+
 void MMGAction::do_action_studio_mode(const MMGAction *params,
 				      const MMGMessage *midi)
 {
 	if (params->get_str(0) == "Use Message Value" &&
-	    (uint)midi->get_value() >= get_obs_scene_count())
+	    (uint)midi->get_value() >= get_obs_scene_count()) {
+		params->blog(
+			LOG_INFO,
+			"<Studio Mode> action failed - MIDI value exceeded scene count.");
 		return;
+	}
 	// For new Studio Mode activation (pre 28.0.0 method encounters threading errors)
 	auto set_studio_mode = [](bool on) {
 		if (obs_frontend_preview_program_mode_active() == on)
@@ -512,16 +568,24 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 {
 	char **scene_names = obs_frontend_get_scene_names();
 	if (params->get_str(0) == "Use Message Value" &&
-	    (uint)midi->get_value() >= get_obs_scene_count())
+	    (uint)midi->get_value() >= get_obs_scene_count()) {
+		params->blog(
+			LOG_INFO,
+			"<Scene Switching> action failed - MIDI value exceeded scene count.");
 		return;
+	}
 	OBSSourceAutoRelease source_obs_scene =
 		obs_get_source_by_name(params->get_str(0) == "Use Message Value"
 					       ? scene_names[midi->get_value()]
 					       : params->get_str(0).qtocs());
 	switch ((MMGAction::Scenes)params->get_sub()) {
 	case MMGAction::Scenes::SCENE_SCENE:
-		if (!source_obs_scene)
-			break;
+		if (!source_obs_scene) {
+			params->blog(
+				LOG_INFO,
+				"<Scene Switching> action failed - Scene does not exist.");
+			return;
+		}
 		obs_frontend_set_current_scene(source_obs_scene);
 		break;
 	default:
@@ -538,12 +602,20 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_get_source_by_name(params->get_str(0).qtocs());
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(1).qtocs());
-	if (!obs_source || !obs_scene_source)
+	if (!obs_source || !obs_scene_source) {
+		params->blog(
+			LOG_INFO,
+			"<Video Sources> action failed - Scene or source in scene does not exist.");
 		return;
+	}
 	OBSSceneItemAutoRelease obs_sceneitem = obs_scene_sceneitem_from_source(
 		obs_scene_from_source(obs_scene_source), obs_source);
-	if (!obs_sceneitem)
+	if (!obs_sceneitem) {
+		params->blog(
+			LOG_INFO,
+			"<Video Sources> action failed - Source does not exist in scene.");
 		return;
+	}
 	vec2 coordinates;
 	obs_sceneitem_crop crop;
 
@@ -603,8 +675,12 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
-		if (params->get_num(0) == -1 && midi->get_value() > 5)
+		if (params->get_num(0) == -1 && midi->get_value() > 5) {
+			params->blog(
+				LOG_INFO,
+				"<Video Sources> action failed - MIDI value exceeded choice options.");
 			return;
+		}
 		obs_sceneitem_set_scale_filter(
 			obs_sceneitem,
 			(obs_scale_type)num_or_value(params->get_num(0),
@@ -624,8 +700,12 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_sceneitem_set_bounds(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
-		if (params->get_num(0) == -1 && midi->get_value() > 6)
+		if (params->get_num(0) == -1 && midi->get_value() > 6) {
+			params->blog(
+				LOG_INFO,
+				"<Video Sources> action failed - MIDI value exceeded choice options.");
 			return;
+		}
 		obs_sceneitem_set_blending_mode(
 			obs_sceneitem,
 			(obs_blending_type)num_or_value(
@@ -645,10 +725,18 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 {
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
-	if (!obs_source)
+	if (!obs_source) {
+		params->blog(
+			LOG_INFO,
+			"<Audio Sources> action failed - Source does not exist.");
 		return;
-	if (!(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO))
+	}
+	if (!(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO)) {
+		params->blog(
+			LOG_INFO,
+			"<Audio Sources> action failed - Source is not an audio source.");
 		return;
+	}
 
 	switch ((MMGAction::AudioSources)params->get_sub()) {
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGETO:
@@ -725,11 +813,19 @@ void MMGAction::do_action_media_source(const MMGAction *params,
 {
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
-	if (!obs_source)
+	if (!obs_source) {
+		params->blog(
+			LOG_INFO,
+			"<Media Sources> action failed - Source does not exist.");
 		return;
+	}
 	if (!(obs_source_get_output_flags(obs_source) &
-	      OBS_SOURCE_CONTROLLABLE_MEDIA))
+	      OBS_SOURCE_CONTROLLABLE_MEDIA)) {
+		params->blog(
+			LOG_INFO,
+			"<Media Sources> action failed - Source is not a media source.");
 		return;
+	}
 	obs_media_state state = obs_source_media_get_state(obs_source);
 	auto new_time =
 		(int64_t)(num_or_value(
@@ -813,16 +909,24 @@ void MMGAction::do_action_transitions(const MMGAction *params,
 		obs_frontend_release_tbar();
 		break;*/
 	case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:
-		if (!obs_sceneitem)
-			break;
+		if (!obs_sceneitem) {
+			params->blog(
+				LOG_INFO,
+				"<Transitions> action failed - Source in scene does not exist.");
+			return;
+		}
 		obs_sceneitem_set_transition(obs_sceneitem, true,
 					     obs_transition);
 		obs_sceneitem_set_transition_duration(obs_sceneitem, true,
 						      obs_transition_time);
 		break;
 	case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:
-		if (!obs_sceneitem)
-			break;
+		if (!obs_sceneitem) {
+			params->blog(
+				LOG_INFO,
+				"<Transitions> action failed - Source in scene does not exist.");
+			return;
+		}
 		obs_sceneitem_set_transition(obs_sceneitem, false,
 					     obs_transition);
 		obs_sceneitem_set_transition_duration(obs_sceneitem, false,
@@ -841,8 +945,12 @@ void MMGAction::do_action_filters(const MMGAction *params,
 		obs_get_source_by_name(params->get_str(0).qtocs());
 	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(
 		obs_source, params->get_str(1).qtocs());
-	if (!obs_filter)
+	if (!obs_filter) {
+		params->blog(
+			LOG_INFO,
+			"<Filters> action failed - Filter in source does not exist.");
 		return;
+	}
 	switch ((MMGAction::Filters)params->get_sub()) {
 	case MMGAction::Filters::FILTER_SHOW:
 		obs_source_set_enabled(obs_filter, true);
@@ -856,8 +964,13 @@ void MMGAction::do_action_filters(const MMGAction *params,
 		break;
 	case MMGAction::Filters::FILTER_REORDER:
 		if (num_or_value(params->get_num(0) - 1, midi->get_value(),
-				 128.0) >= obs_source_filter_count(obs_source))
-			break;
+				 128.0) >=
+		    obs_source_filter_count(obs_source)) {
+			params->blog(
+				LOG_INFO,
+				"<Filters> action failed - MIDI value exceeds filter count in source.");
+			return;
+		}
 		obs_source_filter_set_order(obs_source, obs_filter,
 					    OBS_ORDER_MOVE_TOP);
 		for (int i = 0; i < num_or_value(params->get_num(0) - 1,
@@ -902,8 +1015,12 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 		},
 		&req);
 
-	if (req.hotkey_id == (size_t)(-1))
+	if (req.hotkey_id == (size_t)(-1)) {
+		params->blog(
+			LOG_INFO,
+			"<Hotkeys> action failed - Hotkey does not exist.");
 		return;
+	}
 
 	switch ((MMGAction::Hotkeys)params->get_sub()) {
 	case MMGAction::Hotkeys::HOTKEY_HOTKEY:
@@ -921,8 +1038,12 @@ void MMGAction::do_action_profiles(const MMGAction *params,
 	char **profile_names = obs_frontend_get_profiles();
 
 	if (params->get_str(0) == "Use Message Value" &&
-	    (uint)midi->get_value() >= get_obs_profile_count())
+	    (uint)midi->get_value() >= get_obs_profile_count()) {
+		params->blog(
+			LOG_INFO,
+			"<Profiles> action failed - MIDI value exceeds profile count.");
 		return;
+	}
 
 	// For new Profile change (pre 28.0.0 method encounters threading errors)
 	auto set_profile = [](const char *name) {
@@ -961,8 +1082,12 @@ void MMGAction::do_action_collections(const MMGAction *params,
 	char **collection_names = obs_frontend_get_scene_collections();
 
 	if (params->get_str(0) == "Use Message Value" &&
-	    (uint)midi->get_value() >= get_obs_collection_count())
+	    (uint)midi->get_value() >= get_obs_collection_count()) {
+		params->blog(
+			LOG_INFO,
+			"<Scene Collections> action failed - MIDI value exceeds scene collection count.");
 		return;
+	}
 
 	// For new Scene Collection change (pre 28.0.0 method encounters threading errors)
 	auto set_collection = [](const char *name) {
@@ -1028,17 +1153,24 @@ void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 		message = libremidi::message::pitch_bend(
 			channel, num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
 	} else {
-		// Message type is invalid
+		params->blog(
+			LOG_INFO,
+			"<MIDI> action failed - Set MIDI message is invalid.");
 		return;
 	}
 	if (params->get_sub() == 0) {
 		MMGDevice *const output =
 			global()->find_device(params->get_str(0));
-		if (!output)
+		if (!output) {
+			params->blog(
+				LOG_INFO,
+				"<MIDI> action failed - Output device is not connected or does not exist.");
 			return;
-		if (!output->output_port_open())
-			output->open_output_port();
+		}
+		if (!MMGDevice::output_port_open())
+			MMGDevice::open_output_port(output);
 		output->output_send(message);
+		MMGDevice::close_output_port();
 	}
 	params->blog(LOG_INFO, "<MIDI> executed.");
 }

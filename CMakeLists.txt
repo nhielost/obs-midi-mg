@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
 # (e.g.: obs-myawesomeplugin) and set
-project(obs-midi-mg VERSION 1.2.2)
+project(obs-midi-mg VERSION 1.3.0)
 add_library(obs-midi-mg MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
@@ -19,9 +19,7 @@ set(MACOS_BUNDLEID "com.nhielost.obs-midi-mg")
 # Linux packages
 set(LINUX_MAINTAINER_EMAIL "nhielost@gmail.com")
 
-set(LIBREMIDI_HEADER_ONLY
-    ON
-    CACHE BOOL "Header-only mode")
+# Include libremidi library
 add_subdirectory(libremidi EXCLUDE_FROM_ALL)
 include_directories(libremidi/include)
 target_link_libraries(obs-midi-mg PRIVATE libremidi)
@@ -101,7 +99,7 @@ elseif(OS_MACOS)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
   set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1.2.2")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1.3.0")
 
   target_compile_options(obs-midi-mg PRIVATE -Wall)
   # --- End of section ---

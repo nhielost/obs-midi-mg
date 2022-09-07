@@ -21,6 +21,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "forms/midimg-window.h"
 #include "mmg-config.h"
 
+#include <winrt/windows.devices.midi.h>
+
 #include <QAction>
 #include <QMainWindow>
 #include <QDir>
@@ -35,6 +37,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
 static MidiMGWindow *plugin_window;
 Configuration global_config;
+MMGMIDIInputDevice input;
+MMGMIDIOutputDevice output;
 
 void _blog(int log_status, const QString &message)
 {
@@ -56,6 +60,13 @@ bool obs_module_load(void)
 	// Load the configuration
 	global_config = Configuration(new MMGConfig());
 
+	// Load the libremidi devices
+	input.reset(new libremidi::midi_in());
+	output.reset(new libremidi::midi_out());
+
+	// Load any new devices and open the input port
+	global()->load_new_devices();
+
 	// Load the UI Window
 	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
 	plugin_window = new MidiMGWindow(mainWindow);
@@ -75,10 +86,22 @@ bool obs_module_load(void)
 void obs_module_unload()
 {
 	global_config.reset();
+	input.reset();
+	output.reset();
 	_blog(LOG_INFO, "Plugin unloaded.");
 }
 
 Configuration global()
 {
 	return global_config;
+}
+
+MMGMIDIInputDevice input_device()
+{
+	return input;
+}
+
+MMGMIDIOutputDevice output_device()
+{
+	return output;
 }

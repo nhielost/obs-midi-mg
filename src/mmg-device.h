@@ -40,16 +40,17 @@ public:
 	int index_of(MMGBinding *const el);
 	int size() const;
 
-	void open_input_port();
-	void open_output_port();
-	void close_input_port();
-	void close_output_port();
-	bool input_port_open() const;
-	bool output_port_open() const;
-	void output_send(const libremidi::message &message);
+	void do_all_actions(const MMGSharedMessage &message);
+
+	static void open_input_port(MMGDevice *device);
+	static void open_output_port(MMGDevice *device);
+	static void close_input_port();
+	static void close_output_port();
+	static bool input_port_open();
+	static bool output_port_open();
+	static void output_send(const libremidi::message &message);
 	const QString input_device_status() const;
 	const QString output_device_status() const;
-	void do_all_actions(const MMGSharedMessage &message);
 
 	static QStringList get_input_device_names();
 	static uint get_input_port_number(const QString &deviceName);
@@ -63,8 +64,6 @@ public:
 private:
 	QString name;
 	MMGBindingList bindings;
-	libremidi::midi_in input_device;
-	libremidi::midi_out output_device;
 
 	static qulonglong next_default;
 

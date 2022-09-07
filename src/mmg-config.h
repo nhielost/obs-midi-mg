@@ -19,21 +19,19 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-device.h"
 
 struct MMGSettings {
+public:
+	MMGSettings() = default;
+	explicit MMGSettings(const QJsonObject &settings_obj);
+	void json(QJsonObject &settings_obj) const;
+
+	bool get_active() const { return active; };
+	bool get_tooltips() const { return tooltips; };
+	void set_active(bool is_active);
+	void set_tooltips(bool is_tooltips) { tooltips = is_tooltips; };
+
+private:
 	bool active = true;
 	bool tooltips = true;
-
-	MMGSettings() = default;
-	explicit MMGSettings(const QJsonObject &settings_obj)
-	{
-		active = settings_obj["active"].toBool(true);
-		tooltips = settings_obj["tooltips"].toBool(true);
-	}
-
-	void json(QJsonObject &settings_obj) const
-	{
-		settings_obj["active"] = active;
-		settings_obj["tooltips"] = tooltips;
-	}
 };
 
 class MMGConfig {
@@ -46,7 +44,14 @@ public:
 	void load(const QString &path_str = QString());
 	void save(const QString &path_str = QString()) const;
 	void clear();
+	void load_new_devices();
+	QString get_active_device_name() { return active_device_name; };
+	void set_active_device_name(const QString &name);
 	MMGDevice *find_device(const QString &name);
+	MMGDevice *find_current_device()
+	{
+		return find_device(active_device_name);
+	};
 	const QStringList get_device_names() const;
 	MMGSettings &preferences() { return settings; };
 
@@ -62,6 +67,7 @@ public:
 private:
 	MMGDevices devices;
 	MMGSettings settings;
+	QString active_device_name = "";
 
 	void check_device_default_names();
 
