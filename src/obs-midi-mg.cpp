@@ -21,8 +21,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "forms/midimg-window.h"
 #include "mmg-config.h"
 
-#include <winrt/windows.devices.midi.h>
-
 #include <QAction>
 #include <QMainWindow>
 #include <QDir>

@@ -22,10 +22,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-frontend-api.h>
 
-void global_blog(int log_status, QString &message)
+void global_blog(int log_status, const QString &message)
 {
-	message.prepend("[obs-midi-mg] ");
-	blog(log_status, qPrintable(message));
+	blog(log_status, "[obs-midi-mg] %s", qPrintable(message));
 }
 
 size_t get_name_count(char **names)

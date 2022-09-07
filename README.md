@@ -17,15 +17,14 @@ Connect MIDI devices and seamlessly integrate with OBS Studio! This plugin offer
 
 Go to the [Releases page](https://github.com/nhielost/obs-midi-mg/releases) and download and install the latest release for the proper operating system. That's it!
 
-### macOS Users
-
-It has been pointed out that the macOS installer will not always install correctly just by going through the installer normally. If this is the case, rerun the installer, and at the install page click the *Choose Install Location* button, then select the *Install for this user only* option. This will install the plugin in the proper location.
-
 ## Usage
 
 To set up bindings, open OBS Studio and open the setup window under *Tools > obs-midi-mg Setup*. The setup window should appear.
 
 If any MIDI devices are connected, they should appear in the ***Devices*** display on the left.
+
+***NEW:*** *A device must be chosen as an active device in order to receive messages. To do this, select the **Set As Active Device** option in the device's status tab. Only one device can be active at a time.*
+
 To access the bindings display, select the device to use for interacting with OBS Studio, and click *View Bindings* in the bottom right.
 
 ### Bindings
@@ -45,6 +44,8 @@ To rename the message, double-click the message and type to change the name. To 
 To edit the message, select the message in the ***Messages*** display, and the editor will appear on the right.
 
 Adjust the values as necessary for the message. By default, the value/velocity option is OFF for the use of its value in executing actions. If you wish to make the value required for executing an action, click the OFF in the middle of the value field, and it will switch to a number. Clicking the number again will revert it to the OFF state.
+
+There is a new feature where a message can be used by sending it to the plugin by the device. This can be done by selecting the *Listen to Message* button and sending the message to the plugin. It will automatically fill in the message values for you.
 
 *Note: You can use multiple messages in a binding by adding more messages. If this is desired, the behavior of the binding may not be appropriate. See [Binding Modes](#binding-modes) for more details*.
 

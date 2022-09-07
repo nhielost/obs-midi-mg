@@ -26,7 +26,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLCDNumber>
 #include <QDateTime>
 
-void global_blog(int log_status, QString &message);
+void global_blog(int log_status, const QString &message);
 
 namespace MMGUtils {
 

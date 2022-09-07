@@ -192,9 +192,9 @@ void MMGDevice::output_send(const libremidi::message &message)
 
 const QString MMGDevice::input_device_status() const
 {
-	if (get_input_port_number(name) != -1) {
+	if (get_input_port_number(name) != (uint)-1) {
 		return "Ready";
-	} else if (get_output_port_number(name) != -1) {
+	} else if (get_output_port_number(name) != (uint)-1) {
 		return "Unavailable";
 	} else {
 		return "Not Connected";
@@ -203,9 +203,9 @@ const QString MMGDevice::input_device_status() const
 
 const QString MMGDevice::output_device_status() const
 {
-	if (get_output_port_number(name) != -1) {
+	if (get_output_port_number(name) != (uint)-1) {
 		return "Ready";
-	} else if (get_input_port_number(name) != -1) {
+	} else if (get_input_port_number(name) != (uint)-1) {
 		return "Unavailable";
 	} else {
 		return "Not Connected";

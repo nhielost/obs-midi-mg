@@ -20,6 +20,9 @@ set(MACOS_BUNDLEID "com.nhielost.obs-midi-mg")
 set(LINUX_MAINTAINER_EMAIL "nhielost@gmail.com")
 
 # Include libremidi library
+set(LIBREMIDI_HEADER_ONLY
+    ON
+    CACHE BOOL "Header-only mode")
 add_subdirectory(libremidi EXCLUDE_FROM_ALL)
 include_directories(libremidi/include)
 target_link_libraries(obs-midi-mg PRIVATE libremidi)
