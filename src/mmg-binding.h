@@ -43,9 +43,11 @@ public:
 
 	const QString get_name() const { return name; };
 	Mode get_mode() const { return (Mode)mode; };
+	bool get_note_toggling() const { return note_toggling; };
 
 	void set_name(const QString &val) { name = val; };
 	void set_mode(Mode val) { mode = (short)val; };
+	void set_note_toggling(bool val);
 
 	MMGMessage *add_message(MMGMessage *const el = new MMGMessage);
 	void insert_message(size_t index, MMGMessage *const el);
@@ -76,6 +78,7 @@ public:
 private:
 	QString name;
 	short mode;
+	bool note_toggling;
 	QList<MMGMessage *> messages;
 	QList<MMGAction *> actions;
 	QList<MMGSharedMessage> saved_messages;

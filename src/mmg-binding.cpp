@@ -24,6 +24,7 @@ MMGBinding::MMGBinding()
 {
 	name = get_next_default_name();
 	mode = 1;
+	note_toggling = false;
 	blog(LOG_DEBUG, "Empty binding created.");
 }
 
@@ -33,6 +34,7 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 	if (name.isEmpty())
 		name = get_next_default_name();
 	mode = obj["mode"].toInt(1);
+	note_toggling = obj["note_toggling"].toBool();
 	if (MMGUtils::json_key_exists(obj, "messages", QJsonValue::Array)) {
 		QJsonArray msg_arr = obj["messages"].toArray();
 		for (QJsonValue child : msg_arr) {
@@ -62,6 +64,7 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 {
 	binding_obj["name"] = name;
 	binding_obj["mode"] = (int)mode;
+	binding_obj["note_toggling"] = note_toggling;
 	QJsonArray msg_arr;
 	for (MMGMessage *const chi : messages) {
 		QJsonObject json_chi;
@@ -116,6 +119,15 @@ void MMGBinding::check_action_default_names()
 			if (num > MMGAction::get_next_default())
 				MMGAction::set_next_default(num);
 		}
+	}
+}
+
+void MMGBinding::set_note_toggling(bool val)
+{
+	note_toggling = val;
+	if (messages.size() > 1) {
+		qDeleteAll(messages);
+		messages.clear();
 	}
 }
 
@@ -280,6 +292,10 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 	default:
 		break;
 	}
+	if (note_toggling) {
+		messages[0]->toggle();
+	}
+
 reset_binding:
 	// Reset everything (on failure or on completion)
 	current_message_index = 0;

@@ -193,6 +193,8 @@ void MidiMGWindow::connect_ui_signals()
 	CONNECT_LCD(double3);
 	CONNECT_LCD(double4);
 	// Binding Display Connections
+	connect(ui->editor_note_toggling, &QAbstractButton::toggled, this,
+		&MidiMGWindow::on_binding_note_toggle);
 	connect(ui->editor_binding_mode,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		[&](int id) {
@@ -307,6 +309,8 @@ void MidiMGWindow::set_device_view()
 void MidiMGWindow::set_binding_view()
 {
 	ui->text_binding_name->setText(current_binding->get_name());
+	ui->editor_note_toggling->setChecked(
+		current_binding->get_note_toggling());
 	ui->editor_binding_mode->setCurrentIndex(
 		(int)current_binding->get_mode() - 1);
 	on_binding_mode_select(current_binding->get_mode());
@@ -411,6 +415,11 @@ void MidiMGWindow::on_device_active_change(bool toggled)
 		global()->set_active_device_name(current_device->get_name());
 	ui->button_active_device->setText(toggled ? "Device is Active"
 						  : "Set As Active Device...");
+}
+
+void MidiMGWindow::on_binding_note_toggle(bool toggled)
+{
+	current_binding->set_note_toggling(toggled);
 }
 
 void MidiMGWindow::on_message_type_change(const QString &type)
@@ -629,7 +638,8 @@ void MidiMGWindow::on_action_sub_change(int index)
 	case MMGAction::Category::MMGACTION_FILTER:
 		set_strs_visible(true);
 		ui->label_str1->setText("Source");
-		MMGAction::do_obs_source_enum(ui->editor_str1);
+		MMGAction::do_obs_source_enum(
+			ui->editor_str1, MMGAction::Category::MMGACTION_FILTER);
 		SET_TOOLTIP(
 			editor_str1,
 			"Select the source containing the filter to be edited.");
@@ -1157,9 +1167,12 @@ void MidiMGWindow::on_add_click()
 		break;
 
 	case MMGModes::MMGMODE_MESSAGE:
-		current_message = current_binding->add_message();
-		add_widget_item(MMGModes::MMGMODE_MESSAGE,
-				current_message->get_name());
+		if (current_binding->get_note_toggling() &&
+		    current_binding->message_size() < 1) {
+			current_message = current_binding->add_message();
+			add_widget_item(MMGModes::MMGMODE_MESSAGE,
+					current_message->get_name());
+		}
 		break;
 
 	case MMGModes::MMGMODE_ACTION:
@@ -1246,11 +1259,11 @@ QString MidiMGWindow::binding_mode_description(enum MMGBinding::Mode mode) const
 {
 	switch (mode) {
 	case MMGBinding::Mode::MMGBINDING_CONSECUTIVE:
-		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).\n\nThis setting is the default.";
+		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).";
 	case MMGBinding::Mode::MMGBINDING_CORRESPONDENCE:
-		return "When multiple messages are used, all actions will receive their corresponding message as a parameter (if applicable).\n\nExample: There are three messages and three actions. When all three messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.";
+		return "When multiple messages are used, all actions will receive their corresponding message as a parameter (if applicable).";
 	case MMGBinding::Mode::MMGBINDING_MULTIPLY:
-		return "When multiple messages are used, all actions will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!\n\nExample: There are three messages before three actions. When all three messages have been heard, the first action receives all three messages as parameters (in order), then the second action receives all three messages, and so on.";
+		return "When multiple messages are used, all actions will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!";
 	default:
 		return "Error: Invalid description. Report this as a bug from the Preferences page.";
 	}

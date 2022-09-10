@@ -234,13 +234,6 @@ private:
 				   const MMGMessage *midi);
 	static void do_action_pause(const MMGAction *params,
 				    const MMGMessage *midi);
-
-	static double num_or_value(double original, double value,
-				   double multiplier)
-	{
-		return original == -1 ? qRound((value / 128.0) * multiplier)
-				      : original;
-	}
 };
 
 using MMGActionList = QList<MMGAction *>;

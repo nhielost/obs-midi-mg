@@ -757,7 +757,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>90</y>
+       <y>230</y>
        <width>111</width>
        <height>28</height>
       </rect>
@@ -777,9 +777,9 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>140</y>
+       <y>270</y>
        <width>321</width>
-       <height>221</height>
+       <height>91</height>
       </rect>
      </property>
      <property name="font">
@@ -800,7 +800,7 @@
      <property name="geometry">
       <rect>
        <x>130</x>
-       <y>90</y>
+       <y>230</y>
        <width>201</width>
        <height>28</height>
       </rect>
@@ -997,6 +997,50 @@
       <bool>true</bool>
      </property>
     </widget>
+    <widget class="QCheckBox" name="editor_note_toggling">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>80</y>
+       <width>321</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Enable Note Message Toggling</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="text_note_toggling">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>110</y>
+       <width>321</width>
+       <height>101</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+       <underline>false</underline>
+      </font>
+     </property>
+     <property name="text">
+      <string>This will allow Note On and Note Off messages to switch to the other type once they are received. Useful for toggling actions.
+
+Note: Only one message can be used, and setting the value to OFF in that message is recommended!</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
    </widget>
    <widget class="QWidget" name="message_props_page">
     <widget class="QWidget" name="formLayoutWidget">
@@ -1118,53 +1162,6 @@
         </property>
         <property name="text">
          <string>Channel</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_note">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Tahoma</family>
-          <pointsize>9</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>Note #</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_value">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Tahoma</family>
-          <pointsize>9</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>Value</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
         </property>
        </widget>
       </item>
@@ -1573,6 +1570,28 @@
         </item>
        </layout>
       </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_note">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Note #</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
       <item row="2" column="1">
        <layout class="QHBoxLayout" name="editor_note" stretch="1,1,4,1,1">
         <property name="spacing">
@@ -1977,6 +1996,31 @@
          </widget>
         </item>
        </layout>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_value">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Value</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
       </item>
       <item row="3" column="1">
        <layout class="QHBoxLayout" name="editor_value" stretch="1,1,4,1,1">
@@ -4609,10 +4653,10 @@
     <widget class="QLabel" name="text_global_enable">
      <property name="geometry">
       <rect>
-       <x>30</x>
+       <x>10</x>
        <y>60</y>
-       <width>301</width>
-       <height>41</height>
+       <width>321</width>
+       <height>51</height>
       </rect>
      </property>
      <property name="font">
@@ -4763,10 +4807,10 @@
     <widget class="QLabel" name="text_tooltips_enable">
      <property name="geometry">
       <rect>
-       <x>30</x>
-       <y>130</y>
-       <width>301</width>
-       <height>41</height>
+       <x>10</x>
+       <y>150</y>
+       <width>321</width>
+       <height>51</height>
       </rect>
      </property>
      <property name="font">
@@ -4786,7 +4830,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>110</y>
+       <y>130</y>
        <width>321</width>
        <height>21</height>
       </rect>

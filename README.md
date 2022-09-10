@@ -65,9 +65,11 @@ Adjust the values as necessary for the action(s) in this binding. Settings will 
 
 When selecting a binding, a selection field will appear displaying the Binding Mode. Each mode changes how actions are executed, and which messages will be sent as values to each action. In all modes, messages will be evaluated before actions, and all actions will execute after the final message is received.
 
-- **Consecutive Mode**: In this mode, actions can only use the final message as a value. This is the default mode, and should be used in most cases.
+- **Consecutive Mode**: In this mode, actions can only use the final message as a value. *This is the default mode, and should be used in most cases*.
 - **Correspondence Mode**: In this mode, actions can use the corresponding message as their value.
+   - Example: There are five messages and five actions in a binding. When all five messages have been heard, the first message received will be sent as a parameter to the first action, the second message to the second action, and so on.
 - **Multiply Mode**: In this mode, actions receive all previous messages as values. Only use this mode for multiple messages and singular actions as this may take a long time.
+   - Example: There are five messages before five actions. When all five messages have been heard, the first action receives all five messages as parameters (in order), then the second action receives all five messages, and so on.
 
 ### Returning to a Previous Menu
 

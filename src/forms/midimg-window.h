@@ -91,6 +91,8 @@ public slots:
 	void show_window();
 private slots:
 	void on_device_active_change(bool toggled);
+	void on_binding_note_toggle(bool toggled);
+	void on_binding_mode_select(enum MMGBinding::Mode mode);
 	void on_message_type_change(const QString &type);
 	void on_message_listen(bool toggled);
 	void on_action_cat_change(const QString &cat);
@@ -99,7 +101,6 @@ private slots:
 	void on_add_click();
 	void on_remove_click();
 	void on_return_click();
-	void on_binding_mode_select(enum MMGBinding::Mode mode);
 	void on_name_edit(QListWidgetItem *widgetItem);
 	void on_element_drag(const QModelIndex &parent, int start, int end,
 			     const QModelIndex &dest, int row) const;

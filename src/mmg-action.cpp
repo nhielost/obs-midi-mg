@@ -27,6 +27,15 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+double num_or_value(const MMGAction *params, const MMGMessage *midi, int num,
+		    double mult = 128.0, double value_oper = 0.0)
+{
+	return (params->get_num(num) == -1
+			? qRound(((midi->get_value() + value_oper) / 128.0) *
+				 mult)
+			: params->get_num(num));
+}
+
 struct R {
 	QComboBox *c;
 	MMGAction::Category r_t;
@@ -188,6 +197,12 @@ void MMGAction::do_obs_source_enum(QComboBox *list,
 				      OBS_SOURCE_AUDIO))
 					return true;
 				break;
+			case MMGAction::Category::MMGACTION_FILTER:
+				if (obs_source_get_type(source) !=
+					    OBS_SOURCE_TYPE_INPUT ||
+				    obs_source_get_type(source) !=
+					    OBS_SOURCE_TYPE_SCENE)
+					return true;
 			default:
 				if (obs_source_get_type(source) !=
 				    OBS_SOURCE_TYPE_INPUT)
@@ -282,16 +297,25 @@ void MMGAction::do_obs_filter_enum(QComboBox *list,
 		&r);
 }
 
+const QString get_hotkey_source(const QString &hotkey_name)
+{
+	return "[" + hotkey_name.split(".")[0] + "] ";
+}
+
 void MMGAction::do_obs_hotkey_enum(QComboBox *list)
 {
 	obs_enum_hotkeys(
 		[](void *param, obs_hotkey_id id, obs_hotkey_t *hotkey) {
 			Q_UNUSED(id);
 			auto helper = reinterpret_cast<QComboBox *>(param);
-			if (obs_hotkey_get_registerer_type(hotkey) !=
-			    OBS_HOTKEY_REGISTERER_FRONTEND)
+			QString name = obs_hotkey_get_name(hotkey);
+			// From obs-midi
+			if (name.contains("libobs") ||
+			    name.contains("MediaSource") ||
+			    name.contains("OBSBasic"))
 				return true;
-			helper->addItem(obs_hotkey_get_description(hotkey));
+			helper->addItem(get_hotkey_source(name) +
+					obs_hotkey_get_description(hotkey));
 			return true;
 		},
 		list);
@@ -477,7 +501,10 @@ void MMGAction::do_action_replay_buffer(const MMGAction *params,
 					const MMGMessage *midi)
 {
 	config_t *obs_config = obs_frontend_get_profile_config();
-	if (!config_get_bool(obs_config, "SimpleOutput", "RecRB")) {
+	if ((config_get_string(obs_config, "Output", "Mode") == "Simple" &&
+	     !config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
+	    (config_get_string(obs_config, "Output", "Mode") == "Advanced" &&
+	     !config_get_bool(obs_config, "AdvOut", "RecRB"))) {
 		params->blog(
 			LOG_INFO,
 			"<Replay Buffer> action failed - Replay Buffers are not enabled.");
@@ -566,7 +593,6 @@ void MMGAction::do_action_studio_mode(const MMGAction *params,
 void MMGAction::do_action_scenes(const MMGAction *params,
 				 const MMGMessage *midi)
 {
-	char **scene_names = obs_frontend_get_scene_names();
 	if (params->get_str(0) == "Use Message Value" &&
 	    (uint)midi->get_value() >= get_obs_scene_count()) {
 		params->blog(
@@ -574,6 +600,7 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 			"<Scene Switching> action failed - MIDI value exceeded scene count.");
 		return;
 	}
+	char **scene_names = obs_frontend_get_scene_names();
 	OBSSourceAutoRelease source_obs_scene =
 		obs_get_source_by_name(params->get_str(0) == "Use Message Value"
 					       ? scene_names[midi->get_value()]
@@ -584,6 +611,7 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 			params->blog(
 				LOG_INFO,
 				"<Scene Switching> action failed - Scene does not exist.");
+			bfree(scene_names);
 			return;
 		}
 		obs_frontend_set_current_scene(source_obs_scene);
@@ -622,9 +650,9 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	switch ((MMGAction::VideoSources)params->get_sub()) {
 	case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
 		vec2_set(&coordinates,
-			 num_or_value(params->get_num(0), midi->get_value(),
+			 num_or_value(params, midi, 0,
 				      get_obs_dimensions().first),
-			 num_or_value(params->get_num(1), midi->get_value(),
+			 num_or_value(params, midi, 1,
 				      get_obs_dimensions().second));
 		obs_sceneitem_set_pos(obs_sceneitem, &coordinates);
 		break;
@@ -652,19 +680,19 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_CROP:
 		crop.top = num_or_value(
-			params->get_num(0), midi->get_value(),
+			params, midi, 0,
 			get_obs_source_dimensions(params->get_str(1)).second >>
 				1);
 		crop.right = num_or_value(
-			params->get_num(1), midi->get_value(),
+			params, midi, 1,
 			get_obs_source_dimensions(params->get_str(1)).first >>
 				1);
 		crop.bottom = num_or_value(
-			params->get_num(2), midi->get_value(),
+			params, midi, 2,
 			get_obs_source_dimensions(params->get_str(1)).second >>
 				1);
 		crop.left = num_or_value(
-			params->get_num(3), midi->get_value(),
+			params, midi, 3,
 			get_obs_source_dimensions(params->get_str(1)).first >>
 				1);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
@@ -683,19 +711,17 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		}
 		obs_sceneitem_set_scale_filter(
 			obs_sceneitem,
-			(obs_scale_type)num_or_value(params->get_num(0),
-						     midi->get_value(), 128.0));
+			(obs_scale_type)num_or_value(params, midi, 0));
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_ROTATION:
 		obs_sceneitem_set_rot(obs_sceneitem,
-				      num_or_value(params->get_num(0),
-						   midi->get_value(), 360.0));
+				      num_or_value(params, midi, 0, 360.0));
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDINGBOX:
 		vec2_set(&coordinates,
-			 num_or_value(params->get_num(0), midi->get_value(),
+			 num_or_value(params, midi, 0,
 				      get_obs_dimensions().first),
-			 num_or_value(params->get_num(1), midi->get_value(),
+			 num_or_value(params, midi, 1,
 				      get_obs_dimensions().second));
 		obs_sceneitem_set_bounds(obs_sceneitem, &coordinates);
 		break;
@@ -708,8 +734,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		}
 		obs_sceneitem_set_blending_mode(
 			obs_sceneitem,
-			(obs_blending_type)num_or_value(
-				params->get_num(0), midi->get_value(), 128.0));
+			(obs_blending_type)num_or_value(params, midi, 0));
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCREENSHOT:
 		obs_frontend_take_source_screenshot(obs_source);
@@ -748,31 +773,31 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 		} else {
 			obs_source_set_volume(
 				obs_source,
-				num_or_value(params->get_num(0),
-					     midi->get_value() + 1, 100.0) /
-					100.0);
+				std::pow((num_or_value(params, midi, 0, 100.0,
+						       1) /
+					  100.0),
+					 3.0));
 		}
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
-		if (obs_source_get_volume(obs_source) * 100.0 +
-			    num_or_value(params->get_num(0),
-					 midi->get_value() - 64, 100.0) >=
+		if (std::cbrt(obs_source_get_volume(obs_source)) * 100.0 +
+			    num_or_value(params, midi, 0, 100, -64) >=
 		    100.0) {
 			obs_source_set_volume(obs_source, 1);
-		} else if (obs_source_get_volume(obs_source) * 100.0 +
-				   num_or_value(params->get_num(0),
-						midi->get_value() - 64,
-						100.0) <=
+		} else if (std::cbrt(obs_source_get_volume(obs_source)) *
+					   100.0 +
+				   num_or_value(params, midi, 0, 100.0, -64) <=
 			   0.0) {
 			obs_source_set_volume(obs_source, 0);
 		} else {
 			obs_source_set_volume(
 				obs_source,
-				obs_source_get_volume(obs_source) +
-					(num_or_value(params->get_num(0),
-						      midi->get_value() - 64,
-						      100.0) /
-					 100.0));
+				std::pow(std::cbrt(obs_source_get_volume(
+						 obs_source)) +
+						 (num_or_value(params, midi, 0,
+							       100.0, -64) /
+						  100.0),
+					 3.0));
 		}
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_ON:
@@ -788,17 +813,19 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 		// Multiplier is 3200 here to make it so that the sync offset is incremented by 25.
 		// Hard limit is set at 3175 ms
 		obs_source_set_sync_offset(
-			obs_source, num_or_value(params->get_num(0),
-						 midi->get_value(), 3200.0) *
-					    1000000);
+			obs_source,
+			(num_or_value(params, midi, 0, 3200.0) * 1000000));
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_MONITOR:
+		if (params->get_num(0) && midi->get_value() >= 3) {
+			params->blog(
+				LOG_INFO,
+				"<Audio Sources> action failed - MIDI value exceeds audio monitor option count.");
+			return;
+		}
 		obs_source_set_monitoring_type(
 			obs_source,
-			(obs_monitoring_type)(num_or_value(
-				params->get_num(0),
-				midi->get_value() >= 3 ? 0 : midi->get_value(),
-				128.0)));
+			(obs_monitoring_type)(num_or_value(params, midi, 0)));
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_CUSTOM:
 		break;
@@ -827,11 +854,10 @@ void MMGAction::do_action_media_source(const MMGAction *params,
 		return;
 	}
 	obs_media_state state = obs_source_media_get_state(obs_source);
-	auto new_time =
-		(int64_t)(num_or_value(
-				  params->get_num(0), midi->get_value(),
-				  get_obs_media_length(params->get_str(0))) *
-			  1000);
+	auto new_time = (int64_t)(num_or_value(params, midi, 0,
+					       get_obs_media_length(
+						       params->get_str(0))) *
+				  1000);
 	switch ((MMGAction::MediaSources)params->get_sub()) {
 	case MMGAction::MediaSources::SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
 		switch (state) {
@@ -963,8 +989,7 @@ void MMGAction::do_action_filters(const MMGAction *params,
 				       !obs_source_enabled(obs_filter));
 		break;
 	case MMGAction::Filters::FILTER_REORDER:
-		if (num_or_value(params->get_num(0) - 1, midi->get_value(),
-				 128.0) >=
+		if (num_or_value(params, midi, 0, 128.0, 1) - 1 >=
 		    obs_source_filter_count(obs_source)) {
 			params->blog(
 				LOG_INFO,
@@ -973,8 +998,7 @@ void MMGAction::do_action_filters(const MMGAction *params,
 		}
 		obs_source_filter_set_order(obs_source, obs_filter,
 					    OBS_ORDER_MOVE_TOP);
-		for (int i = 0; i < num_or_value(params->get_num(0) - 1,
-						 midi->get_value(), 128.0);
+		for (int i = 0; i < num_or_value(params, midi, 0, 128.0, 1) - 1;
 		     ++i) {
 			obs_source_filter_set_order(obs_source, obs_filter,
 						    OBS_ORDER_MOVE_DOWN);
@@ -1006,7 +1030,7 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 
 			const char *current_hotkey_name =
 				obs_hotkey_get_description(hotkey);
-			if (current_hotkey_name == req->hotkey_name) {
+			if (req->hotkey_name.contains(current_hotkey_name)) {
 				req->hotkey_id = id;
 				return false;
 			}
@@ -1124,32 +1148,21 @@ void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 	int channel = params->get_num(0) < 1 ? 1 : params->get_num(0);
 	if (params->get_str(1) == "Note On") {
 		message = libremidi::message::note_on(
-			channel,
-			num_or_value(params->get_num(1), midi->get_note(),
-				     128.0),
-			num_or_value(params->get_num(2), midi->get_value(),
-				     128.0));
+			channel, num_or_value(params, midi, 1),
+			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Note Off") {
 		message = libremidi::message::note_off(
-			channel,
-			num_or_value(params->get_num(1), midi->get_note(),
-				     128.0),
-			num_or_value(params->get_num(2), midi->get_value(),
-				     128.0));
+			channel, num_or_value(params, midi, 1),
+			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Control Change") {
 		message = libremidi::message::control_change(
-			channel,
-			num_or_value(params->get_num(1), midi->get_note(),
-				     128.0),
-			num_or_value(params->get_num(2), midi->get_value(),
-				     128.0));
+			channel, num_or_value(params, midi, 1),
+			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Program Change") {
 		message = libremidi::message::program_change(
-			channel, num_or_value(params->get_num(1),
-					      midi->get_value(), 128.0));
+			channel, num_or_value(params, midi, 1));
 	} else if (params->get_str(1) == "Pitch Bend") {
-		int num1 = num_or_value(params->get_num(1), midi->get_value(),
-					128.0);
+		int num1 = num_or_value(params, midi, 1);
 		message = libremidi::message::pitch_bend(
 			channel, num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
 	} else {
@@ -1180,13 +1193,11 @@ void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
 	switch ((MMGAction::Timeout)params->get_sub()) {
 	case MMGAction::Timeout::TIMEOUT_MS:
 		std::this_thread::sleep_for(std::chrono::milliseconds(
-			(int)num_or_value(params->get_num(0), midi->get_value(),
-					  128.0)));
+			(int)num_or_value(params, midi, 0)));
 		break;
 	case MMGAction::Timeout::TIMEOUT_S:
 		std::this_thread::sleep_for(std::chrono::seconds(
-			(int)num_or_value(params->get_num(0), midi->get_value(),
-					  128.0)));
+			(int)num_or_value(params, midi, 0)));
 		break;
 	default:
 		break;
