@@ -34,20 +34,26 @@ public:
 	void json(QJsonObject &binding_obj) const;
 	void blog(int log_status, const QString &message) const;
 
-	enum class Mode {
+	enum class Reception {
 		MMGBINDING_INVALID,
 		MMGBINDING_CONSECUTIVE,
 		MMGBINDING_CORRESPONDENCE,
 		MMGBINDING_MULTIPLY
 	};
+	enum class Toggling {
+		MMGBINDING_TOGGLE_OFF,
+		MMGBINDING_TOGGLE_NOTE,
+		MMGBINDING_TOGGLE_VALUE,
+		MMGBINDING_TOGGLE_BOTH
+	};
 
 	const QString get_name() const { return name; };
-	Mode get_mode() const { return (Mode)mode; };
-	bool get_note_toggling() const { return note_toggling; };
+	Reception get_reception() const { return (Reception)reception; };
+	Toggling get_toggling() const { return (Toggling)toggling; };
 
 	void set_name(const QString &val) { name = val; };
-	void set_mode(Mode val) { mode = (short)val; };
-	void set_note_toggling(bool val);
+	void set_reception(Reception val) { reception = (short)val; };
+	void set_toggling(Toggling val);
 
 	MMGMessage *add_message(MMGMessage *const el = new MMGMessage);
 	void insert_message(size_t index, MMGMessage *const el);
@@ -77,8 +83,8 @@ public:
 
 private:
 	QString name;
-	short mode;
-	bool note_toggling;
+	short reception;
+	short toggling;
 	QList<MMGMessage *> messages;
 	QList<MMGAction *> actions;
 	QList<MMGSharedMessage> saved_messages;

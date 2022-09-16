@@ -32,12 +32,10 @@ using namespace MMGUtils;
 MMGSettings::MMGSettings(const QJsonObject &settings_obj)
 {
 	set_active(settings_obj["active"].toBool(true));
-	set_tooltips(settings_obj["tooltips"].toBool(true));
 }
 void MMGSettings::json(QJsonObject &settings_obj) const
 {
 	settings_obj["active"] = active;
-	settings_obj["tooltips"] = tooltips;
 }
 
 void MMGSettings::set_active(bool is_active)
@@ -211,7 +209,7 @@ void MMGConfig::load_new_devices()
 	if (!MMGDevice::input_port_open())
 		MMGDevice::open_input_port(find_current_device());
 
-	blog(LOG_INFO, "New devices loaded.");
+	blog(LOG_INFO, "Connected MIDI devices detected.");
 }
 
 void MMGConfig::set_active_device_name(const QString &name)

@@ -160,12 +160,21 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 	}
 }
 
-void MMGMessage::toggle()
+void MMGMessage::toggle(short which)
 {
-	if (type == "Note On") {
-		type = "Note Off";
-	} else if (type == "Note Off") {
-		type = "Note On";
+	if (which & 0b01) {
+		if (type == "Note On") {
+			type = "Note Off";
+		} else if (type == "Note Off") {
+			type = "Note On";
+		}
+	}
+	if (which & 0b10) {
+		if (value == 127) {
+			value = 0;
+		} else if (value == 0) {
+			value = 127;
+		}
 	}
 }
 

@@ -58,7 +58,6 @@ private:
 	void connect_ui_signals();
 	void configure_lcd_widgets();
 
-	QString binding_mode_description(enum MMGBinding::Mode mode) const;
 	void switch_structure_pane(enum MMGModes mode);
 	void set_device_view();
 	void set_binding_view();
@@ -91,8 +90,8 @@ public slots:
 	void show_window();
 private slots:
 	void on_device_active_change(bool toggled);
-	void on_binding_note_toggle(bool toggled);
-	void on_binding_mode_select(enum MMGBinding::Mode mode);
+	void on_binding_reception_select(int index);
+	void on_binding_toggling_select(int index);
 	void on_message_type_change(const QString &type);
 	void on_message_listen(bool toggled);
 	void on_action_cat_change(const QString &cat);
@@ -101,6 +100,7 @@ private slots:
 	void on_add_click();
 	void on_remove_click();
 	void on_return_click();
+	void on_help_click();
 	void on_name_edit(QListWidgetItem *widgetItem);
 	void on_element_drag(const QModelIndex &parent, int start, int end,
 			     const QModelIndex &dest, int row) const;

@@ -25,13 +25,10 @@ public:
 	void json(QJsonObject &settings_obj) const;
 
 	bool get_active() const { return active; };
-	bool get_tooltips() const { return tooltips; };
 	void set_active(bool is_active);
-	void set_tooltips(bool is_tooltips) { tooltips = is_tooltips; };
 
 private:
 	bool active = true;
-	bool tooltips = true;
 };
 
 class MMGConfig {

@@ -137,7 +137,7 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="button_group_interaction">
+     <layout class="QHBoxLayout" name="button_group_interaction_upper">
       <property name="spacing">
        <number>10</number>
       </property>
@@ -192,20 +192,55 @@
      </layout>
     </item>
     <item>
-     <widget class="QPushButton" name="button_preferences">
-      <property name="font">
-       <font>
-        <family>Tahoma</family>
-        <pointsize>9</pointsize>
-       </font>
+     <layout class="QHBoxLayout" name="button_group_interaction_lower">
+      <property name="spacing">
+       <number>10</number>
       </property>
-      <property name="cursor">
-       <cursorShape>PointingHandCursor</cursorShape>
-      </property>
-      <property name="text">
-       <string>Preferences...</string>
-      </property>
-     </widget>
+      <item>
+       <widget class="QPushButton" name="button_preferences">
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="text">
+         <string>Preferences...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_help_subject">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="toolTip">
+         <string/>
+        </property>
+        <property name="text">
+         <string>Help...</string>
+        </property>
+        <property name="checkable">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
    </layout>
   </widget>
@@ -265,7 +300,7 @@
     <number>0</number>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="empty_page">
     <property name="palette">
@@ -753,13 +788,13 @@
     </widget>
    </widget>
    <widget class="QWidget" name="binding_props_page">
-    <widget class="QLabel" name="label_binding_mode">
+    <widget class="QLabel" name="label_reception_method">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>230</y>
-       <width>111</width>
-       <height>28</height>
+       <y>160</y>
+       <width>121</width>
+       <height>30</height>
       </rect>
      </property>
      <property name="font">
@@ -770,39 +805,16 @@
       </font>
      </property>
      <property name="text">
-      <string>Binding Mode</string>
+      <string>Reception Method</string>
      </property>
     </widget>
-    <widget class="QLabel" name="text_binding_mode">
+    <widget class="QComboBox" name="editor_reception_method">
      <property name="geometry">
       <rect>
-       <x>10</x>
-       <y>270</y>
-       <width>321</width>
-       <height>91</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <family>Tahoma</family>
-       <pointsize>9</pointsize>
-       <underline>false</underline>
-      </font>
-     </property>
-     <property name="text">
-      <string>Sample Description</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="editor_binding_mode">
-     <property name="geometry">
-      <rect>
-       <x>130</x>
-       <y>230</y>
-       <width>201</width>
-       <height>28</height>
+       <x>140</x>
+       <y>160</y>
+       <width>191</width>
+       <height>30</height>
       </rect>
      </property>
      <property name="sizePolicy">
@@ -997,14 +1009,20 @@
       <bool>true</bool>
      </property>
     </widget>
-    <widget class="QCheckBox" name="editor_note_toggling">
+    <widget class="QComboBox" name="editor_message_toggling">
      <property name="geometry">
       <rect>
-       <x>10</x>
-       <y>80</y>
-       <width>321</width>
-       <height>22</height>
+       <x>140</x>
+       <y>100</y>
+       <width>191</width>
+       <height>30</height>
       </rect>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
      </property>
      <property name="font">
       <font>
@@ -1012,17 +1030,34 @@
        <pointsize>9</pointsize>
       </font>
      </property>
-     <property name="text">
-      <string>Enable Note Message Toggling</string>
-     </property>
+     <item>
+      <property name="text">
+       <string>Off</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Note Type</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Velocity</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Note Type and Velocity</string>
+      </property>
+     </item>
     </widget>
-    <widget class="QLabel" name="text_note_toggling">
+    <widget class="QLabel" name="label_message_toggling">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>110</y>
-       <width>321</width>
-       <height>101</height>
+       <y>100</y>
+       <width>121</width>
+       <height>30</height>
       </rect>
      </property>
      <property name="font">
@@ -1033,12 +1068,7 @@
       </font>
      </property>
      <property name="text">
-      <string>This will allow Note On and Note Off messages to switch to the other type once they are received. Useful for toggling actions.
-
-Note: Only one message can be used, and setting the value to OFF in that message is recommended!</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
+      <string>Message Toggling</string>
      </property>
     </widget>
    </widget>
@@ -4716,7 +4746,7 @@ Note: Only one message can be used, and setting the value to OFF in that message
       <string>Import Bindings...</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="button_help">
+    <widget class="QPushButton" name="button_help_advanced">
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -4735,7 +4765,7 @@ Note: Only one message can be used, and setting the value to OFF in that message
       <cursorShape>PointingHandCursor</cursorShape>
      </property>
      <property name="text">
-      <string>Help...</string>
+      <string>Help Page...</string>
      </property>
     </widget>
     <widget class="QPushButton" name="button_bug_report">
@@ -4804,13 +4834,15 @@ Note: Only one message can be used, and setting the value to OFF in that message
       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
      </property>
     </widget>
-    <widget class="QLabel" name="text_tooltips_enable">
+   </widget>
+   <widget class="QWidget" name="help_page">
+    <widget class="QLabel" name="label_subject">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>150</y>
-       <width>321</width>
-       <height>51</height>
+       <y>20</y>
+       <width>101</width>
+       <height>41</height>
       </rect>
      </property>
      <property name="font">
@@ -4820,35 +4852,64 @@ Note: Only one message can be used, and setting the value to OFF in that message
       </font>
      </property>
      <property name="text">
-      <string>This will allow a tooltip to appear when hovering over any field in the Messages and Actions menus.</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
+      <string>Subject</string>
      </property>
     </widget>
-    <widget class="QCheckBox" name="editor_tooltips_enable">
+    <widget class="QLabel" name="text_subject_name">
      <property name="geometry">
       <rect>
-       <x>10</x>
-       <y>130</y>
-       <width>321</width>
-       <height>21</height>
+       <x>110</x>
+       <y>20</y>
+       <width>221</width>
+       <height>41</height>
       </rect>
      </property>
      <property name="font">
       <font>
        <family>Tahoma</family>
-       <pointsize>10</pointsize>
+       <pointsize>11</pointsize>
+       <bold>true</bold>
       </font>
      </property>
-     <property name="styleSheet">
-      <string notr="true"/>
+     <property name="text">
+      <string>&lt;Subject Name&gt;</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="text_subject_content">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>80</y>
+       <width>321</width>
+       <height>371</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
      </property>
      <property name="text">
-      <string>Enable Tooltips</string>
+      <string> Topic</string>
      </property>
-     <property name="checked">
+     <property name="textFormat">
+      <enum>Qt::MarkdownText</enum>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+     </property>
+     <property name="wordWrap">
       <bool>true</bool>
+     </property>
+     <property name="margin">
+      <number>0</number>
      </property>
     </widget>
    </widget>

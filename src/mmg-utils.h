@@ -25,6 +25,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QJsonArray>
 #include <QLCDNumber>
 #include <QDateTime>
+#include <QLabel>
 
 void global_blog(int log_status, const QString &message);
 
@@ -70,6 +71,8 @@ bool json_key_exists(const QJsonObject &obj, QString key,
 bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type);
 
 bool bool_from_str(const QString &str);
+
+void set_help_text(MMGModes mode, QLabel *name, QLabel *text, const void *obj);
 
 std::pair<uint, uint> get_obs_dimensions();
 std::pair<uint, uint> get_obs_source_dimensions(const QString &name);

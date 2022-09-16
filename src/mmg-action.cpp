@@ -203,6 +203,7 @@ void MMGAction::do_obs_source_enum(QComboBox *list,
 				    obs_source_get_type(source) !=
 					    OBS_SOURCE_TYPE_SCENE)
 					return true;
+				break;
 			default:
 				if (obs_source_get_type(source) !=
 				    OBS_SOURCE_TYPE_INPUT)
@@ -297,11 +298,6 @@ void MMGAction::do_obs_filter_enum(QComboBox *list,
 		&r);
 }
 
-const QString get_hotkey_source(const QString &hotkey_name)
-{
-	return "[" + hotkey_name.split(".")[0] + "] ";
-}
-
 void MMGAction::do_obs_hotkey_enum(QComboBox *list)
 {
 	obs_enum_hotkeys(
@@ -314,8 +310,7 @@ void MMGAction::do_obs_hotkey_enum(QComboBox *list)
 			    name.contains("MediaSource") ||
 			    name.contains("OBSBasic"))
 				return true;
-			helper->addItem(get_hotkey_source(name) +
-					obs_hotkey_get_description(hotkey));
+			helper->addItem(obs_hotkey_get_description(hotkey));
 			return true;
 		},
 		list);
@@ -405,7 +400,7 @@ void MMGAction::do_action(const MMGSharedMessage &params)
 void MMGAction::do_action_none(const MMGAction *params, const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
-	params->blog(LOG_INFO, "<None> executed.");
+	params->blog(LOG_DEBUG, "<None> executed.");
 }
 
 void MMGAction::do_action_stream(const MMGAction *params,
@@ -431,7 +426,7 @@ void MMGAction::do_action_stream(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Stream> executed.");
+	params->blog(LOG_DEBUG, "<Stream> executed.");
 }
 
 void MMGAction::do_action_record(const MMGAction *params,
@@ -468,7 +463,7 @@ void MMGAction::do_action_record(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Record> executed.");
+	params->blog(LOG_DEBUG, "<Record> executed.");
 }
 
 void MMGAction::do_action_virtual_cam(const MMGAction *params,
@@ -494,16 +489,18 @@ void MMGAction::do_action_virtual_cam(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Virtual Camera> executed.");
+	params->blog(LOG_DEBUG, "<Virtual Camera> executed.");
 }
 
 void MMGAction::do_action_replay_buffer(const MMGAction *params,
 					const MMGMessage *midi)
 {
 	config_t *obs_config = obs_frontend_get_profile_config();
-	if ((config_get_string(obs_config, "Output", "Mode") == "Simple" &&
+	if ((QString(config_get_string(obs_config, "Output", "Mode")) ==
+		     "Simple" &&
 	     !config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
-	    (config_get_string(obs_config, "Output", "Mode") == "Advanced" &&
+	    (QString(config_get_string(obs_config, "Output", "Mode")) ==
+		     "Advanced" &&
 	     !config_get_bool(obs_config, "AdvOut", "RecRB"))) {
 		params->blog(
 			LOG_INFO,
@@ -535,7 +532,7 @@ void MMGAction::do_action_replay_buffer(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Replay Buffer> executed.");
+	params->blog(LOG_DEBUG, "<Replay Buffer> executed.");
 }
 
 void MMGAction::do_action_studio_mode(const MMGAction *params,
@@ -587,7 +584,7 @@ void MMGAction::do_action_studio_mode(const MMGAction *params,
 		break;
 	}
 	bfree(scene_names);
-	params->blog(LOG_INFO, "<Studio Mode> executed.");
+	params->blog(LOG_DEBUG, "<Studio Mode> executed.");
 }
 
 void MMGAction::do_action_scenes(const MMGAction *params,
@@ -620,7 +617,7 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 		break;
 	}
 	bfree(scene_names);
-	params->blog(LOG_INFO, "<Scene Switching> executed.");
+	params->blog(LOG_DEBUG, "<Scene Switching> executed.");
 }
 
 void MMGAction::do_action_video_source(const MMGAction *params,
@@ -633,7 +630,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	if (!obs_source || !obs_scene_source) {
 		params->blog(
 			LOG_INFO,
-			"<Video Sources> action failed - Scene or source in scene does not exist.");
+			"<Video Sources> action failed - Scene or source does not exist.");
 		return;
 	}
 	OBSSceneItemAutoRelease obs_sceneitem = obs_scene_sceneitem_from_source(
@@ -646,6 +643,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	}
 	vec2 coordinates;
 	obs_sceneitem_crop crop;
+	uint32_t align = 0;
 
 	switch ((MMGAction::VideoSources)params->get_sub()) {
 	case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
@@ -697,9 +695,29 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 				1);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
 		break;
+	case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
+		if (params->get_num(0) == -1 && midi->get_value() > 8) {
+			params->blog(
+				LOG_INFO,
+				"<Video Sources> action failed - MIDI value exceeded choice options.");
+			return;
+		}
+		if (num_or_value(params, midi, 0) <= 2)
+			align |= OBS_ALIGN_TOP;
+		if (num_or_value(params, midi, 0) >= 6)
+			align |= OBS_ALIGN_BOTTOM;
+		if ((uint)num_or_value(params, midi, 0) % 3 == 0)
+			align |= OBS_ALIGN_LEFT;
+		if ((uint)num_or_value(params, midi, 0) % 3 == 2)
+			align |= OBS_ALIGN_RIGHT;
+		obs_sceneitem_set_alignment(obs_sceneitem, align);
+		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
-		// This is incomplete
-		vec2_set(&coordinates, params->get_num(0), params->get_num(1));
+		vec2_set(&coordinates,
+			 num_or_value(params, midi, 0) / 127.0 *
+				 params->get_num(2),
+			 num_or_value(params, midi, 1) / 127.0 *
+				 params->get_num(2));
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
@@ -717,13 +735,41 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_sceneitem_set_rot(obs_sceneitem,
 				      num_or_value(params, midi, 0, 360.0));
 		break;
-	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDINGBOX:
+	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:
+		if (params->get_num(0) == -1 && midi->get_value() > 6) {
+			params->blog(
+				LOG_INFO,
+				"<Video Sources> action failed - MIDI value exceeded choice options.");
+			return;
+		}
+		obs_sceneitem_set_bounds_type(
+			obs_sceneitem,
+			(obs_bounds_type)num_or_value(params, midi, 0));
+		break;
+	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:
 		vec2_set(&coordinates,
 			 num_or_value(params, midi, 0,
 				      get_obs_dimensions().first),
 			 num_or_value(params, midi, 1,
 				      get_obs_dimensions().second));
 		obs_sceneitem_set_bounds(obs_sceneitem, &coordinates);
+		break;
+	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
+		if (params->get_num(0) == -1 && midi->get_value() > 8) {
+			params->blog(
+				LOG_INFO,
+				"<Video Sources> action failed - MIDI value exceeded choice options.");
+			return;
+		}
+		if (num_or_value(params, midi, 0) <= 2)
+			align |= OBS_ALIGN_TOP;
+		if (num_or_value(params, midi, 0) >= 6)
+			align |= OBS_ALIGN_BOTTOM;
+		if ((uint)num_or_value(params, midi, 0) % 3 == 0)
+			align |= OBS_ALIGN_LEFT;
+		if ((uint)num_or_value(params, midi, 0) % 3 == 2)
+			align |= OBS_ALIGN_RIGHT;
+		obs_sceneitem_set_bounds_alignment(obs_sceneitem, align);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
 		if (params->get_num(0) == -1 && midi->get_value() > 6) {
@@ -742,7 +788,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Video Sources> executed.");
+	params->blog(LOG_DEBUG, "<Video Sources> executed.");
 }
 
 void MMGAction::do_action_audio_source(const MMGAction *params,
@@ -832,7 +878,7 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Audio Sources> executed.");
+	params->blog(LOG_DEBUG, "<Audio Sources> executed.");
 }
 
 void MMGAction::do_action_media_source(const MMGAction *params,
@@ -903,7 +949,7 @@ void MMGAction::do_action_media_source(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Media Sources> executed.");
+	params->blog(LOG_DEBUG, "<Media Sources> executed.");
 }
 
 void MMGAction::do_action_transitions(const MMGAction *params,
@@ -961,7 +1007,7 @@ void MMGAction::do_action_transitions(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Transitions> executed.");
+	params->blog(LOG_DEBUG, "<Transitions> executed.");
 }
 
 void MMGAction::do_action_filters(const MMGAction *params,
@@ -1009,7 +1055,7 @@ void MMGAction::do_action_filters(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Filters> executed.");
+	params->blog(LOG_DEBUG, "<Filters> executed.");
 }
 
 void MMGAction::do_action_hotkeys(const MMGAction *params,
@@ -1053,7 +1099,7 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Hotkeys> executed.");
+	params->blog(LOG_DEBUG, "<Hotkeys> executed.");
 }
 
 void MMGAction::do_action_profiles(const MMGAction *params,
@@ -1097,7 +1143,7 @@ void MMGAction::do_action_profiles(const MMGAction *params,
 	}
 
 	bfree(profile_names);
-	params->blog(LOG_INFO, "<Profiles> executed.");
+	params->blog(LOG_DEBUG, "<Profiles> executed.");
 }
 
 void MMGAction::do_action_collections(const MMGAction *params,
@@ -1139,7 +1185,7 @@ void MMGAction::do_action_collections(const MMGAction *params,
 	}
 
 	bfree(collection_names);
-	params->blog(LOG_INFO, "<Scene Collections> executed.");
+	params->blog(LOG_DEBUG, "<Scene Collections> executed.");
 }
 
 void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
@@ -1185,7 +1231,7 @@ void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 		output->output_send(message);
 		MMGDevice::close_output_port();
 	}
-	params->blog(LOG_INFO, "<MIDI> executed.");
+	params->blog(LOG_DEBUG, "<MIDI> executed.");
 }
 
 void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
@@ -1202,5 +1248,5 @@ void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
 	default:
 		break;
 	}
-	params->blog(LOG_INFO, "<Pause> executed.");
+	params->blog(LOG_DEBUG, "<Pause> executed.");
 }

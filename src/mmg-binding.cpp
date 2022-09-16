@@ -23,8 +23,8 @@ qulonglong MMGBinding::next_default = 0;
 MMGBinding::MMGBinding()
 {
 	name = get_next_default_name();
-	mode = 1;
-	note_toggling = false;
+	reception = 1;
+	toggling = 0;
 	blog(LOG_DEBUG, "Empty binding created.");
 }
 
@@ -33,8 +33,8 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 	name = obj["name"].toString();
 	if (name.isEmpty())
 		name = get_next_default_name();
-	mode = obj["mode"].toInt(1);
-	note_toggling = obj["note_toggling"].toBool();
+	reception = obj["reception"].toInt(1);
+	toggling = obj["toggling"].toInt();
 	if (MMGUtils::json_key_exists(obj, "messages", QJsonValue::Array)) {
 		QJsonArray msg_arr = obj["messages"].toArray();
 		for (QJsonValue child : msg_arr) {
@@ -63,8 +63,8 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
 	binding_obj["name"] = name;
-	binding_obj["mode"] = (int)mode;
-	binding_obj["note_toggling"] = note_toggling;
+	binding_obj["reception"] = (int)reception;
+	binding_obj["toggling"] = (int)toggling;
 	QJsonArray msg_arr;
 	for (MMGMessage *const chi : messages) {
 		QJsonObject json_chi;
@@ -122,10 +122,10 @@ void MMGBinding::check_action_default_names()
 	}
 }
 
-void MMGBinding::set_note_toggling(bool val)
+void MMGBinding::set_toggling(Toggling val)
 {
-	note_toggling = val;
-	if (messages.size() > 1) {
+	toggling = (short)val;
+	if (messages.size() > 1 && toggling > 0) {
 		qDeleteAll(messages);
 		messages.clear();
 	}
@@ -262,16 +262,16 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 	}
 
 	// Execute!
-	switch (get_mode()) {
+	switch (get_reception()) {
 
-	case Mode::MMGBINDING_CONSECUTIVE:
+	case Reception::MMGBINDING_CONSECUTIVE:
 		while (action_index < action_size()) {
 			actions[action_index]->do_action(incoming);
 			++action_index;
 		}
 		break;
 
-	case Mode::MMGBINDING_CORRESPONDENCE:
+	case Reception::MMGBINDING_CORRESPONDENCE:
 		while (action_index < action_size()) {
 			actions[action_index]->do_action(saved_messages[fmod(
 				saved_message_index, saved_messages.size())]);
@@ -280,7 +280,7 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 		}
 		break;
 
-	case Mode::MMGBINDING_MULTIPLY:
+	case Reception::MMGBINDING_MULTIPLY:
 		while (action_index < action_size()) {
 			for (const MMGSharedMessage &msg : saved_messages) {
 				actions[action_index]->do_action(msg);
@@ -292,8 +292,8 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 	default:
 		break;
 	}
-	if (note_toggling) {
-		messages[0]->toggle();
+	if (toggling > 0) {
+		messages[0]->toggle(toggling);
 	}
 
 reset_binding:

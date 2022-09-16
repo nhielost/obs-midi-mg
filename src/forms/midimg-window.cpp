@@ -60,10 +60,7 @@ using namespace MMGUtils;
 	lcd_##kind = LCDData(ui->lcd_##kind); \
 	ui->lcd_##kind->installEventFilter(this)
 
-#define SET_TOOLTIP(element, text)                    \
-	if (global()->preferences().get_tooltips()) { \
-		ui->element->setToolTip(tr(text));    \
-	}
+#define SET_TOOLTIP(element, text) ui->element->setToolTip(tr(text));
 
 #define SET_LCD_TOOLTIP(element, text)                         \
 	SET_TOOLTIP(lcd_##element, text);                      \
@@ -193,13 +190,12 @@ void MidiMGWindow::connect_ui_signals()
 	CONNECT_LCD(double3);
 	CONNECT_LCD(double4);
 	// Binding Display Connections
-	connect(ui->editor_note_toggling, &QAbstractButton::toggled, this,
-		&MidiMGWindow::on_binding_note_toggle);
-	connect(ui->editor_binding_mode,
+	connect(ui->editor_reception_method,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-		[&](int id) {
-			on_binding_mode_select((MMGBinding::Mode)(id + 1));
-		});
+		&MidiMGWindow::on_binding_reception_select);
+	connect(ui->editor_message_toggling,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MidiMGWindow::on_binding_toggling_select);
 	connect(ui->button_edit_messages, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_MESSAGE); });
 	connect(ui->button_edit_actions, &QPushButton::clicked, this,
@@ -228,6 +224,8 @@ void MidiMGWindow::connect_ui_signals()
 		&MidiMGWindow::on_remove_click);
 	connect(ui->button_return, &QPushButton::clicked, this,
 		&MidiMGWindow::on_return_click);
+	connect(ui->button_help_subject, &QPushButton::clicked, this,
+		&MidiMGWindow::on_help_click);
 	// Device Buttons
 	connect(ui->button_active_device, &QAbstractButton::toggled, this,
 		&MidiMGWindow::on_device_active_change);
@@ -242,15 +240,11 @@ void MidiMGWindow::connect_ui_signals()
 		[&](bool toggled) {
 			global()->preferences().set_active(toggled);
 		});
-	connect(ui->editor_tooltips_enable, &QCheckBox::toggled, this,
-		[&](bool toggled) {
-			global()->preferences().set_tooltips(toggled);
-		});
 	connect(ui->button_export, &QPushButton::clicked, this,
 		&MidiMGWindow::export_bindings);
 	connect(ui->button_import, &QPushButton::clicked, this,
 		&MidiMGWindow::import_bindings);
-	connect(ui->button_help, &QPushButton::clicked, this,
+	connect(ui->button_help_advanced, &QPushButton::clicked, this,
 		&MidiMGWindow::i_need_help);
 	connect(ui->button_bug_report, &QPushButton::clicked, this,
 		&MidiMGWindow::report_a_bug);
@@ -309,11 +303,10 @@ void MidiMGWindow::set_device_view()
 void MidiMGWindow::set_binding_view()
 {
 	ui->text_binding_name->setText(current_binding->get_name());
-	ui->editor_note_toggling->setChecked(
-		current_binding->get_note_toggling());
-	ui->editor_binding_mode->setCurrentIndex(
-		(int)current_binding->get_mode() - 1);
-	on_binding_mode_select(current_binding->get_mode());
+	ui->editor_message_toggling->setCurrentIndex(
+		(int)current_binding->get_toggling());
+	ui->editor_reception_method->setCurrentIndex(
+		(int)current_binding->get_reception() - 1);
 }
 
 void MidiMGWindow::set_message_view()
@@ -417,9 +410,14 @@ void MidiMGWindow::on_device_active_change(bool toggled)
 						  : "Set As Active Device...");
 }
 
-void MidiMGWindow::on_binding_note_toggle(bool toggled)
+void MidiMGWindow::on_binding_reception_select(int index)
 {
-	current_binding->set_note_toggling(toggled);
+	current_binding->set_reception((MMGBinding::Reception)(index + 1));
+}
+
+void MidiMGWindow::on_binding_toggling_select(int index)
+{
+	current_binding->set_toggling((MMGBinding::Toggling)index);
 }
 
 void MidiMGWindow::on_message_type_change(const QString &type)
@@ -512,12 +510,14 @@ void MidiMGWindow::on_action_cat_change(const QString &cat)
 		on_action_sub_change(0);
 		break;
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
-		set_sub_options({"Move Source", "Display Source",
-				 "Source Locking", "Source Crop",
-				 "Source Scale", "Source Scale Filtering",
-				 "Rotate Source", "Source Bounding Box",
-				 "Source Blending Mode",
-				 "Take Source Screenshot"});
+		set_sub_options(
+			{"Move Source", "Display Source", "Source Locking",
+			 "Source Crop", "Align Source", "Source Scale",
+			 "Source Scale Filtering", "Rotate Source",
+			 "Source Bounding Box Type",
+			 "Resize Source Bounding Box",
+			 "Align Source Bounding Box", "Source Blending Mode",
+			 "Take Source Screenshot"});
 		break;
 	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
 		set_sub_options(
@@ -874,6 +874,8 @@ void MidiMGWindow::set_str2(const QString &value)
 	if (value.isEmpty())
 		return;
 
+	ui->editor_str3->clear();
+
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
 		switch ((MMGAction::VideoSources)current_action->get_sub()) {
@@ -950,16 +952,32 @@ void MidiMGWindow::set_str2(const QString &value)
 				double4,
 				"Set the selected source's cropped length (from the left) on the selected scene.\nUsing the message value will increment the source width.\nA value of 0 corresponds to the far left of the source, and a value of 127 corresponds to the center of the source.");
 			break;
+		case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Alignment");
+			ui->editor_str3->addItems(
+				{"Top Left", "Top Center", "Top Right",
+				 "Middle Left", "Middle Center", "Middle Right",
+				 "Bottom Left", "Bottom Center", "Bottom Right",
+				 "Use Message Value"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the alignment to set on the selected source in the selected scene.");
+			break;
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
-			set_doubles_visible(true, true);
+			set_doubles_visible(true, true, true);
 			ui->label_double1->setText("Scale X");
 			ui->label_double2->setText("Scale Y");
-			lcd_double1.set_range(0.2, 5.0);
-			lcd_double1.set_step(0.05, 0.5);
-			lcd_double1.reset(1.0);
-			lcd_double2.set_range(0.2, 5.0);
-			lcd_double2.set_step(0.05, 0.5);
-			lcd_double2.reset(1.0);
+			ui->label_double3->setText("Magnitude");
+			lcd_double1.set_range(0.0, 1.0);
+			lcd_double1.set_step(0.01, 0.1);
+			lcd_double1.reset(0.0);
+			lcd_double2.set_range(0.0, 1.0);
+			lcd_double2.set_step(0.01, 0.1);
+			lcd_double2.reset(0.0);
+			lcd_double3.set_range(0.5, 100.0);
+			lcd_double3.set_step(0.5, 5.0);
+			lcd_double3.reset(1.0);
 			break;
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
 			set_strs_visible(true, true, true);
@@ -981,7 +999,21 @@ void MidiMGWindow::set_str2(const QString &value)
 				double1,
 				"Set the rotation of the selected source on the selected scene.\nThis value is in degrees.\nUsing the message value corresponds to the full rotation of a source.\nA value of 0 is 0 degrees, and a value of 127 is roughly 357 degrees.");
 			break;
-		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDINGBOX:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Type");
+			ui->editor_str3->addItems(
+				{"No Bounds", "Stretch to Bounds",
+				 "Scale to Inner Bounds",
+				 "Scale to Outer Bounds",
+				 "Scale to Width of Bounds",
+				 "Scale to Height of Bounds", "Maximum Size",
+				 "Use Message Value"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the bounding box type to set on the selected source in the selected scene.");
+			break;
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:
 			set_doubles_visible(true, true);
 			ui->label_double1->setText("Size X");
 			ui->label_double2->setText("Size Y");
@@ -997,6 +1029,18 @@ void MidiMGWindow::set_str2(const QString &value)
 					     .second);
 			lcd_double2.set_step(0.5, 5.0);
 			lcd_double2.reset();
+			break;
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
+			set_strs_visible(true, true, true);
+			ui->label_str3->setText("Alignment");
+			ui->editor_str3->addItems(
+				{"Top Left", "Top Center", "Top Right",
+				 "Middle Left", "Middle Center", "Middle Right",
+				 "Bottom Left", "Bottom Center", "Bottom Right",
+				 "Use Message Value"});
+			SET_TOOLTIP(
+				editor_str3,
+				"Select the bounding box alignment to set on the selected source in the selected scene.");
 			break;
 		case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
 			set_strs_visible(true, true, true);
@@ -1103,12 +1147,15 @@ void MidiMGWindow::set_str3(const QString &value)
 	switch (current_action->get_category()) {
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
 		switch ((MMGAction::VideoSources)current_action->get_sub()) {
+		case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:
+		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
 		case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
 			if (value == "Use Message Value") {
 				set_double1(-1);
 			} else {
-				set_double1(ui->editor_str2->currentIndex());
+				set_double1(ui->editor_str3->currentIndex());
 			}
 			break;
 		default:
@@ -1167,7 +1214,7 @@ void MidiMGWindow::on_add_click()
 		break;
 
 	case MMGModes::MMGMODE_MESSAGE:
-		if (current_binding->get_note_toggling() &&
+		if ((int)current_binding->get_toggling() < 1 &&
 		    current_binding->message_size() < 1) {
 			current_message = current_binding->add_message();
 			add_widget_item(MMGModes::MMGMODE_MESSAGE,
@@ -1243,30 +1290,69 @@ void MidiMGWindow::on_return_click()
 		on_list_selection_change(current_item);
 		break;
 
+	case MMGModes::MMGMODE_HELP:
+		switch_structure_pane(
+			ui->label_subject->property("previous_mode")
+				.value<MMGModes>());
+		switch (ui->label_subject->property("previous_mode")
+				.value<MMGModes>()) {
+		case MMGModes::MMGMODE_DEVICE:
+			current_item = ui->editor_structure->findItems(
+				current_device->get_name(),
+				Qt::MatchCaseSensitive)[0];
+			break;
+		case MMGModes::MMGMODE_BINDING:
+			current_item = ui->editor_structure->findItems(
+				current_binding->get_name(),
+				Qt::MatchCaseSensitive)[0];
+			break;
+		case MMGModes::MMGMODE_MESSAGE:
+			current_item = ui->editor_structure->findItems(
+				current_message->get_name(),
+				Qt::MatchCaseSensitive)[0];
+			break;
+		case MMGModes::MMGMODE_ACTION:
+			current_item = ui->editor_structure->findItems(
+				current_action->get_name(),
+				Qt::MatchCaseSensitive)[0];
+			break;
+		default:
+			return;
+		}
+		current_item->setSelected(true);
+		on_list_selection_change(current_item);
+		break;
 	default:
 		return;
 	}
 }
 
-void MidiMGWindow::on_binding_mode_select(enum MMGBinding::Mode mode)
+void MidiMGWindow::on_help_click()
 {
-	current_binding->set_mode(mode);
-	ui->text_binding_mode->setText(
-		tr(binding_mode_description(mode).qtocs()));
-}
-
-QString MidiMGWindow::binding_mode_description(enum MMGBinding::Mode mode) const
-{
-	switch (mode) {
-	case MMGBinding::Mode::MMGBINDING_CONSECUTIVE:
-		return "All actions will execute in order after the final message is received, and will receive that message as a parameter (if applicable).";
-	case MMGBinding::Mode::MMGBINDING_CORRESPONDENCE:
-		return "When multiple messages are used, all actions will receive their corresponding message as a parameter (if applicable).";
-	case MMGBinding::Mode::MMGBINDING_MULTIPLY:
-		return "When multiple messages are used, all actions will each receive ALL of the messages as parameters (if applicable). Do not use this mode unless it is absolutely necessary!";
+	void *obj = nullptr;
+	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
+	case MMGModes::MMGMODE_DEVICE:
+		obj = current_device;
+		break;
+	case MMGModes::MMGMODE_BINDING:
+		obj = current_binding;
+		break;
+	case MMGModes::MMGMODE_MESSAGE:
+		obj = current_message;
+		break;
+	case MMGModes::MMGMODE_ACTION:
+		obj = current_action;
+		break;
 	default:
-		return "Error: Invalid description. Report this as a bug from the Preferences page.";
+		return;
 	}
+	set_help_text(ui->editor_structure->property("mode").value<MMGModes>(),
+		      ui->text_subject_name, ui->text_subject_content, obj);
+	ui->label_subject->setProperty(
+		"previous_mode",
+		QVariant::fromValue(ui->editor_structure->property("mode")
+					    .value<MMGModes>()));
+	switch_structure_pane(MMGModes::MMGMODE_HELP);
 }
 
 void MidiMGWindow::on_name_edit(QListWidgetItem *widget_item)
@@ -1323,6 +1409,7 @@ void MidiMGWindow::on_list_selection_change(const QListWidgetItem *current)
 	ui->button_add->setEnabled(true);
 	ui->button_remove->setEnabled(true);
 	ui->button_return->setEnabled(true);
+	ui->button_help_subject->setEnabled(true);
 
 	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
 	case MMGModes::MMGMODE_DEVICE:
@@ -1371,17 +1458,16 @@ void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 {
 	ui->editor_structure->clear();
 	ui->editor_structure->setProperty("mode", QVariant::fromValue(mode));
-	ui->button_add->setEnabled(true);
+	ui->button_add->setEnabled(false);
 	ui->button_remove->setEnabled(false);
 	ui->button_return->setEnabled(true);
+	ui->button_help_subject->setEnabled(false);
 	switch (mode) {
 	case MMGModes::MMGMODE_PREFERENCES:
-		ui->button_add->setEnabled(false);
 		ui->label_structure->setText(tr("Preferences"));
 		ui->pages->setCurrentIndex(5);
 		return;
 	case MMGModes::MMGMODE_DEVICE:
-		ui->button_add->setEnabled(false);
 		ui->button_return->setEnabled(false);
 		for (const QString &name : global()->get_device_names()) {
 			add_widget_item(mode, name);
@@ -1389,6 +1475,7 @@ void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 		ui->label_structure->setText(tr("Devices"));
 		break;
 	case MMGModes::MMGMODE_BINDING:
+		ui->button_add->setEnabled(true);
 		for (const MMGBinding *const binding_el :
 		     current_device->get_bindings()) {
 			add_widget_item(mode, binding_el->get_name());
@@ -1396,6 +1483,7 @@ void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 		ui->label_structure->setText(tr("Bindings"));
 		break;
 	case MMGModes::MMGMODE_MESSAGE:
+		ui->button_add->setEnabled(true);
 		for (const MMGMessage *const message_el :
 		     current_binding->get_messages()) {
 			add_widget_item(mode, message_el->get_name());
@@ -1403,14 +1491,18 @@ void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 		ui->label_structure->setText(tr("Messages"));
 		break;
 	case MMGModes::MMGMODE_ACTION:
+		ui->button_add->setEnabled(true);
 		for (const MMGAction *const action_el :
 		     current_binding->get_actions()) {
 			add_widget_item(mode, action_el->get_name());
 		}
 		ui->label_structure->setText(tr("Actions"));
 		break;
+	case MMGModes::MMGMODE_HELP:
+		ui->label_structure->setText(tr("Help Menu"));
+		ui->pages->setCurrentIndex(6);
+		return;
 	default:
-		ui->button_add->setEnabled(false);
 		ui->button_return->setEnabled(false);
 		ui->label_structure->setText(tr("Error"));
 		ui->pages->setCurrentIndex(0);

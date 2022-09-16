@@ -41,7 +41,7 @@ public:
 	void set_note(int val) { note = val; };
 	void set_value(int val) { value = val; };
 
-	void toggle();
+	void toggle(short which);
 	bool is_acceptable(const MMGMessage *test) const;
 	const libremidi::message to_libremidi_message() const;
 
