@@ -26,7 +26,8 @@ MMGMessage::MMGMessage()
 	channel = 1;
 	type = "Note On";
 	note = 0;
-	value = -1;
+	value = 0;
+	value_require = false;
 	blog(LOG_DEBUG, "Empty message created.");
 }
 
@@ -37,6 +38,7 @@ MMGMessage::MMGMessage(const libremidi::message &message)
 	type = get_midi_type(message);
 	note = get_midi_note(message);
 	value = get_midi_value(message);
+	value_require = true;
 }
 
 MMGMessage::MMGMessage(const QJsonObject &obj)
@@ -46,8 +48,9 @@ MMGMessage::MMGMessage(const QJsonObject &obj)
 		name = get_next_default_name();
 	channel = obj["channel"].toInt(1);
 	type = obj["type"].toString("Note On");
-	note = obj["note"].toInt(0);
-	value = obj["value"].toInt(-1);
+	note = obj["note"].toInt();
+	value = obj["value"].toInt();
+	value_require = obj["value_require"].toBool(value != -1);
 	blog(LOG_DEBUG, "Message created.");
 }
 
@@ -58,15 +61,12 @@ void MMGMessage::json(QJsonObject &message_obj) const
 	message_obj["type"] = type;
 	message_obj["note"] = note;
 	message_obj["value"] = value;
+	message_obj["value_require"] = value_require;
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-	QString temp_msg = "Message {";
-	temp_msg.append(get_name());
-	temp_msg.append("} -> ");
-	temp_msg.append(message);
-	global_blog(log_status, temp_msg);
+	global_blog(log_status, "Message {" + name + "} -> " + message);
 }
 
 QString MMGMessage::get_next_default_name()
@@ -185,7 +185,7 @@ bool MMGMessage::is_acceptable(const MMGMessage *test) const
 	isTrue &= (type == test->get_type());
 	if (type != "Program Change" && type != "Pitch Bend")
 		isTrue &= (note == test->get_note());
-	if (value != -1)
+	if (value_require)
 		isTrue &= (value == test->get_value());
 	return isTrue;
 }

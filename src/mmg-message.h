@@ -34,12 +34,14 @@ public:
 	int get_channel() const { return channel; };
 	int get_note() const { return note; };
 	int get_value() const { return value; };
+	bool get_value_required() const { return value_require; };
 
 	void set_name(const QString &val) { name = val; };
 	void set_type(const QString &val) { type = val; };
 	void set_channel(int val) { channel = val; };
 	void set_note(int val) { note = val; };
 	void set_value(int val) { value = val; };
+	void set_value_required(bool val) { value_require = val; };
 
 	void toggle(short which);
 	bool is_acceptable(const MMGMessage *test) const;
@@ -59,6 +61,7 @@ private:
 	QString type;
 	int note;
 	int value;
+	bool value_require;
 
 	static qulonglong next_default;
 };

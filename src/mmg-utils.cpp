@@ -22,6 +22,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-frontend-api.h>
 
+#include <QMessageBox>
+
+struct C {
+	QString title;
+	QString text;
+};
+
 void global_blog(int log_status, const QString &message)
 {
 	blog(log_status, "[obs-midi-mg] %s", qPrintable(message));
@@ -102,7 +109,7 @@ void LCDData::display()
 			lcd->display(internal_val);
 		}
 	} else {
-		lcd->display(lcd->digitCount() == 8 ? "   OFF  " : "OFF");
+		lcd->display(lcd->digitCount() == 8 ? "   ---  " : "---");
 	}
 }
 // End LCDData
@@ -150,97 +157,125 @@ bool bool_from_str(const QString &str)
 	       str == "Locked";
 }
 
-void set_help_text(MMGModes mode, QLabel *name, QLabel *text, const void *obj)
+template<typename N> const QString num_to_str(const N &num)
 {
-	QString str;
-	if (mode == MMGModes::MMGMODE_DEVICE) {
-		const MMGDevice *casted = static_cast<const MMGDevice *>(obj);
-		name->setText("Device Properties");
-		str += "The device **";
-		str += casted->get_name();
-		str += "** ";
-		str += casted->input_device_status() == "Ready"
-			       ? "has"
-			       : "does not have";
-		str += " a connected input port ready to be used.\n\nThe device **";
-		str += casted->get_name();
-		str += "** ";
-		str += casted->output_device_status() == "Ready"
-			       ? "has"
-			       : "does not have";
-		str += " a connected output port ready to be used.\n\nThe device **";
-		str += casted->get_name();
-		str += "** is currently ";
-		str += global()->get_active_device_name() == casted->get_name()
-			       ? "the device that is receiving messages."
-			       : "not the device that is receiving messages. "
-				 "Click the *Set As Active Device* button to change it to this device.";
-		str += "\n\nThis device currently has *";
-		str += QVariant::fromValue(casted->get_bindings().size())
-			       .toString();
-		str += "* bindings. Click *Edit Input Bindings* to view them.";
-	} else if (mode == MMGModes::MMGMODE_BINDING) {
-		const MMGBinding *casted = static_cast<const MMGBinding *>(obj);
-		name->setText("Binding Properties");
-		str += "The binding **";
-		str += casted->get_name();
-		str += "** is executing actions using the *";
-		switch (casted->get_reception()) {
-		case MMGBinding::Reception::MMGBINDING_CONSECUTIVE:
-			str += "Consecutive Reception Method*. When the final message has been received, "
-			       "all actions will use that incoming message as their value.";
-			break;
-		case MMGBinding::Reception::MMGBINDING_CORRESPONDENCE:
-			str += "Correspondence Reception Method*. When the final message has been received, "
-			       "each action will use the corresponding message as their value. "
-			       "(The first action in the list will use the first message in the list, the second will use the second and so on.)";
-			break;
-		case MMGBinding::Reception::MMGBINDING_MULTIPLY:
-			str += "Multiply Reception Method*. When the final message has been received, "
-			       "each action will use every message that was used in the binding. "
-			       "(The first action will occur the same amount of times as there were messages, the second action will follow suit, etc.)";
-			break;
-		default:
-			return;
-		}
-		str += "\n\nThe binding **";
-		str += casted->get_name();
-		str += "** has toggling set to *";
-		switch (casted->get_toggling()) {
-		case MMGBinding::Toggling::MMGBINDING_TOGGLE_OFF:
-			str += "Off*. Messages will not be changed by the binding, and an unlimited amount can be used.";
-			break;
-		case MMGBinding::Toggling::MMGBINDING_TOGGLE_NOTE:
-			str += "Note Type*. Note type toggling enables note messages to switch between Note On and Note Off when received. "
-			       "However, only one message is allowed in the binding if this is enabled, "
-			       "and the reception method doesn't matter when there is one message.";
-			break;
-		case MMGBinding::Toggling::MMGBINDING_TOGGLE_VALUE:
-			str += "Velocity*. Velocity toggling enables messages to switch between a velocity of 127 and 0 when received. "
-			       "However, only one message is allowed in the binding if this is enabled, "
-			       "and the reception method doesn't matter when there is one message.";
-			break;
-		case MMGBinding::Toggling::MMGBINDING_TOGGLE_BOTH:
-			str += "Note Type and Velocity*. This toggling enables messages to switch between both the Note On and Note Off types, "
-			       "as well as switching the velocity of 127 and 0 when received. "
-			       "Still, only one message is allowed in the binding if this is enabled, "
-			       "and the reception method doesn't matter when there is one message.";
-			break;
-		}
-		str += "\n\nThis binding currently has *";
-		str += QVariant::fromValue(casted->message_size()).toString();
-		str += "* messages. Click *Edit Messages* to view them.";
-		str += "\n\nThis binding currently has *";
-		str += QVariant::fromValue(casted->action_size()).toString();
-		str += "* actions. Click *Edit Actions* to view them.";
-	} else if (mode == MMGModes::MMGMODE_MESSAGE) {
-		name->setText("Message Properties");
-		str = "This menu is currently under construction.";
-	} else if (mode == MMGModes::MMGMODE_ACTION) {
-		name->setText("Action Properties");
-		str = "This menu is currently under construction.";
+	return QVariant::fromValue(num).toString();
+}
+
+template<> void format_help_text(QString &str, const MMGDevice *obj)
+{
+	str.replace("{name}", obj->get_name());
+	str.replace("{in_status}", obj->input_device_status() == "Ready"
+					   ? "has"
+					   : "does not have");
+	str.replace("{out_status}", obj->output_device_status() == "Ready"
+					    ? "has"
+					    : "does not have");
+	str.replace(
+		"{active?}",
+		global()->get_active_device_name() == obj->get_name()
+			? "the device that is receiving messages"
+			: "not the device that is receiving messages. "
+			  "Click the Set As Active Device button to change it to this device");
+	str.replace("{size}", num_to_str(obj->get_bindings().size()));
+}
+
+template<> void format_help_text(QString &str, const MMGBinding *obj)
+{
+	str.replace("{name}", obj->get_name());
+	QString reception_str;
+	switch (obj->get_reception()) {
+	case MMGBinding::Reception::MMGBINDING_CONSECUTIVE:
+		reception_str =
+			"Consecutive Reception Method. When the final message has been received, "
+			"all actions will use that incoming message as their value";
+		break;
+	case MMGBinding::Reception::MMGBINDING_CORRESPONDENCE:
+		reception_str =
+			"Correspondence Reception Method. When the final message has been received, "
+			"each action will use the corresponding message as their value. "
+			"(The first action in the list will use the first message in the list, the second will use the second and so on)";
+		break;
+	case MMGBinding::Reception::MMGBINDING_MULTIPLY:
+		reception_str =
+			"Multiply Reception Method. When the final message has been received, "
+			"each action will use every message that was used in the binding. "
+			"(The first action will occur the same amount of times as there were messages, the second action will follow suit, etc.)";
+		break;
+	default:
+		return;
 	}
-	text->setText(str);
+	str.replace("{reception}", reception_str);
+	QString toggling_str;
+	switch (obj->get_toggling()) {
+	case MMGBinding::Toggling::MMGBINDING_TOGGLE_OFF:
+		toggling_str =
+			"Off. Messages will not be changed by the binding, and an unlimited amount can be used";
+		break;
+	case MMGBinding::Toggling::MMGBINDING_TOGGLE_NOTE:
+		toggling_str =
+			"Note Type. Note type toggling enables note messages to switch between Note On and Note Off when received. "
+			"However, only one message is allowed in the binding if this is enabled, "
+			"and the reception method doesn't matter when there is one message";
+		break;
+	case MMGBinding::Toggling::MMGBINDING_TOGGLE_VALUE:
+		toggling_str =
+			"Velocity. Velocity toggling enables messages to switch between a velocity of 127 and 0 when received. "
+			"However, only one message is allowed in the binding if this is enabled, "
+			"and the reception method doesn't matter when there is one message";
+		break;
+	case MMGBinding::Toggling::MMGBINDING_TOGGLE_BOTH:
+		toggling_str =
+			"Note Type and Velocity. This toggling enables messages to switch between both the Note On and Note Off types, "
+			"as well as switching the velocity of 127 and 0 when received. "
+			"Still, only one message is allowed in the binding if this is enabled, "
+			"and the reception method doesn't matter when there is one message.";
+		break;
+	}
+	str.replace("{toggling}", toggling_str);
+	str.replace("{message_size}", num_to_str(obj->message_size()));
+	str.replace("{action_size}", num_to_str(obj->action_size()));
+}
+
+template<> void format_help_text(QString &str, const MMGMessage *obj)
+{
+	str.replace("{name}", obj->get_name());
+	str.replace(
+		"{value}",
+		obj->get_value() == -1
+			? "Off, meaning that any value (0-127) can be received and the message will be fulfilled"
+			: "" + num_to_str(obj->get_value()) +
+				  ". To allow messages to use the full range of values (0-127), click the Require Value button in the bottom right.");
+}
+
+template<> void format_help_text(QString &str, const MMGAction *obj)
+{
+	str.replace("{name}", obj->get_name());
+	str.replace("{str1}", obj->get_str(0));
+	str.replace("{str2}", obj->get_str(1));
+	str.replace("{str3}", obj->get_str(2));
+	str.replace("{num1}", num_to_str(obj->get_num(0)));
+	str.replace("{num2}", num_to_str(obj->get_num(1)));
+	str.replace("{num3}", num_to_str(obj->get_num(2)));
+	str.replace("{num4}", num_to_str(obj->get_num(3)));
+}
+
+template<> void format_help_text(QString &str, const void *obj)
+{
+	str = "Invalid help text. Please report this as a bug.";
+}
+
+void open_message_box(const QString &title, const QString &text)
+{
+	C c{title, text};
+	obs_queue_task(
+		OBS_TASK_UI,
+		[](void *param) {
+			auto content = reinterpret_cast<C *>(param);
+			QMessageBox::information(nullptr, content->title,
+						 content->text);
+		},
+		&c, true);
 }
 
 std::pair<uint, uint> get_obs_dimensions()

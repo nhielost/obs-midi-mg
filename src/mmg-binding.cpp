@@ -83,11 +83,7 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-	QString temp_msg = "Binding {";
-	temp_msg.append(get_name());
-	temp_msg.append("} -> ");
-	temp_msg.append(message);
-	global_blog(log_status, temp_msg);
+	global_blog(log_status, "Binding {" + name + "} -> " + message);
 }
 
 QString MMGBinding::get_next_default_name()

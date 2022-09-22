@@ -29,9 +29,6 @@ public:
 	explicit MidiMGWindow(QWidget *parent);
 	~MidiMGWindow() override;
 
-protected:
-	bool eventFilter(QObject *obj, QEvent *event) override;
-
 private:
 	Ui::MidiMGWindow *ui;
 
@@ -48,6 +45,18 @@ private:
 	MMGMessage *current_message = nullptr;
 	MMGAction *current_action = nullptr;
 
+	QString help_name;
+	QString help_str;
+
+	QString help_action_desc;
+	QString help_action_str1;
+	QString help_action_str2;
+	QString help_action_str3;
+	QString help_action_double1;
+	QString help_action_double2;
+	QString help_action_double3;
+	QString help_action_double4;
+
 	/* enum class BindingTransfer {
 		MIDIMGWINDOW_KEEP_APPEND,
 		MIDIMGWINDOW_REMOVE_APPEND,
@@ -59,11 +68,11 @@ private:
 	void configure_lcd_widgets();
 
 	void switch_structure_pane(enum MMGModes mode);
+	void set_help_text(enum MMGModes mode);
 	void set_device_view();
 	void set_binding_view();
 	void set_message_view();
 	void set_action_view();
-	void set_sub_visible(bool visible = false) const;
 	void set_strs_visible(bool str1 = false, bool str2 = false,
 			      bool str3 = false) const;
 	void set_doubles_visible(bool double1 = false, bool double2 = false,
@@ -94,8 +103,13 @@ private slots:
 	void on_binding_toggling_select(int index);
 	void on_message_type_change(const QString &type);
 	void on_message_listen(bool toggled);
-	void on_action_cat_change(const QString &cat);
+	void on_message_require_value(bool toggled);
+	void on_action_cat_change(int index);
 	void on_action_sub_change(int index);
+	void on_action_double1_toggle(bool toggle);
+	void on_action_double2_toggle(bool toggle);
+	void on_action_double3_toggle(bool toggle);
+	void on_action_double4_toggle(bool toggle);
 	void on_list_selection_change(const QListWidgetItem *current);
 	void on_add_click();
 	void on_remove_click();

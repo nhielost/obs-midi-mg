@@ -72,7 +72,8 @@ bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type);
 
 bool bool_from_str(const QString &str);
 
-void set_help_text(MMGModes mode, QLabel *name, QLabel *text, const void *obj);
+template<typename T> void format_help_text(QString &str, const T *obj);
+void open_message_box(const QString &title, const QString &text);
 
 std::pair<uint, uint> get_obs_dimensions();
 std::pair<uint, uint> get_obs_source_dimensions(const QString &name);

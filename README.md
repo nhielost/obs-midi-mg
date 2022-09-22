@@ -43,9 +43,9 @@ To rename the message, double-click the message and type to change the name. To 
 
 To edit the message, select the message in the ***Messages*** display, and the editor will appear on the right.
 
-Adjust the values as necessary for the message. By default, the value/velocity option is OFF for the use of its value in executing actions. If you wish to make the value required for executing an action, click the OFF in the middle of the value field, and it will switch to a number. Clicking the number again will revert it to the OFF state.
+Adjust the values as necessary for the message. By default, the value/velocity option is Off for the use of its value in executing actions. If you wish to make the value required for executing an action, click the *Require Value* button in the bottom right, and it will switch to a number. Clicking the button again will revert it to the Off state.
 
-A message can be provided by the device. This can be done by selecting the *Listen to Message* button and sending the message to the plugin. It will automatically fill in the message values for you.
+A message can be provided by the device. This can be done by selecting the *Listen to Message* button and sending the message to the plugin. It will automatically fill in the message values for you. Make sure to click *Cancel* when finished.
 
 *Note: You can use multiple messages in a binding by adding more messages. If this is desired, the behavior of the binding may not be appropriate. See [Reception Methods](#reception-methods) for more details*.
 
@@ -57,7 +57,7 @@ To rename the action, double-click the action and type to change the name. To re
 
 To edit the action, select the action in the ***Actions*** display, and the editor will appear on the right.
 
-Adjust the values as necessary for the action(s) in this binding. Settings will appear as the form is filled out. To use a value from a message, either click the number (the same way as the value field for messages) for the number fields, or select *Use Message Value* in the selection fields.
+Adjust the values as necessary for the action(s) in this binding. Settings will appear as the form is filled out. To use a value from a message, either click the label for the number fields, or select *Use Message Value* in the selection fields.
 
 *Note: You can use multiple actions in a binding by adding more actions. If this is desired, the behavior of the binding may not be appropriate. See [Reception Methods](#reception-methods) for more details*.
 

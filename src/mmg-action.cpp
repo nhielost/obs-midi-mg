@@ -93,11 +93,7 @@ void MMGAction::json(QJsonObject &action_obj) const
 
 void MMGAction::blog(int log_status, const QString &message) const
 {
-	QString temp_msg = "Action {";
-	temp_msg.append(get_name());
-	temp_msg.append("} -> ");
-	temp_msg.append(message);
-	global_blog(log_status, temp_msg);
+	global_blog(log_status, "Action {" + name + "} -> " + message);
 }
 
 QString MMGAction::get_next_default_name()
@@ -199,7 +195,7 @@ void MMGAction::do_obs_source_enum(QComboBox *list,
 				break;
 			case MMGAction::Category::MMGACTION_FILTER:
 				if (obs_source_get_type(source) !=
-					    OBS_SOURCE_TYPE_INPUT ||
+					    OBS_SOURCE_TYPE_INPUT &&
 				    obs_source_get_type(source) !=
 					    OBS_SOURCE_TYPE_SCENE)
 					return true;
@@ -713,11 +709,11 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_sceneitem_set_alignment(obs_sceneitem, align);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
+		// align variable is used for multiplier
+		align = params->get_num(2) == -1 ? 1 : params->get_num(2);
 		vec2_set(&coordinates,
-			 num_or_value(params, midi, 0) / 127.0 *
-				 params->get_num(2),
-			 num_or_value(params, midi, 1) / 127.0 *
-				 params->get_num(2));
+			 num_or_value(params, midi, 0) / 127.0 * align,
+			 num_or_value(params, midi, 1) / 127.0 * align);
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:

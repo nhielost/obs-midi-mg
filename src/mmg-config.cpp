@@ -56,9 +56,7 @@ std::function<void(MMGMessage *)> MMGConfig::cb = 0;
 
 void MMGConfig::blog(int log_status, const QString &message) const
 {
-	QString temp_msg = "Config -> ";
-	temp_msg.append(message);
-	global_blog(log_status, temp_msg);
+	global_blog(log_status, "Config -> " + message);
 }
 
 void MMGConfig::check_device_default_names()
@@ -193,6 +191,7 @@ void MMGConfig::load_new_devices()
 		if (!device_included) {
 			devices.append(new MMGDevice());
 			devices.last()->set_name(name);
+			blog(LOG_INFO, "New device detected.");
 		}
 	}
 	for (const QString &name : MMGDevice::get_output_device_names()) {
@@ -203,13 +202,12 @@ void MMGConfig::load_new_devices()
 		if (!device_included) {
 			devices.append(new MMGDevice());
 			devices.last()->set_name(name);
+			blog(LOG_INFO, "New device detected.");
 		}
 	}
 
 	if (!MMGDevice::input_port_open())
 		MMGDevice::open_input_port(find_current_device());
-
-	blog(LOG_INFO, "Connected MIDI devices detected.");
 }
 
 void MMGConfig::set_active_device_name(const QString &name)
@@ -242,9 +240,8 @@ bool MMGConfig::is_listening(MMGMessage *incoming)
 				cb(incoming);
 			},
 			incoming, true);
-		return true;
 	}
-	return false;
+	return listening;
 }
 
 const QStringList MMGConfig::get_device_names() const
