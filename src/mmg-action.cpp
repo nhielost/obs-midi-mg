@@ -640,6 +640,7 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	vec2 coordinates;
 	obs_sceneitem_crop crop;
 	uint32_t align = 0;
+	uint32_t length = 0;
 
 	switch ((MMGAction::VideoSources)params->get_sub()) {
 	case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
@@ -673,22 +674,13 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		}
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_CROP:
-		crop.top = num_or_value(
-			params, midi, 0,
-			get_obs_source_dimensions(params->get_str(1)).second >>
-				1);
-		crop.right = num_or_value(
-			params, midi, 1,
-			get_obs_source_dimensions(params->get_str(1)).first >>
-				1);
-		crop.bottom = num_or_value(
-			params, midi, 2,
-			get_obs_source_dimensions(params->get_str(1)).second >>
-				1);
-		crop.left = num_or_value(
-			params, midi, 3,
-			get_obs_source_dimensions(params->get_str(1)).first >>
-				1);
+		// align and length used for length and width of sources
+		align = get_obs_source_dimensions(params->get_str(1)).first;
+		length = get_obs_source_dimensions(params->get_str(1)).second;
+		crop.top = num_or_value(params, midi, 0, length >> 1);
+		crop.right = num_or_value(params, midi, 1, align >> 1);
+		crop.bottom = num_or_value(params, midi, 2, length >> 1);
+		crop.left = num_or_value(params, midi, 3, align >> 1);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
@@ -709,11 +701,12 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		obs_sceneitem_set_alignment(obs_sceneitem, align);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
-		// align variable is used for multiplier
+		// align variable is used for multiplier, length is used for proportionality
 		align = params->get_num(2) == -1 ? 1 : params->get_num(2);
+		length = midi->get_value() == -1 ? 127 : 100;
 		vec2_set(&coordinates,
-			 num_or_value(params, midi, 0) / 127.0 * align,
-			 num_or_value(params, midi, 1) / 127.0 * align);
+			 num_or_value(params, midi, 0) / length * align,
+			 num_or_value(params, midi, 1) / length * align);
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
@@ -973,7 +966,7 @@ void MMGAction::do_action_transitions(const MMGAction *params,
 	/*case MMGAction::Transitions::TRANSITION_TBAR:
 		if (!obs_frontend_preview_program_mode_active())
 			break;
-		obs_frontend_set_tbar_position((int)(num_or_value(time, midi->get_value(), 100.0) * 10.24));
+		obs_frontend_set_tbar_position((int)(num_or_value(time, midi, 100.0) * 10.24));
 		obs_frontend_release_tbar();
 		break;*/
 	case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:

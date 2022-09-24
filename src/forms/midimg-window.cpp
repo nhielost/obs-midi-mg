@@ -338,19 +338,17 @@ void MidiMGWindow::set_action_view()
 	ui->text_action_name->setText(temp.get_name());
 	// Set category
 	ui->editor_cat->setCurrentIndex((int)temp.get_category());
-	on_action_cat_change((int)temp.get_category());
 	// Set subcategory
 	ui->editor_sub->setCurrentIndex(temp.get_sub());
-	on_action_sub_change(temp.get_sub());
 	// Set strings (even if they are invalid)
 	ui->editor_str1->setCurrentText(temp.get_str(0));
 	ui->editor_str2->setCurrentText(temp.get_str(1));
 	ui->editor_str3->setCurrentText(temp.get_str(2));
 	// Set doubles (extra jargon for using the message value)
-	on_action_double1_toggle(temp.get_num(0) == -1);
-	on_action_double2_toggle(temp.get_num(1) == -1);
-	on_action_double3_toggle(temp.get_num(2) == -1);
-	on_action_double4_toggle(temp.get_num(3) == -1);
+	ui->label_double1->setChecked(temp.get_num(0) == -1);
+	ui->label_double2->setChecked(temp.get_num(1) == -1);
+	ui->label_double3->setChecked(temp.get_num(2) == -1);
+	ui->label_double4->setChecked(temp.get_num(3) == -1);
 	lcd_double1.reset(temp.get_num(0) == -1 ? 0 : temp.get_num(0));
 	lcd_double2.reset(temp.get_num(1) == -1 ? 0 : temp.get_num(1));
 	lcd_double3.reset(temp.get_num(2) == -1 ? 0 : temp.get_num(2));
@@ -1086,11 +1084,11 @@ void MidiMGWindow::set_str2(const QString &value)
 			ui->label_double1->setText("Scale X");
 			ui->label_double2->setText("Scale Y");
 			ui->label_double3->setText("Magn.");
-			lcd_double1.set_range(0.0, 1.0);
-			lcd_double1.set_step(0.01, 0.1);
+			lcd_double1.set_range(0.0, 100.0);
+			lcd_double1.set_step(1.0, 10.0);
 			lcd_double1.reset(0.0);
-			lcd_double2.set_range(0.0, 1.0);
-			lcd_double2.set_step(0.01, 0.1);
+			lcd_double2.set_range(0.0, 100.0);
+			lcd_double2.set_step(1.0, 10.0);
 			lcd_double2.reset(0.0);
 			lcd_double3.set_range(0.5, 100.0);
 			lcd_double3.set_step(0.5, 5.0);
@@ -1099,10 +1097,12 @@ void MidiMGWindow::set_str2(const QString &value)
 				"DESCRIPTION: Scale the source in the scene.\n\n";
 			help_action_double1 =
 				"SCALE X: Sets the size of the source in the scene based in the x-axis. "
+				"This value is calculated by a percentage. "
 				"When using the message value, a value of 0 corresponds to a 0 by y source, "
 				"and a value of 127 corresponds to a full x-axis size source.\n\n";
 			help_action_double2 =
 				"SCALE Y: Sets the size of the source in the scene based in the y-axis. "
+				"This value is calculated by a percentage. "
 				"When using the message value, a value of 0 corresponds to an x by 0 source, "
 				"and a value of 127 corresponds to a full y-axis size source.\n\n";
 			help_action_double3 =
@@ -1446,7 +1446,6 @@ void MidiMGWindow::on_remove_click()
 	if (!current)
 		return;
 	switch (ui->editor_structure->property("mode").value<MMGModes>()) {
-
 	case MMGModes::MMGMODE_BINDING:
 		current_device->remove(current_binding);
 		delete current_binding;

@@ -259,7 +259,6 @@ void MMGBinding::do_actions(const MMGSharedMessage &incoming)
 
 	// Execute!
 	switch (get_reception()) {
-
 	case Reception::MMGBINDING_CONSECUTIVE:
 		while (action_index < action_size()) {
 			actions[action_index]->do_action(incoming);

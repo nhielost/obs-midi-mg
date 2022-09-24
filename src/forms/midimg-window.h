@@ -25,6 +25,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 class MidiMGWindow : public QDialog {
 	Q_OBJECT
+
 public:
 	explicit MidiMGWindow(QWidget *parent);
 	~MidiMGWindow() override;

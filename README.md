@@ -5,6 +5,8 @@ Allows MIDI devices to interact with OBS Studio.
 ### This plugin will not work in OBS Studio versions below 28.0.0 due to its usage of Qt 6, meaning that any users using an OS below Windows 10 or MacOS 10.15 will not be able to use this plugin.
 (This may be addressed at a later date.)
 
+[![CodeFactor](https://www.codefactor.io/repository/github/nhielost/obs-midi-mg/badge)](https://www.codefactor.io/repository/github/nhielost/obs-midi-mg)
+
 ## Description
 
 Connect MIDI devices and seamlessly integrate with OBS Studio! This plugin offers:
