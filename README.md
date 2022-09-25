@@ -92,13 +92,12 @@ If something needs explanation in the plugin, click the *Help* button located to
 
 ### Preferences
 
-To adjust other settings, click the *Preferences* button in the bottom left. Bindings can be exported and imported here, and the whole plugin can be turned off here as well.
+To adjust other settings, click the *Preferences* button in the bottom left. Bindings can be exported, imported and transferred here, and the whole plugin can be turned off here as well.
 
 ## Future Content
 
 The coming updates will hopefully introduce these new features:
 
-- A transfer bindings between devices feature (for when a device has disconnected or is unavailable)
 - MIDI Output device support - send a message when an event in OBS Studio occurs (well underway!)
 
 ## Feedback

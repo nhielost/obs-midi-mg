@@ -46,6 +46,7 @@ public:
 	void toggle(short which);
 	bool is_acceptable(const MMGMessage *test) const;
 	const libremidi::message to_libremidi_message() const;
+	void deep_copy(MMGMessage *dest);
 
 	static QString get_midi_type(const libremidi::message &mess);
 	static int get_midi_note(const libremidi::message &mess);

@@ -75,6 +75,8 @@ bool bool_from_str(const QString &str);
 template<typename T> void format_help_text(QString &str, const T *obj);
 void open_message_box(const QString &title, const QString &text);
 
+void transfer_bindings(short mode, const QString &source, const QString &dest);
+
 std::pair<uint, uint> get_obs_dimensions();
 std::pair<uint, uint> get_obs_source_dimensions(const QString &name);
 size_t get_obs_scene_count();

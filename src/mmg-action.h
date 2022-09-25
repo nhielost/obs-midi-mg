@@ -163,6 +163,8 @@ public:
 			nums[index] = val;
 	};
 
+	void deep_copy(MMGAction *dest);
+
 	static Category categoryFromString(const QString &str);
 
 	static void do_obs_scene_enum(QComboBox *list);

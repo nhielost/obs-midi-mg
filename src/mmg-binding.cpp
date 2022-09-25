@@ -297,3 +297,25 @@ reset_binding:
 	saved_messages.clear();
 	blog(LOG_DEBUG, "Restarted.");
 }
+
+void MMGBinding::deep_copy(MMGBinding *dest)
+{
+	if (!name.contains("Untitled Binding"))
+		dest->set_name(name);
+
+	dest->set_reception(get_reception());
+	dest->set_toggling(get_toggling());
+	for (MMGMessage *const msg : messages) {
+		MMGMessage *new_msg = dest->add_message();
+		msg->deep_copy(new_msg);
+		if (msg->get_name().contains("Untitled Message"))
+			new_msg->set_name(MMGMessage::get_next_default_name());
+	}
+	for (MMGAction *const action : actions) {
+		MMGAction *new_action = dest->add_action();
+		action->deep_copy(new_action);
+		if (action->get_name().contains("Untitled Action"))
+			new_action->set_name(
+				MMGAction::get_next_default_name());
+	}
+}

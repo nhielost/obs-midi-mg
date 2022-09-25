@@ -96,6 +96,23 @@ void MMGAction::blog(int log_status, const QString &message) const
 	global_blog(log_status, "Action {" + name + "} -> " + message);
 }
 
+void MMGAction::deep_copy(MMGAction *dest)
+{
+	if (!name.contains("Untitled Action"))
+		dest->set_name(name);
+
+	dest->set_category(get_category());
+	dest->set_sub(subcategory);
+	dest->set_str(0, strs[0]);
+	dest->set_str(1, strs[1]);
+	dest->set_str(2, strs[2]);
+	dest->set_str(3, strs[3]);
+	dest->set_num(0, nums[0]);
+	dest->set_num(1, nums[1]);
+	dest->set_num(2, nums[2]);
+	dest->set_num(3, nums[3]);
+}
+
 QString MMGAction::get_next_default_name()
 {
 	return QVariant(++MMGAction::next_default)

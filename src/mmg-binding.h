@@ -73,6 +73,7 @@ public:
 	MMGAction *find_action(const QString &name);
 
 	bool is_valid();
+	void deep_copy(MMGBinding *dest);
 	void do_actions(const MMGSharedMessage &el);
 
 	void move_elements(MMGModes mode, size_t from, size_t to);

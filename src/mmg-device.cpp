@@ -261,8 +261,17 @@ void MMGDevice::do_all_actions(const MMGSharedMessage &message)
 	}
 }
 
+void MMGDevice::deep_copy(MMGDevice *dest)
+{
+	dest->set_name(name);
+	for (MMGBinding *binding : bindings) {
+		MMGBinding *new_binding = dest->add();
+		binding->deep_copy(new_binding);
+	}
+}
+
 MMGDevice::~MMGDevice()
 {
 	qDeleteAll(bindings);
-	bindings.clear();
+	clear();
 }

@@ -100,6 +100,15 @@ void MidiMGWindow::show_window()
 	ui->editor_structure->clearSelection();
 	switch_structure_pane(MMGModes::MMGMODE_DEVICE);
 	ui->pages->setCurrentIndex(0);
+
+	ui->editor_transfer_source->clear();
+	ui->editor_transfer_dest->clear();
+	ui->editor_transfer_mode->setCurrentIndex(0);
+	on_transfer_mode_change(0);
+	for (const QString &name : global()->get_device_names()) {
+		ui->editor_transfer_source->addItem(name);
+		ui->editor_transfer_dest->addItem(name);
+	}
 }
 
 void MidiMGWindow::reject()
@@ -171,8 +180,7 @@ void MidiMGWindow::connect_ui_signals()
 		&MidiMGWindow::on_device_active_change);
 	connect(ui->button_edit_input_bindings, &QPushButton::clicked, this,
 		[&]() { switch_structure_pane(MMGModes::MMGMODE_BINDING); });
-	// connect(ui->transfer_bindings_button, &QPushButton::clicked, this, [&]() { on_button_click(UiButtons::MIDIMGWINDOW_TRANSFER_BINDINGS); });
-	// Preferences Buttons
+	// Preferences Connections
 	connect(ui->button_preferences, &QPushButton::clicked, this, [&]() {
 		switch_structure_pane(MMGModes::MMGMODE_PREFERENCES);
 	});
@@ -188,6 +196,12 @@ void MidiMGWindow::connect_ui_signals()
 		&MidiMGWindow::i_need_help);
 	connect(ui->button_bug_report, &QPushButton::clicked, this,
 		&MidiMGWindow::report_a_bug);
+
+	connect(ui->editor_transfer_mode,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MidiMGWindow::on_transfer_mode_change);
+	connect(ui->button_binding_transfer, &QPushButton::clicked, this,
+		&MidiMGWindow::on_transfer_bindings_click);
 	// List Widget Connections
 	connect(ui->editor_structure, &QListWidget::itemClicked, this,
 		&MidiMGWindow::on_list_selection_change);
@@ -1587,6 +1601,13 @@ void MidiMGWindow::on_list_selection_change(const QListWidgetItem *current)
 		set_action_view();
 		ui->pages->setCurrentIndex(4);
 		break;
+	case MMGModes::MMGMODE_PREFERENCES:
+		ui->button_add->setEnabled(false);
+		ui->button_remove->setEnabled(false);
+		ui->button_help_subject->setEnabled(false);
+		ui->pages->setCurrentIndex(
+			ui->editor_structure->indexFromItem(current).row() + 5);
+		break;
 	default:
 		switch_structure_pane(MMGModes::MMGMODE_NONE);
 		break;
@@ -1617,6 +1638,8 @@ void MidiMGWindow::switch_structure_pane(enum MMGModes mode)
 	case MMGModes::MMGMODE_PREFERENCES:
 		ui->label_structure->setText(tr("Preferences"));
 		ui->pages->setCurrentIndex(5);
+		add_widget_item(mode, "General");
+		add_widget_item(mode, "Binding Transfer");
 		return;
 	case MMGModes::MMGMODE_DEVICE:
 		ui->button_return->setEnabled(false);
@@ -1683,6 +1706,11 @@ void MidiMGWindow::add_widget_item(MMGModes type, const QString &name) const
 			Qt::ItemFlag)0b100111); // Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled
 		widget_item->setBackground(QColor::fromRgb(40, 0, 0, 128));
 		break;
+	case MMGModes::MMGMODE_PREFERENCES:
+		widget_item->setFlags((
+			Qt::ItemFlag)0b100001); // Qt::ItemIsEnabled | Qt::ItemIsSelectable
+		widget_item->setBackground(QColor::fromRgb(40, 40, 40, 128));
+		break;
 	default:
 		delete widget_item;
 		return;
@@ -1717,6 +1745,36 @@ void MidiMGWindow::report_a_bug() const
 {
 	QDesktopServices::openUrl(
 		QUrl("https://github.com/nhielost/obs-midi-mg/issues"));
+}
+
+void MidiMGWindow::on_transfer_mode_change(short index)
+{
+	switch (index) {
+	case 0:
+		ui->text_transfer_mode->setText(
+			"In this mode, bindings will be copied from the source device to the destination device. "
+			"The destination device will then contain both device's bindings.");
+		break;
+	case 1:
+		ui->text_transfer_mode->setText(
+			"In this mode, bindings will be removed from the source device "
+			"and added to the destination device. "
+			"The destination device will then contain both device's bindings.");
+		break;
+	case 2:
+		ui->text_transfer_mode->setText(
+			"In this mode, bindings will be removed from the source device, "
+			"and they will also replace the bindings in the destination device. "
+			"NOTE: This will remove all existing bindings in the destination device.");
+		break;
+	}
+}
+
+void MidiMGWindow::on_transfer_bindings_click()
+{
+	transfer_bindings(ui->editor_transfer_mode->currentIndex(),
+			  ui->editor_transfer_source->currentText(),
+			  ui->editor_transfer_dest->currentText());
 }
 
 MidiMGWindow::~MidiMGWindow()

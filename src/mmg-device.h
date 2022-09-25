@@ -39,6 +39,9 @@ public:
 	MMGBinding *find_binding(const QString &name);
 	int index_of(MMGBinding *const el);
 	int size() const;
+	void clear() { bindings.clear(); };
+
+	void deep_copy(MMGDevice *dest);
 
 	void do_all_actions(const MMGSharedMessage &message);
 

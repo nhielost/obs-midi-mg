@@ -206,3 +206,15 @@ const libremidi::message MMGMessage::to_libremidi_message() const
 	}
 	throw 1;
 }
+
+void MMGMessage::deep_copy(MMGMessage *dest)
+{
+	if (!name.contains("Untitled Message"))
+		dest->set_name(name);
+
+	dest->set_channel(channel);
+	dest->set_type(type);
+	dest->set_note(note);
+	dest->set_value(value);
+	dest->set_value_required(value_require);
+}

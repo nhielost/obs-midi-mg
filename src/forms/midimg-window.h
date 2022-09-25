@@ -111,11 +111,13 @@ private slots:
 	void on_action_double2_toggle(bool toggle);
 	void on_action_double3_toggle(bool toggle);
 	void on_action_double4_toggle(bool toggle);
-	void on_list_selection_change(const QListWidgetItem *current);
+	void on_transfer_mode_change(short index);
+	void on_transfer_bindings_click();
 	void on_add_click();
 	void on_remove_click();
 	void on_return_click();
 	void on_help_click();
+	void on_list_selection_change(const QListWidgetItem *current);
 	void on_name_edit(QListWidgetItem *widgetItem);
 	void on_element_drag(const QModelIndex &parent, int start, int end,
 			     const QModelIndex &dest, int row) const;

@@ -278,6 +278,69 @@ void open_message_box(const QString &title, const QString &text)
 		&c, true);
 }
 
+void transfer_bindings(short mode, const QString &source, const QString &dest)
+{
+	if (mode < 0 || mode > 2)
+		return;
+
+	if (source == dest) {
+		open_message_box(
+			"Transfer Error",
+			"Failed to transfer bindings: Cannot transfer bindings to the same device.");
+		return;
+	}
+
+	MMGDevice *const source_device = global()->find_device(source);
+	if (!source_device) {
+		open_message_box(
+			"Transfer Error",
+			"Failed to transfer bindings: Source device is invalid.");
+		return;
+	}
+
+	MMGDevice *const dest_device = global()->find_device(dest);
+	if (!dest_device) {
+		open_message_box(
+			"Transfer Error",
+			"Failed to transfer bindings: Destination device is invalid.");
+		return;
+	}
+
+	if (source_device == dest_device) {
+		open_message_box(
+			"Transfer Error",
+			"Failed to transfer bindings: Cannot transfer bindings to the same device.");
+		return;
+	}
+
+	// Deep copy of bindings
+	MMGDevice *source_copy = new MMGDevice;
+	source_device->deep_copy(source_copy);
+
+	// REMOVE (occurs for both move and replace)
+	if (mode > 0)
+		source_device->clear();
+
+	// REPLACE
+	if (mode == 2)
+		dest_device->clear();
+
+	// COPY (occurs for all three modes)
+	for (MMGBinding *const binding : source_copy->get_bindings()) {
+		dest_device->add(binding);
+	}
+
+	// Clearing before deleting is important because it allows the
+	// destination device to take control of the pointers. If this
+	// were not the case, the copied pointers would be deleted by
+	// the MMGDevice destructor.
+	source_copy->clear();
+	delete source_copy;
+
+	open_message_box("Transfer Success",
+			 "Bindings successfully transferred.");
+}
+
 std::pair<uint, uint> get_obs_dimensions()
 {
 	obs_video_info video_info;
