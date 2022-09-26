@@ -120,46 +120,6 @@ QString MMGAction::get_next_default_name()
 		.prepend("Untitled Action ");
 }
 
-MMGAction::Category MMGAction::categoryFromString(const QString &str)
-{
-	if (str == "None") {
-		return MMGAction::Category::MMGACTION_NONE;
-	} else if (str == "Streaming") {
-		return MMGAction::Category::MMGACTION_STREAM;
-	} else if (str == "Recording") {
-		return MMGAction::Category::MMGACTION_RECORD;
-	} else if (str == "Virtual Camera") {
-		return MMGAction::Category::MMGACTION_VIRCAM;
-	} else if (str == "Replay Buffer") {
-		return MMGAction::Category::MMGACTION_REPBUF;
-	} else if (str == "Studio Mode") {
-		return MMGAction::Category::MMGACTION_STUDIOMODE;
-	} else if (str == "Scene Switching") {
-		return MMGAction::Category::MMGACTION_SCENE;
-	} else if (str == "Video Sources") {
-		return MMGAction::Category::MMGACTION_SOURCE_VIDEO;
-	} else if (str == "Audio Sources") {
-		return MMGAction::Category::MMGACTION_SOURCE_AUDIO;
-	} else if (str == "Media Sources") {
-		return MMGAction::Category::MMGACTION_SOURCE_MEDIA;
-	} else if (str == "Transitions") {
-		return MMGAction::Category::MMGACTION_TRANSITION;
-	} else if (str == "Filters") {
-		return MMGAction::Category::MMGACTION_FILTER;
-	} else if (str == "Hotkeys") {
-		return MMGAction::Category::MMGACTION_HOTKEY;
-	} else if (str == "Profiles") {
-		return MMGAction::Category::MMGACTION_PROFILE;
-	} else if (str == "Scene Collections") {
-		return MMGAction::Category::MMGACTION_COLLECTION;
-	} else if (str == "MIDI") {
-		return MMGAction::Category::MMGACTION_MIDI;
-	} else if (str == "Timeout") {
-		return MMGAction::Category::MMGACTION_TIMEOUT;
-	}
-	return MMGAction::Category::MMGACTION_NONE;
-}
-
 void MMGAction::do_obs_scene_enum(QComboBox *list)
 {
 	char **scene_names = obs_frontend_get_scene_names();

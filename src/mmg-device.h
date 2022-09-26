@@ -29,7 +29,7 @@ public:
 	void json(QJsonObject &device_obj) const;
 	void blog(int log_status, const QString &message) const;
 
-	const QString get_name() const { return name; };
+	const QString &get_name() const { return name; };
 	void set_name(const QString &val) { name = val; };
 
 	const MMGBindingList &get_bindings() const { return bindings; };

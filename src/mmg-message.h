@@ -29,8 +29,8 @@ public:
 	void json(QJsonObject &message_obj) const;
 	void blog(int log_status, const QString &message) const;
 
-	const QString get_name() const { return name; };
-	const QString get_type() const { return type; };
+	const QString &get_name() const { return name; };
+	const QString &get_type() const { return type; };
 	int get_channel() const { return channel; };
 	int get_note() const { return note; };
 	int get_value() const { return value; };
@@ -45,7 +45,6 @@ public:
 
 	void toggle(short which);
 	bool is_acceptable(const MMGMessage *test) const;
-	const libremidi::message to_libremidi_message() const;
 	void deep_copy(MMGMessage *dest);
 
 	static QString get_midi_type(const libremidi::message &mess);

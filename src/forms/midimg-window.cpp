@@ -81,6 +81,8 @@ MidiMGWindow::MidiMGWindow(QWidget *parent)
 	connect_ui_signals();
 
 	global()->set_listening_callback([this](MMGMessage *incoming) {
+		if (!incoming)
+			return;
 		// Check the validity of the message type (whether it is one of the five
 		// supported types)
 		if (ui->editor_type->findText(incoming->get_type()) == -1)
@@ -113,6 +115,12 @@ void MidiMGWindow::show_window()
 
 void MidiMGWindow::reject()
 {
+	if (global()->is_listening(nullptr)) {
+		open_message_box(
+			"Error",
+			"Cannot close window: The MIDI device is being listened to.\n(The Listen to Message button is on.)");
+		return;
+	}
 	global()->save();
 	QDialog::reject();
 }
@@ -295,8 +303,6 @@ void MidiMGWindow::set_help_text(enum MMGModes mode)
 
 void MidiMGWindow::set_device_view()
 {
-	// QStringList list = get_device_names();
-
 	ui->text_device_name->setText(current_device->get_name());
 	ui->text_status_input->setText(current_device->input_device_status());
 	ui->text_status_output->setText(current_device->output_device_status());
@@ -305,9 +311,6 @@ void MidiMGWindow::set_device_view()
 		global()->get_active_device_name());
 	on_device_active_change(current_device->get_name() ==
 				global()->get_active_device_name());
-	// list.removeOne(current->text());
-	// ui->transfer_bindings_name_editor->clear();
-	// ui->transfer_bindings_name_editor->addItems(list);
 	ui->button_edit_input_bindings->setEnabled(
 		ui->text_status_input->text() == "Ready");
 	ui->button_edit_output_bindings->setEnabled(false);
@@ -1709,7 +1712,7 @@ void MidiMGWindow::add_widget_item(MMGModes type, const QString &name) const
 	case MMGModes::MMGMODE_PREFERENCES:
 		widget_item->setFlags((
 			Qt::ItemFlag)0b100001); // Qt::ItemIsEnabled | Qt::ItemIsSelectable
-		widget_item->setBackground(QColor::fromRgb(40, 40, 40, 128));
+		widget_item->setBackground(QColor::fromRgb(12, 12, 12, 128));
 		break;
 	default:
 		delete widget_item;

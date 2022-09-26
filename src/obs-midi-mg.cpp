@@ -56,14 +56,14 @@ bool obs_module_load(void)
 	bfree(config_path);
 
 	// Load the configuration
-	global_config = Configuration(new MMGConfig());
+	global_config.reset(new MMGConfig());
 
 	// Load the libremidi devices
 	input.reset(new libremidi::midi_in());
 	output.reset(new libremidi::midi_out());
 
 	// Load any new devices and open the input port
-	global()->load_new_devices();
+	global_config->load_new_devices();
 
 	// Load the UI Window
 	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();

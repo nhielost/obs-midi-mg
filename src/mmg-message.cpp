@@ -190,23 +190,6 @@ bool MMGMessage::is_acceptable(const MMGMessage *test) const
 	return isTrue;
 }
 
-const libremidi::message MMGMessage::to_libremidi_message() const
-{
-	if (type == "Note On") {
-		return libremidi::message::note_on(channel, note, value);
-	} else if (type == "Note Off") {
-		return libremidi::message::note_off(channel, note, value);
-	} else if (type == "Control Change") {
-		return libremidi::message::control_change(channel, note, value);
-	} else if (type == "Program Change") {
-		return libremidi::message::program_change(channel, value);
-	} else if (type == "Pitch Bend") {
-		return libremidi::message::pitch_bend(
-			channel, note >= 64 ? ((note - 64) << 1) : 0, note);
-	}
-	throw 1;
-}
-
 void MMGMessage::deep_copy(MMGMessage *dest)
 {
 	if (!name.contains("Untitled Message"))

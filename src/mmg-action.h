@@ -131,23 +131,21 @@ public:
 
 	void blog(int log_status, const QString &message) const;
 
-	const QString get_name() const { return name; };
+	const QString &get_name() const { return name; };
 	Category get_category() const { return (Category)category; };
 	int get_sub() const { return subcategory; };
-	const QString get_str(int index) const
+	const QString &get_str(int index) const
 	{
 		if (index >= 0 && index < 4)
 			return strs[index];
 		throw 1;
 	};
-	const QString *get_strs() const { return strs; };
 	double get_num(int index) const
 	{
 		if (index >= 0 && index < 4)
 			return nums[index];
 		throw 1;
 	};
-	const double *get_nums() const { return nums; };
 
 	void set_name(const QString &val) { name = val; };
 	void set_category(Category val) { category = (int)val; };
@@ -164,8 +162,6 @@ public:
 	};
 
 	void deep_copy(MMGAction *dest);
-
-	static Category categoryFromString(const QString &str);
 
 	static void do_obs_scene_enum(QComboBox *list);
 	static void

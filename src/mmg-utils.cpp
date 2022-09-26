@@ -245,7 +245,7 @@ template<> void format_help_text(QString &str, const MMGMessage *obj)
 		obj->get_value() == -1
 			? "Off, meaning that any value (0-127) can be received and the message will be fulfilled"
 			: "" + num_to_str(obj->get_value()) +
-				  ". To allow messages to use the full range of values (0-127), click the Require Value button in the bottom right.");
+				  ". To allow messages to use the full range of values (0-127), click the Require Value button in the bottom right");
 }
 
 template<> void format_help_text(QString &str, const MMGAction *obj)

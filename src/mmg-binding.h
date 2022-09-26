@@ -47,7 +47,7 @@ public:
 		MMGBINDING_TOGGLE_BOTH
 	};
 
-	const QString get_name() const { return name; };
+	const QString &get_name() const { return name; };
 	Reception get_reception() const { return (Reception)reception; };
 	Toggling get_toggling() const { return (Toggling)toggling; };
 

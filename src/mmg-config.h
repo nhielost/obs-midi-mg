@@ -42,7 +42,7 @@ public:
 	void save(const QString &path_str = QString()) const;
 	void clear();
 	void load_new_devices();
-	QString get_active_device_name() { return active_device_name; };
+	const QString &get_active_device_name() { return active_device_name; };
 	void set_active_device_name(const QString &name);
 	MMGDevice *find_device(const QString &name);
 	MMGDevice *find_current_device()
