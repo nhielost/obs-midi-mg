@@ -25,10 +25,13 @@ public:
 	void json(QJsonObject &settings_obj) const;
 
 	bool get_active() const { return active; };
+	short get_display_mode() const { return display_mode; };
 	void set_active(bool is_active);
+	void set_display_mode(short mode){ display_mode = mode; };
 
 private:
 	bool active = true;
+	short display_mode = 0;
 };
 
 class MMGConfig {
