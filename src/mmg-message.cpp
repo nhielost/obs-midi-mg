@@ -18,11 +18,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-message.h"
 
-qulonglong MMGMessage::next_default = 0;
-
 MMGMessage::MMGMessage()
 {
-	name = get_next_default_name();
 	channel = 1;
 	type = "Note On";
 	note = 0;
@@ -33,7 +30,6 @@ MMGMessage::MMGMessage()
 
 MMGMessage::MMGMessage(const libremidi::message &message)
 {
-	name = "";
 	channel = message.get_channel();
 	type = get_midi_type(message);
 	note = get_midi_note(message);
@@ -43,9 +39,6 @@ MMGMessage::MMGMessage(const libremidi::message &message)
 
 MMGMessage::MMGMessage(const QJsonObject &obj)
 {
-	name = obj["name"].toString();
-	if (name.isEmpty())
-		name = get_next_default_name();
 	channel = obj["channel"].toInt(1);
 	type = obj["type"].toString("Note On");
 	note = obj["note"].toInt();
@@ -56,7 +49,6 @@ MMGMessage::MMGMessage(const QJsonObject &obj)
 
 void MMGMessage::json(QJsonObject &message_obj) const
 {
-	message_obj["name"] = name;
 	message_obj["channel"] = channel;
 	message_obj["type"] = type;
 	message_obj["note"] = note;
@@ -66,14 +58,7 @@ void MMGMessage::json(QJsonObject &message_obj) const
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, "Message {" + name + "} -> " + message);
-}
-
-QString MMGMessage::get_next_default_name()
-{
-	return QVariant(++MMGMessage::next_default)
-		.toString()
-		.prepend("Untitled Message ");
+	global_blog(log_status, "Messages -> " + message);
 }
 
 int MMGMessage::get_midi_note(const libremidi::message &mess)
@@ -160,21 +145,12 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 	}
 }
 
-void MMGMessage::toggle(short which)
+void MMGMessage::toggle()
 {
-	if (which & 0b01) {
-		if (type == "Note On") {
-			type = "Note Off";
-		} else if (type == "Note Off") {
-			type = "Note On";
-		}
-	}
-	if (which & 0b10) {
-		if (value == 127) {
-			value = 0;
-		} else if (value == 0) {
-			value = 127;
-		}
+	if (type == "Note On") {
+		type = "Note Off";
+	} else if (type == "Note Off") {
+		type = "Note On";
 	}
 }
 
@@ -192,9 +168,6 @@ bool MMGMessage::is_acceptable(const MMGMessage *test) const
 
 void MMGMessage::deep_copy(MMGMessage *dest)
 {
-	if (!name.contains("Untitled Message"))
-		dest->set_name(name);
-
 	dest->set_channel(channel);
 	dest->set_type(type);
 	dest->set_note(note);

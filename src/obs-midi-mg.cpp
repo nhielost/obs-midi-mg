@@ -18,7 +18,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-midi-mg.h"
 
-#include "forms/midimg-window.h"
+#include "forms/legacy/mmg-legacy-window.h"
+#include "forms/echo/mmg-echo-window.h"
 #include "mmg-config.h"
 
 #include <QAction>
@@ -33,7 +34,8 @@ using namespace std;
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
-static MidiMGWindow *plugin_window;
+static MMGLegacyWindow *legacy_window;
+static MMGEchoWindow *echo_window;
 Configuration global_config;
 MMGMIDIInputDevice input;
 MMGMIDIOutputDevice output;
@@ -58,23 +60,29 @@ bool obs_module_load(void)
 	// Load the configuration
 	global_config.reset(new MMGConfig());
 
-	// Load the libremidi devices
+	// Load the libremidi device objects
 	input.reset(new libremidi::midi_in());
 	output.reset(new libremidi::midi_out());
 
 	// Load any new devices and open the input port
 	global_config->load_new_devices();
 
-	// Load the UI Window
-	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
-	plugin_window = new MidiMGWindow(mainWindow);
-
-	// Load the menu button (Tools -> obs-midi-mg Setup)
+	// Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
 	const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
 	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		menu_action_text);
-	QObject::connect(menu_action, &QAction::triggered, plugin_window,
-			 &MidiMGWindow::show_window);
+	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
+	if (global_config->preferences().get_ui_style() == 0) {
+		_blog(LOG_INFO, "Loading plugin using the Echo style...");
+		echo_window = new MMGEchoWindow(mainWindow);
+		QObject::connect(menu_action, &QAction::triggered, echo_window,
+				 &MMGEchoWindow::show_window);
+	} else if (global_config->preferences().get_ui_style() == 1) {
+		_blog(LOG_INFO, "Loading plugin using the Legacy style...");
+		legacy_window = new MMGLegacyWindow(mainWindow);
+		QObject::connect(menu_action, &QAction::triggered,
+				 legacy_window, &MMGLegacyWindow::show_window);
+	}
 
 	// Done
 	_blog(LOG_INFO, "Plugin loaded.");

@@ -26,57 +26,28 @@ public:
 	explicit MMGBinding(const QJsonObject &obj);
 	~MMGBinding()
 	{
-		qDeleteAll(messages);
-		qDeleteAll(actions);
-		saved_messages.clear();
+		delete message;
+		delete action;
 	};
 
 	void json(QJsonObject &binding_obj) const;
 	void blog(int log_status, const QString &message) const;
 
-	enum class Reception {
-		MMGBINDING_INVALID,
-		MMGBINDING_CONSECUTIVE,
-		MMGBINDING_CORRESPONDENCE,
-		MMGBINDING_MULTIPLY
-	};
-	enum class Toggling {
-		MMGBINDING_TOGGLE_OFF,
-		MMGBINDING_TOGGLE_NOTE,
-		MMGBINDING_TOGGLE_VALUE,
-		MMGBINDING_TOGGLE_BOTH
-	};
-
 	const QString &get_name() const { return name; };
-	Reception get_reception() const { return (Reception)reception; };
-	Toggling get_toggling() const { return (Toggling)toggling; };
+	bool get_toggling() const { return toggling; };
+	bool get_enabled() const { return enabled; };
 
 	void set_name(const QString &val) { name = val; };
-	void set_reception(Reception val) { reception = (short)val; };
-	void set_toggling(Toggling val);
+	void set_toggling(bool val) { toggling = val; };
+	void set_enabled(bool val) { enabled = val; };
 
-	MMGMessage *add_message(MMGMessage *const el = new MMGMessage);
-	void insert_message(size_t index, MMGMessage *const el);
-	void remove(MMGMessage *const el);
-	MMGAction *add_action(MMGAction *const el = new MMGAction);
-	void insert_action(size_t index, MMGAction *const el);
-	void remove(MMGAction *const el);
-
-	size_t index_of(MMGMessage *const el) const;
-	size_t index_of(MMGAction *const el) const;
-	size_t message_size() const;
-	size_t action_size() const;
-
-	const MMGMessageList &get_messages() const { return messages; };
-	const MMGActionList &get_actions() const { return actions; };
-	MMGMessage *find_message(const QString &name);
-	MMGAction *find_action(const QString &name);
+	MMGMessage *const get_message() const { return message; };
+	MMGAction *const get_action() const { return action; };
 
 	bool is_valid();
 	void deep_copy(MMGBinding *dest);
-	void do_actions(const MMGSharedMessage &el);
-
-	void move_elements(MMGModes mode, size_t from, size_t to);
+	void do_action(const MMGSharedMessage &el);
+	void reset_execution() { action->reset_execution(); };
 
 	static qulonglong get_next_default() { return next_default; };
 	static void set_next_default(qulonglong num) { next_default = num; };
@@ -84,18 +55,12 @@ public:
 
 private:
 	QString name;
-	short reception;
-	short toggling;
-	QList<MMGMessage *> messages;
-	QList<MMGAction *> actions;
-	QList<MMGSharedMessage> saved_messages;
-
-	size_t current_message_index = 0;
+	bool toggling;
+	bool enabled;
+	MMGMessage *message;
+	MMGAction *action;
 
 	static qulonglong next_default;
-
-	void check_message_default_names();
-	void check_action_default_names();
 };
 
 using MMGBindingList = QList<MMGBinding *>;

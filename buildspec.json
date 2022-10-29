@@ -1,10 +1,10 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "28.0.2",
+            "version": "28.0.3",
             "repository": "https://github.com/obsproject/obs-studio.git",
             "branch": "master",
-            "hash": "dba3401cebb560b348b905150a3ec3d548806a98"
+            "hash": "d21891b3ca1a8607de479687cd2e12a4455525d7"
         },
         "prebuilt": {
             "version": "2022-08-02",
@@ -79,5 +79,5 @@
         }
     },
     "name": "obs-midi-mg",
-    "version": "1.4.2"
+    "version": "2.0.0"
 }

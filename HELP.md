@@ -1,0 +1,313 @@
+# obs-midi-mg Help Page
+
+Tips in using the plugin as well as how it works can be found here.
+
+## Contents
+1. [Navigation](#navigation)
+   - [Devices](#devices)
+   - [Bindings](#bindings)
+   - [Preferences](#preferences)
+2. [Organization](#organization)
+   - [Bindings](#bindings-1)
+   - [Messages](#messages)
+   - [Actions](#actions)
+3. [Actions Guide](#actions-guide)
+   - [None](#none)
+   - [Streaming](#streaming)
+   - [Recording](#recording)
+   - [Virtual Camera](#virtual-camera)
+   - [Replay Buffer](#replay-buffer)
+   - [Studio Mode](#studio-mode)
+   - [Scene Switching](#scene-switching)
+   - [Video Sources](#video-sources)
+   - [Audio Sources](#audio-sources)
+   - [Media Sources](#media-sources)
+   - [Transitions](#transitions)
+   - [Filters](#filters)
+   - [Hotkeys](#hotkeys)
+   - [Profiles](#profiles)
+   - [Scene Collections](#scene-collections)
+   - [MIDI](#midi)
+   - [Internal](#internal)
+   - [Timeout](#timeout)
+4. [Using the Message Value](#using-the-message-value)
+5. [Preferences Guide](#preferences-guide)
+   - [Device Interaction](#device-interaction)
+   - [Interface Style](#interface-style)
+   - [Binding Transfer](#binding-transfer)
+6. [Additional Help](#additional-help)
+
+---------------------------------------------------
+
+## Navigation
+
+### Devices
+
+**ECHO**: The device that is selected in the *Active Device* field is the device that is currently being used for incoming messages as well as editing bindings. Changing this field will change the device and the bindings view.
+
+**LEGACY**: The device that is selected is the device currently being edited, but NOT the device that is active. To change which device to edit, select the device name in the list. To set the device as active, click the *Set As Active* button within the device properties.
+
+### Bindings
+
+**ECHO**: Bindings associated with the current active device are listed in the top left corner. To edit them, select the binding name in the list. The message and the action will appear on the right. To change the binding's name, double click it in the list and change the name.
+
+**LEGACY**: Bindings associated with the selected device can be edited by clicking *Edit Bindings* in the device properties menu. To edit individual components of the binding, click *Edit Message* and *Edit Action* for the respective component. To rename a binding, double click the name and type the new name. To go back to a previous menu, click the *Return* button in the bottom left.
+
+### Preferences
+
+To access the preferences menu, click the *Preferences* button in the bottom left. If using the **ECHO** style, click the *Return to Bindings* button in the bottom left to go back to the binding editor. If using the **LEGACY** style, click *Return* in the bottom left to go back to the device list.
+
+----------------------------------------------------
+
+## Organization
+
+### Bindings
+
+Bindings are composed of one message and one action. If the binding is enabled, the message will be listened to on the current device, and whenever the message is received with all the correct parameters, the action will execute. These parameters can be set in the binding editor when a binding is selected. If a binding is disabled (this can be changed by clicking the checkmark next to the binding's name in the **ECHO** style or by changing the *Binding Status* to Disabled in the **LEGACY** style), the message will not be listened to. The action will never be executed whenever any message is received. *See the [Internal](#internal) action for an exception to this rule.*
+
+### Messages
+
+Messages are composed of a type, channel, and one or two other values. These values can be inputted manually or, by using the *Listen to Message* feature, can be inputted by the input device automatically. Only one message can activate any action (no longer can one use multiple messages to do this). If the type is set to *Note On / Note Off*, the message will toggle to the other type every time that it is received (i.e. if the message is currently listening for a Note On type, it will switch to Note Off type when it is received, and viceversa).
+
+### Actions
+
+Actions are composed of a category, subcategory and other fields. These fields are changed dynamically when the categories and subcategories are changed. In addition, some of the fields can use the message value field as their value. The list fields use this by an option called *Use Message Value*, while the number fields can be changed to *Fixed* and *0-127* modes by either clicking the button (**ECHO**) or clicking the label (**LEGACY**). In *Fixed* mode, the action will use the value indicated, but in *0-127* mode, the action will use the message value according to the action specification (see below for specifics).
+
+----------------------------------------------------
+
+## Actions Guide
+
+### None
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| None | Does exactly what you'd expect. | *N/A* | *N/A* |
+
+### Streaming
+
+| Subcategory | Description| List Fields | Number Fields |
+|---|---|---|---|
+| Start Streaming | Starts the stream if it is not running. | *N/A* | *N/A* |
+| Stop Streaming | Stops the stream if it is running. | *N/A* | *N/A* |
+| Toggle Streaming | Starts the stream if it is not running, or stops the stream if it is running. | *N/A* | *N/A* |
+                       
+### Recording
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Start Recording | Starts recording if it is not running. | *N/A* | *N/A* |
+| Stop Recording | Stops recording if it is running. | *N/A* | *N/A* |
+| Toggle Recording | Starts recording if it is not running, or stops recording if it is running. | *N/A* | *N/A* |
+| Pause Recording | Pauses recording if it is running. | *N/A* | *N/A* |
+| Resume Recording | Resumes recording if it is paused. | *N/A* | *N/A* |
+| Toggle Pause Recording | Pauses recording if it is running, or resumes recording if it is paused. | *N/A* | *N/A* |
+
+### Virtual Camera
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Start Virtual Camera | Starts the virtual camera if it is not running. | *N/A* | *N/A* |
+| Stop Virtual Camera | Stops the virtual camera if it is running. | *N/A* | *N/A* |
+| Toggle Virtual Camera | Starts the virtual camera if it is not running, or stops the virtual camera if it is running. | *N/A* | *N/A* |
+
+### Replay Buffer
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Start Replay Buffer | Starts a Replay Buffer. | *N/A* | *N/A* |
+| Stop Replay Buffer | Stops a Replay Buffer if one has started. | *N/A* | *N/A* |
+| Toggle Replay Buffer | Starts a Replay Buffer if there is not one active, or stops it if it is running. | *N/A* | *N/A* |
+| Save Replay Buffer | Saves the Replay Buffer to a file. | *N/A* | *N/A* |
+
+### Studio Mode
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Turn On Studio Mode | Turns on Studio Mode. | *N/A* | *N/A* |
+| Turn Off Studio Mode | Turns off Studio Mode. | *N/A* | *N/A* |
+| Toggle Studio Mode | Turns on Studio Mode if it is off, or turns it off if it is on. | *N/A* | *N/A* |
+| Change Preview Scene | Changes the scene displayed in the preview in Studio Mode.<br>Does nothing if Studio Mode is disabled. | **SCENE** <sub>[1](#using-the-message-value)</sub>: The name of the scene to switch the preview to. | *N/A* |
+| Preview to Program | Switches the preview and the program scenes using the current transition.<br>Does nothing if Studio Mode is disabled. | *N/A* | *N/A* |
+
+### Scene Switching
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Scene Switching | Switches scenes using the current transition. | **SCENE** <sub>[1](#using-the-message-value)</sub>: The name of the scene to switch to. | *N/A* |
+
+### Video Sources
+
+All Video Sources actions contain these list fields in addition to the fields listed in the table below:
+
+**SCENE**: The name of the scene containing the video source.
+
+**SOURCE**: The name of the video source.
+
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Move Source | Moves the source to the specified coordinates on the current scene. | *N/A* | **POSITION X <sub>[3](#using-the-message-value)</sub>**: The x-coordinate of the new position of the source.<br>**POSITION Y <sub>[4](#using-the-message-value)</sub>**: The y-coordinate of the new position of the source. |
+| Display Source | Shows or hides the source on the current scene. | **STATE**: The display state of the source. | *N/A* |
+| Source Locking | Locks or unlocks the source on the current scene. | **STATE**: The lock state of the source. | *N/A* |
+| Source Crop | Crops the source on the current scene. | *N/A* | **TOP <sub>[4](#using-the-message-value)</sub>**: The number of pixels to crop from the top of the source.<br>**RIGHT <sub>[3](#using-the-message-value)</sub>**: The number of pixels to crop from the right side of the source.<br>**BOTTOM <sub>[4](#using-the-message-value)</sub>**: The number of pixels to crop from the bottom of the source.<br>**LEFT <sub>[3](#using-the-message-value)</sub>**: The number of pixels to crop from the left side of the source. |
+| Align Source | Changes the alignment of the position of the source on the current scene. | **ALIGNMENT <sub>[2](#using-the-message-value)</sub>**: The alignment state of the source. | *N/A* |
+| Source Scale | Scales the source by a specified amount and magnitude on the current scene. | *N/A* | **SCALE X <sub>[5](#using-the-message-value)</sub>**: The percent scale of the x-axis of the source.<br>**SCALE Y <sub>[5](#using-the-message-value)</sub>**: The percent scale of the y-axis of the source.<br>**MAGNITUDE <sub>[10](#using-the-message-value)</sub>**: The amount of scaling to apply. A magnitude of 1 is the default, and is appropriate for most cases. |
+| Source Scale Filtering | Changes the scale filtering of the source on the current scene. | **FILTERING <sub>[2](#using-the-message-value)</sub>**: The scale filtering state of the source. | *N/A* |
+| Rotate Source | Rotates the source by a specified number of degrees on the current scene. | *N/A* | **ROTATION <sub>[5](#using-the-message-value)</sub>**: The rotation of the source in degrees. |
+| Source Bounding Box Type | Changes the type of bounding box of the source on the current scene. | **TYPE <sub>[2](#using-the-message-value)</sub>**: The bounding box state of the source. | *N/A* |
+| Resize Source Bounding Box | Resizes the bounding box of the source on the current scene. | *N/A* | **SIZE X <sub>[3](#using-the-message-value)</sub>**: The new length of the bounding box of the source.<br>**SIZE Y <sub>[4](#using-the-message-value)</sub>**: The new height of the bounding box of the source. |
+| Align Source Bounding Box | Changes the alignment of the bounding box of the source on the current scene. | **ALIGNMENT <sub>[2](#using-the-message-value)</sub>**: The alignment state of the bounding box of the source. | *N/A* |
+| Source Blending Mode | Changes the blending mode of the source on the current scene. | **BLEND MODE <sub>[2](#using-the-message-value)</sub>**: The blend mode state of the source. | *N/A* |
+| Take Source Screenshot | Takes a screenshot of the source. | *N/A* | *N/A* |
+
+### Audio Sources
+
+All Audio Sources actions contain these list fields in addition to the fields listed in the table below:
+
+**SOURCE**: The name of the audio source.
+
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Change Source Volume To | Sets the volume of the audio source to the specified percentage. | *N/A* | **VOLUME <sub>[5](#using-the-message-value)</sub>**: The volume to set. |
+| Change Source Volume By | Changes the volume of the audio source by the specified percentage. | *N/A* | **VOLUME <sub>[6](#using-the-message-value)</sub>**: The volume increment. |
+| Mute Source | Mutes the audio source. | *N/A* | *N/A* |
+| Unmute Source | Unmutes the audio source. | *N/A* | *N/A* |
+| Toggle Source Mute | Mutes the audio source if unmuted, unmutes otherwise. | *N/A* | *N/A* |
+| Source Audio Offset | Changes the audio offset of a source. | *N/A* | **OFFSET <sub>[7](#using-the-message-value)</sub>**: The audio offset to set. |
+| Source Audio Monitor | Changes the audio monitor of a source. | **MONITOR <sub>[2](#using-the-message-value)</sub>**: The audio monitor state of the source. | *N/A* |
+
+### Media Sources
+
+All Media Sources actions contain these list fields in addition to the fields listed in the table below:
+
+**SOURCE**: The name of the media source.
+
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Play or Pause | Pauses the media source if playing, plays otherwise. | *N/A* | *N/A* |
+| Restart | Restarts the media source if playing. | *N/A* | *N/A* |
+| Stop | Stops the media source. | *N/A* | *N/A* |
+| Set Track Time | Sets the time of the media source. | *N/A* | **TIME <sub>[5](#using-the-message-value)</sub>**: The time to set to the media source. |
+| Next Track | If there are multiple tracks in the media source, advance to the next one. | *N/A* | *N/A* |
+| Previous Track | If there are multiple tracks in the media source, go back to the previous one. | *N/A* | *N/A* |
+| Skip Forward Time | Advances a specified amount of time in the media source. | *N/A* | **TIME <sub>[6](#using-the-message-value)</sub>**: The time to advance in the media source. |
+| Skip Backward Time | Rewinds a specified amount of time in the media source. | *N/A* | **TIME <sub>[6](#using-the-message-value)</sub>**: The time to rewind in the media source. |
+
+### Transitions
+          
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Change Current Transition | Sets the current transition. | **TRANSITION**: The name of the transition to use. | **DURATION <sub>[7](#using-the-message-value)</sub>**: The duration of the transition selected. If a value of 0 is used, the plugin will use the current transition duration. |
+| Set Transition Bar (Studio Mode) | Sets the transition bar position.<br>Fails if not in Studio Mode.<br>*COMING SOON!* | *N/A* | **POSITION <sub>[5](#using-the-message-value)</sub>**: The percent transitioned by the transition bar. |
+| Set Source Show Transition | Sets the transition that will be used when a source becomes shown. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[7](#using-the-message-value)</sub>**: The duration of the transition selected. If a value of 0 is used, the plugin will use the current transition duration. |
+| Set Source Hide Transition | Sets the transition that will be used when a source becomes hidden. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[7](#using-the-message-value)</sub>**: The duration of the transition selected. If a value of 0 is used, the plugin will use the current transition duration. |
+
+### Filters
+
+All Filters actions contain these list fields in addition to the fields listed in the table below:
+
+**SOURCE**: The name of the source containing the filter.
+
+**FILTER**: The name of the filter.
+
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Show Filter | Shows a filter on a specified source. | *N/A* | *N/A* |
+| Hide Filter | Hides a filter on a specified source. | *N/A* | *N/A* |
+| Toggle Filter Display | Shows a filter on a specified source if it is hidden, hides it otherwise. | *N/A* | *N/A* |
+| Reorder Filter Appearance | Moves filter up and down the list on a specified source. | *N/A* | **POSITION <sub>[1,8](#using-the-message-value)</sub>**: The new position of the filter in the list. |
+| Change Custom Properties | Changes custom properties of a filter.<br>*COMING SOON!* | **PROPERTIES**: The properties to change in the filter. | *N/A* |
+
+### Hotkeys
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Activate Hotkey | Activates a custom hotkey. | **HOTKEY**: The name of the hotkey to activate. | *N/A* |
+
+### Profiles
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Switch Profiles | Switches to another Profile.<br>Fails if a stream / recording / etc. is active. | **PROFILE** <sub>[1](#using-the-message-value)</sub>: The name of the profile to switch to. | *N/A* |
+
+### Scene Collections
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Switch Scene Collections | Switches to another Scene Collection. | **COLLECTION** <sub>[1](#using-the-message-value)</sub>: The name of the scene collection to switch to. | *N/A* |
+
+### MIDI
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Send a MIDI Message | Sends the specified MIDI message to the specified MIDI device. | **DEVICE**: The name of the device to send  the message to.<br>**TYPE**: The message type. | **CHANNEL**: The message channel.<br>**DATA 1 <sub>[9](#using-the-message-value)</sub>**: The message note / control / program / pitch.<br>**DATA 2 <sub>[8](#using-the-message-value)</sub>**: The message value / velocity. |
+
+### Internal
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Do 1 Action | Executes one other action in the current device. | **ACTION 1**: The name of the binding containing the action to execute. | *N/A* |
+| Do 2 Actions | Executes two other actions in the current device. | **ACTION 1**: The name of the binding containing the first action to execute.<br>**ACTION 2**: The name of the binding containing the second action to execute. | *N/A* |
+| Do 3 Actions | Executes three other actions in the current device. | **ACTION 1**: The name of the binding containing the first action to execute.<br>**ACTION 2**: The name of the binding containing the second action to execute.<br>**ACTION 3**: The name of the binding containing the third action to execute. | *N/A* |
+
+Note 1: Actions can only be executed once. Any action that is executed more than once will be skipped.<br>
+Note 2: Actions executed in this manner bypass disabled bindings, meaning that an action in a disabled binding can be executed.<br>
+Note 3: If a selected action is using the message for any of its values, that action will use the message sent to the *Internal* action.
+
+### Timeout
+
+| Subcategory | Description | List Fields | Number Fields |
+|---|---|---|---|
+| Wait in Milliseconds | Waits the specified amount of time in milliseconds. | *N/A* | **TIME <sub>[8](#using-the-message-value)</sub>**: The number of milliseconds to wait. |
+| Wait in Seconds | Waits the specified amount of time in seconds. | *N/A* | **TIME <sub>[8](#using-the-message-value)</sub>**: The number of seconds to wait. |
+
+----------------------------------------------------
+
+## Using the Message Value
+
+If any fields are marked with a subscript listed below, they are eligible to be used by the incoming message value. See below for specific details.
+
+<sub>**[1](#using-the-message-value)**</sub> When using this field, a value called *Use Message Value* will appear. If this value is selected, the plugin will use the value/velocity section of the incoming message instead of text.<br>Example: You have 15 objects (scenes, filters, etc.) in a list, and you send a message with a value of 6. The 7th object in the list is the one that will be used in the action.<br>Note 1: The action will fail if the value provided is equal to or larger than the number of objects in the list (e.g. if there are 4 objects, a value of 37 will fail).<br>Note 2: If you have more than 128 objects, those additional objects (e.g. 129, 130, ...) cannot be accessed using this method.
+
+<sub>**[2](#using-the-message-value)**</sub> When using this field, a value called *Use Message Value* will appear. If this value is selected, the plugin will use the value/velocity section of the incoming message instead of the options listed.<br>Example: You have 4 options in a list for an action, and you send a message to that action with a value of 2. The 3rd option in the list is the one that will be used in the action.<br>The action will fail if the value provided is equal to or larger than the number of options in the list (e.g. if there are 4 options, a value of 37 will fail).
+
+<sub>**[3](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond to 1/128 the length of the scene.<br>Example: You have a 1920x1080 scene size, and you send a message to a Move Source action with a value of 29 for the Position X field. The x-coordinate of the source would change to 435.
+
+<sub>**[4](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond to 1/128 the height of the scene.<br>Example: You have a 1920x1080 scene size, and you send a message to a Move Source action with a value of 29 for the Position Y field. The y-coordinate of the source would change to about 245.
+
+<sub>**[5](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond to a percentage of the largest reasonable value.<br>Example: You have a Set Volume action, and you send a message to it with a value of 102. The volume of the source mentioned in the action will be set to about 80% of full volume.
+
+<sub>**[6](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond to a percentage of the largest reasonable value. However, a value of 64 corresponds to 0%, and any values less than 64 correspond to negative percentages. A value of 0 corresponds to -50%, while a value of 127 corresponds to +50%.<br>Example: You have a Change Volume action, and you send a message to it with a value of 102. The volume of the source mentioned in the action will be changed by about +30%.<br>Note: This method does not exceed the minimum or maximum boundaries set by the plugin when using this field in *Fixed* mode.
+
+<sub>**[7](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond to 25ms increments. A value of 127 only reaches 3175ms, which is a *lot* smaller than the *Fixed* mode limit of 20,000ms. If using this field for a transition, a value of 0 will still allow for usage of the current transition duration.<br>Example: You have a Set Transition action, and you send a message to it with a value of 56. The duration of the transition will be set to 1400ms.
+
+<sub>**[8](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond exactly to the value provided. A value of 0 corresponds to 0, and a value of 127 corresponds to 127.
+
+<sub>**[9](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message note/control/program/pitch bend will correspond exactly to the value provided. A value of 0 corresponds to 0, and a value of 127 corresponds to 127.
+
+<sub>**[10](#using-the-message-value)**</sub> When using this field in *0-127* mode, a default value will be used. No message values can be used in this number field.
+
+----------------------------------------------------
+
+## Preferences Guide
+
+### Device Interaction
+
+If this option is toggled off, it will turn off all communication between the plugin and the active device.
+
+### Interface Style
+
+This will change the style of the user interface of the plugin. Currently, the choices are *Echo* (the default, new interface) and *Legacy* (the old interface).
+
+### Binding Transfer
+
+Transferring bindings is useful when a lot of bindings cannot be used since they are on another device that is disconnected or unavailable. All information is provided in the plugin itself.
+
+----------------------------------------------------
+
+## Additional Help
+
+If you need additional help, please file an issue [here](https://github.com/nhielost/obs-midi-mg/issues), or post on the OBS forum discussion [here](https://obsproject.com/forum/threads/obs-midi-mg.158407/).

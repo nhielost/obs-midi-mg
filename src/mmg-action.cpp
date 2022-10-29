@@ -42,11 +42,8 @@ struct R {
 	QString r_v;
 };
 
-qulonglong MMGAction::next_default = 0;
-
 MMGAction::MMGAction()
 {
-	name = get_next_default_name();
 	category = 0;
 	subcategory = 0;
 	set_str(0, "");
@@ -61,9 +58,6 @@ MMGAction::MMGAction()
 
 MMGAction::MMGAction(const QJsonObject &obj)
 {
-	name = obj["name"].toString();
-	if (name.isEmpty())
-		name = get_next_default_name();
 	category = obj["category"].toInt(0);
 	subcategory = obj["sub"].toInt(0);
 	set_str(0, obj["str1"].toString());
@@ -78,7 +72,6 @@ MMGAction::MMGAction(const QJsonObject &obj)
 
 void MMGAction::json(QJsonObject &action_obj) const
 {
-	action_obj["name"] = name;
 	action_obj["category"] = (int)category;
 	action_obj["sub"] = subcategory;
 	// Really does not like QJsonArray here for some reason
@@ -93,14 +86,11 @@ void MMGAction::json(QJsonObject &action_obj) const
 
 void MMGAction::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, "Action {" + name + "} -> " + message);
+	global_blog(log_status, "Actions -> " + message);
 }
 
 void MMGAction::deep_copy(MMGAction *dest)
 {
-	if (!name.contains("Untitled Action"))
-		dest->set_name(name);
-
 	dest->set_category(get_category());
 	dest->set_sub(subcategory);
 	dest->set_str(0, strs[0]);
@@ -111,13 +101,6 @@ void MMGAction::deep_copy(MMGAction *dest)
 	dest->set_num(1, nums[1]);
 	dest->set_num(2, nums[2]);
 	dest->set_num(3, nums[3]);
-}
-
-QString MMGAction::get_next_default_name()
-{
-	return QVariant(++MMGAction::next_default)
-		.toString()
-		.prepend("Untitled Action ");
 }
 
 void MMGAction::do_obs_scene_enum(QComboBox *list)
@@ -311,73 +294,26 @@ void MMGAction::do_obs_collection_enum(QComboBox *list)
 	bfree(collection_names);
 }
 
-void MMGAction::do_action(const MMGSharedMessage &params)
+void MMGAction::do_mmg_binding_enum(QComboBox *list, const QString &current)
 {
-	switch (get_category()) {
-	case MMGAction::Category::MMGACTION_NONE:
-		do_action_none(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_STREAM:
-		do_action_stream(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_RECORD:
-		do_action_record(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_VIRCAM:
-		do_action_virtual_cam(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_REPBUF:
-		do_action_replay_buffer(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_STUDIOMODE:
-		do_action_studio_mode(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_SCENE:
-		do_action_scenes(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
-		do_action_video_source(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
-		do_action_audio_source(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
-		do_action_media_source(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_TRANSITION:
-		do_action_transitions(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_FILTER:
-		do_action_filters(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_HOTKEY:
-		do_action_hotkeys(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_PROFILE:
-		do_action_profiles(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_COLLECTION:
-		do_action_collections(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_MIDI:
-		do_action_midi(this, params.get());
-		break;
-	case MMGAction::Category::MMGACTION_TIMEOUT:
-		do_action_pause(this, params.get());
-		break;
-	default:
-		break;
+	for (MMGBinding *const binding :
+	     global()->find_current_device()->get_bindings()) {
+		if (binding->get_name() != current)
+			list->addItem(binding->get_name());
 	}
 }
 
-void MMGAction::do_action_none(const MMGAction *params, const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::None>(const MMGAction *params,
+						    const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	params->blog(LOG_DEBUG, "<None> executed.");
 }
 
-void MMGAction::do_action_stream(const MMGAction *params,
-				 const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Stream>(const MMGAction *params,
+						      const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	switch ((MMGAction::Stream)params->get_sub()) {
@@ -402,8 +338,9 @@ void MMGAction::do_action_stream(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Stream> executed.");
 }
 
-void MMGAction::do_action_record(const MMGAction *params,
-				 const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Record>(const MMGAction *params,
+						      const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	switch ((MMGAction::Record)params->get_sub()) {
@@ -439,8 +376,9 @@ void MMGAction::do_action_record(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Record> executed.");
 }
 
-void MMGAction::do_action_virtual_cam(const MMGAction *params,
-				      const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::VirtualCam>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	switch ((MMGAction::VirtualCam)params->get_sub()) {
@@ -465,8 +403,9 @@ void MMGAction::do_action_virtual_cam(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Virtual Camera> executed.");
 }
 
-void MMGAction::do_action_replay_buffer(const MMGAction *params,
-					const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::ReplayBuffer>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	config_t *obs_config = obs_frontend_get_profile_config();
 	if ((QString(config_get_string(obs_config, "Output", "Mode")) ==
@@ -508,8 +447,9 @@ void MMGAction::do_action_replay_buffer(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Replay Buffer> executed.");
 }
 
-void MMGAction::do_action_studio_mode(const MMGAction *params,
-				      const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::StudioMode>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	if (params->get_str(0) == "Use Message Value" &&
 	    (uint)midi->get_value() >= get_obs_scene_count()) {
@@ -560,8 +500,9 @@ void MMGAction::do_action_studio_mode(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Studio Mode> executed.");
 }
 
-void MMGAction::do_action_scenes(const MMGAction *params,
-				 const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Scenes>(const MMGAction *params,
+						      const MMGMessage *midi)
 {
 	if (params->get_str(0) == "Use Message Value" &&
 	    (uint)midi->get_value() >= get_obs_scene_count()) {
@@ -593,8 +534,9 @@ void MMGAction::do_action_scenes(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Scene Switching> executed.");
 }
 
-void MMGAction::do_action_video_source(const MMGAction *params,
-				       const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::VideoSources>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_scene_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
@@ -654,10 +596,10 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 		// align and length used for length and width of sources
 		align = get_obs_source_dimensions(params->get_str(1)).first;
 		length = get_obs_source_dimensions(params->get_str(1)).second;
-		crop.top = num_or_value(params, midi, 0, length >> 1);
-		crop.right = num_or_value(params, midi, 1, align >> 1);
-		crop.bottom = num_or_value(params, midi, 2, length >> 1);
-		crop.left = num_or_value(params, midi, 3, align >> 1);
+		crop.top = num_or_value(params, midi, 0, length);
+		crop.right = num_or_value(params, midi, 1, align);
+		crop.bottom = num_or_value(params, midi, 2, length);
+		crop.left = num_or_value(params, midi, 3, align);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
@@ -757,8 +699,9 @@ void MMGAction::do_action_video_source(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Video Sources> executed.");
 }
 
-void MMGAction::do_action_audio_source(const MMGAction *params,
-				       const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::AudioSources>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
@@ -847,8 +790,9 @@ void MMGAction::do_action_audio_source(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Audio Sources> executed.");
 }
 
-void MMGAction::do_action_media_source(const MMGAction *params,
-				       const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::MediaSources>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
@@ -918,8 +862,9 @@ void MMGAction::do_action_media_source(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Media Sources> executed.");
 }
 
-void MMGAction::do_action_transitions(const MMGAction *params,
-				      const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Transitions>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	OBSSourceAutoRelease obs_transition =
@@ -976,8 +921,9 @@ void MMGAction::do_action_transitions(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Transitions> executed.");
 }
 
-void MMGAction::do_action_filters(const MMGAction *params,
-				  const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Filters>(const MMGAction *params,
+						       const MMGMessage *midi)
 {
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(0).qtocs());
@@ -1024,8 +970,9 @@ void MMGAction::do_action_filters(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Filters> executed.");
 }
 
-void MMGAction::do_action_hotkeys(const MMGAction *params,
-				  const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Hotkeys>(const MMGAction *params,
+						       const MMGMessage *midi)
 {
 	Q_UNUSED(midi);
 	struct HotkeyRequestBody {
@@ -1068,8 +1015,9 @@ void MMGAction::do_action_hotkeys(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Hotkeys> executed.");
 }
 
-void MMGAction::do_action_profiles(const MMGAction *params,
-				   const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Profiles>(const MMGAction *params,
+							const MMGMessage *midi)
 {
 	char **profile_names = obs_frontend_get_profiles();
 
@@ -1112,8 +1060,9 @@ void MMGAction::do_action_profiles(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Profiles> executed.");
 }
 
-void MMGAction::do_action_collections(const MMGAction *params,
-				      const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Collections>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	char **collection_names = obs_frontend_get_scene_collections();
 
@@ -1154,7 +1103,9 @@ void MMGAction::do_action_collections(const MMGAction *params,
 	params->blog(LOG_DEBUG, "<Scene Collections> executed.");
 }
 
-void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::MidiMessage>(
+	const MMGAction *params, const MMGMessage *midi)
 {
 	libremidi::message message;
 	int channel = params->get_num(0) < 1 ? 1 : params->get_num(0);
@@ -1200,7 +1151,35 @@ void MMGAction::do_action_midi(const MMGAction *params, const MMGMessage *midi)
 	params->blog(LOG_DEBUG, "<MIDI> executed.");
 }
 
-void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
+template<>
+void MMGAction::do_action_specific<MMGAction::Internal>(const MMGAction *params,
+							const MMGMessage *midi)
+{
+	MMGDevice *device = global()->find_current_device();
+	MMGSharedMessage original = *reinterpret_cast<MMGSharedMessage *>(
+		(qulonglong)params->get_num(0));
+	if (original == 0) {
+		open_message_box(
+			"Error",
+			"Casting Error: Internal memory was corrupted.\n\nReport this as a bug.");
+		return;
+	}
+	if (params->get_sub() > 2 || params->get_sub() < 0)
+		return;
+
+	int i = 0;
+	while (params->get_sub() >= i) {
+		MMGBinding *binding = device->find_binding(params->get_str(i));
+		if (!binding)
+			return;
+		binding->get_action()->do_action(original);
+		++i;
+	}
+}
+
+template<>
+void MMGAction::do_action_specific<MMGAction::Timeout>(const MMGAction *params,
+						       const MMGMessage *midi)
 {
 	switch ((MMGAction::Timeout)params->get_sub()) {
 	case MMGAction::Timeout::TIMEOUT_MS:
@@ -1215,4 +1194,71 @@ void MMGAction::do_action_pause(const MMGAction *params, const MMGMessage *midi)
 		break;
 	}
 	params->blog(LOG_DEBUG, "<Pause> executed.");
+}
+
+void MMGAction::do_action(const MMGSharedMessage &params)
+{
+	if (executed)
+		return;
+	switch (get_category()) {
+	case MMGAction::Category::MMGACTION_NONE:
+		do_action_specific<MMGAction::None>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_STREAM:
+		do_action_specific<MMGAction::Stream>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_RECORD:
+		do_action_specific<MMGAction::Record>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_VIRCAM:
+		do_action_specific<MMGAction::VirtualCam>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_REPBUF:
+		do_action_specific<MMGAction::ReplayBuffer>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_STUDIOMODE:
+		do_action_specific<MMGAction::StudioMode>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_SCENE:
+		do_action_specific<MMGAction::Scenes>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
+		do_action_specific<MMGAction::VideoSources>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
+		do_action_specific<MMGAction::AudioSources>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
+		do_action_specific<MMGAction::MediaSources>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_TRANSITION:
+		do_action_specific<MMGAction::Transitions>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_FILTER:
+		do_action_specific<MMGAction::Filters>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_HOTKEY:
+		do_action_specific<MMGAction::Hotkeys>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_PROFILE:
+		do_action_specific<MMGAction::Profiles>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_COLLECTION:
+		do_action_specific<MMGAction::Collections>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_MIDI:
+		do_action_specific<MMGAction::MidiMessage>(this, params.get());
+		break;
+	case MMGAction::Category::MMGACTION_INTERNAL:
+		set_num(0, (qulonglong)&params);
+		do_action_specific<MMGAction::Internal>(this, params.get());
+		set_num(0, 0.0);
+		break;
+	case MMGAction::Category::MMGACTION_TIMEOUT:
+		do_action_specific<MMGAction::Timeout>(this, params.get());
+		break;
+	default:
+		break;
+	}
+	executed = true;
 }

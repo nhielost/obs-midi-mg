@@ -49,7 +49,8 @@ find . -type d \( \
     -path ./plugins/enc-amf -o \
     -path ./plugins/mac-syphon/syphon-framework -o \
     -path ./plugins/obs-outputs/ftl-sdk -o \
-    -path ./plugins/obs-websocket/deps \
+    -path ./plugins/obs-websocket/deps -o \
+    -path ./src/forms/macros \
 \) -prune -false -type f -o \
     -name '*.h' -or \
     -name '*.hpp' -or \

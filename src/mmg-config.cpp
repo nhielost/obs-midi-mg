@@ -32,12 +32,12 @@ using namespace MMGUtils;
 MMGSettings::MMGSettings(const QJsonObject &settings_obj)
 {
 	set_active(settings_obj["active"].toBool(true));
-	set_display_mode(settings_obj["display_mode"].toInt());
+	set_ui_style(settings_obj["ui_style"].toInt());
 }
 void MMGSettings::json(QJsonObject &settings_obj) const
 {
 	settings_obj["active"] = active;
-	settings_obj["display_mode"] = display_mode;
+	settings_obj["ui_style"] = ui_style;
 }
 
 void MMGSettings::set_active(bool is_active)
@@ -241,8 +241,9 @@ bool MMGConfig::is_listening(MMGMessage *incoming)
 				cb(incoming);
 			},
 			incoming, true);
+		return true;
 	}
-	return listening;
+	return false;
 }
 
 const QStringList MMGConfig::get_device_names() const

@@ -73,8 +73,6 @@ bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type);
 bool bool_from_str(const QString &str);
 template<typename N> const QString num_to_str(const N &num);
 
-
-template<typename T> void format_help_text(QString &str, const T *obj);
 void open_message_box(const QString &title, const QString &text);
 
 void transfer_bindings(short mode, const QString &source, const QString &dest);

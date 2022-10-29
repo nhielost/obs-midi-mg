@@ -18,6 +18,44 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-device.h"
 
+bool json_old_bindings(const QJsonObject &json, MMGDevice *parent)
+{
+	if (json.isEmpty())
+		return false;
+
+	QList<MMGMessage *> message_list;
+	QList<MMGAction *> action_list;
+
+	if (MMGUtils::json_key_exists(json, "messages", QJsonValue::Array)) {
+		for (QJsonValue val : json["messages"].toArray()) {
+			message_list.append(new MMGMessage(val.toObject()));
+		}
+	}
+	if (MMGUtils::json_key_exists(json, "actions", QJsonValue::Array)) {
+		for (QJsonValue val : json["actions"].toArray()) {
+			action_list.append(new MMGAction(val.toObject()));
+		}
+	}
+
+	if (action_list.isEmpty())
+		return false;
+
+	for (qlonglong i = 0; i < action_list.size(); ++i) {
+		MMGBinding *binding = parent->add();
+		if (parent->find_binding(json["name"].toString())) {
+			binding->set_name(binding->get_next_default_name());
+		} else {
+			binding->set_name(json["name"].toString());
+		}
+		binding->set_toggling(json["toggling"].toBool());
+		if (message_list.value(i))
+			*(binding->get_message()) = *(message_list[i]);
+		*(binding->get_action()) = *(action_list[i]);
+	}
+
+	return true;
+}
+
 qulonglong MMGDevice::next_default = 0;
 
 MMGDevice::MMGDevice(const QJsonObject &data)
@@ -28,9 +66,12 @@ MMGDevice::MMGDevice(const QJsonObject &data)
 	if (MMGUtils::json_key_exists(data, "bindings", QJsonValue::Array)) {
 		QJsonArray arr = data["bindings"].toArray();
 		for (QJsonValue json_binding : arr) {
+			if (json_old_bindings(json_binding.toObject(), this))
+				continue;
 			if (MMGUtils::json_is_valid(json_binding,
-						    QJsonValue::Object))
+						    QJsonValue::Object)) {
 				add(new MMGBinding(json_binding.toObject()));
+			}
 		}
 	}
 	check_binding_default_names();
@@ -257,7 +298,10 @@ uint MMGDevice::get_output_port_number(const QString &device_name)
 void MMGDevice::do_all_actions(const MMGSharedMessage &message)
 {
 	for (MMGBinding *const el : bindings) {
-		el->do_actions(message);
+		el->do_action(message);
+	}
+	for (MMGBinding *const el : bindings) {
+		el->reset_execution();
 	}
 }
 

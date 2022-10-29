@@ -19,19 +19,19 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include <QDialog>
 
-#include "ui_midimg-window.h"
-#include "../mmg-utils.h"
-#include "../mmg-device.h"
+#include "ui_mmg-legacy-window.h"
+#include "../../mmg-utils.h"
+#include "../../mmg-device.h"
 
-class MidiMGWindow : public QDialog {
+class MMGLegacyWindow : public QDialog {
 	Q_OBJECT
 
 public:
-	explicit MidiMGWindow(QWidget *parent);
-	~MidiMGWindow() override;
+	explicit MMGLegacyWindow(QWidget *parent);
+	~MMGLegacyWindow() override;
 
 private:
-	Ui::MidiMGWindow *ui;
+	Ui::MMGLegacyWindow *ui;
 
 	MMGUtils::LCDData lcd_channel;
 	MMGUtils::LCDData lcd_note;
@@ -46,24 +46,6 @@ private:
 	MMGMessage *current_message = nullptr;
 	MMGAction *current_action = nullptr;
 
-	QString help_name;
-	QString help_str;
-
-	QString help_action_desc;
-	QString help_action_str1;
-	QString help_action_str2;
-	QString help_action_str3;
-	QString help_action_double1;
-	QString help_action_double2;
-	QString help_action_double3;
-	QString help_action_double4;
-
-	/* enum class BindingTransfer {
-		MIDIMGWINDOW_KEEP_APPEND,
-		MIDIMGWINDOW_REMOVE_APPEND,
-		MIDIMGWINDOW_REMOVE_REPLACE
-	};*/
-
 	void reject() override;
 	void connect_ui_signals();
 	void configure_lcd_widgets();
@@ -74,6 +56,7 @@ private:
 	void set_binding_view();
 	void set_message_view();
 	void set_action_view();
+	void set_preferences_view();
 	void set_strs_visible(bool str1 = false, bool str2 = false,
 			      bool str3 = false) const;
 	void set_doubles_visible(bool double1 = false, bool double2 = false,
@@ -100,8 +83,8 @@ public slots:
 	void show_window();
 private slots:
 	void on_device_active_change(bool toggled);
-	void on_binding_reception_select(int index);
 	void on_binding_toggling_select(int index);
+	void on_binding_enable_select(int index);
 	void on_message_type_change(const QString &type);
 	void on_message_listen(bool toggled);
 	void on_message_require_value(bool toggled);
@@ -111,14 +94,14 @@ private slots:
 	void on_action_double2_toggle(bool toggle);
 	void on_action_double3_toggle(bool toggle);
 	void on_action_double4_toggle(bool toggle);
+	void on_active_change(bool toggle);
 	void on_transfer_mode_change(short index);
 	void on_transfer_bindings_click();
+	void on_interface_style_change(short index);
+	void on_update_check();
 	void on_add_click();
 	void on_remove_click();
 	void on_return_click();
-	void on_help_click();
 	void on_list_selection_change(const QListWidgetItem *current);
 	void on_name_edit(QListWidgetItem *widgetItem);
-	void on_element_drag(const QModelIndex &parent, int start, int end,
-			     const QModelIndex &dest, int row) const;
 };

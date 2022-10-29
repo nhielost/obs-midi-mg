@@ -47,6 +47,7 @@ public:
 		MMGACTION_PROFILE,
 		MMGACTION_COLLECTION,
 		MMGACTION_MIDI,
+		MMGACTION_INTERNAL,
 		MMGACTION_TIMEOUT
 	};
 
@@ -127,11 +128,11 @@ public:
 	enum class Profiles { PROFILE_PROFILE };
 	enum class Collections { COLLECTION_COLLECTION };
 	enum class MidiMessage { MIDI_MIDI };
+	enum class Internal { INTERNAL_1, INTERNAL_2, INTERNAL_3 };
 	enum class Timeout { TIMEOUT_MS, TIMEOUT_S };
 
 	void blog(int log_status, const QString &message) const;
 
-	const QString &get_name() const { return name; };
 	Category get_category() const { return (Category)category; };
 	int get_sub() const { return subcategory; };
 	const QString &get_str(int index) const
@@ -147,7 +148,6 @@ public:
 		throw 1;
 	};
 
-	void set_name(const QString &val) { name = val; };
 	void set_category(Category val) { category = (int)val; };
 	void set_sub(int val) { subcategory = val; };
 	void set_str(int index, const QString &val)
@@ -162,6 +162,7 @@ public:
 	};
 
 	void deep_copy(MMGAction *dest);
+	void reset_execution() { executed = false; };
 
 	static void do_obs_scene_enum(QComboBox *list);
 	static void
@@ -187,54 +188,18 @@ public:
 	static void do_obs_hotkey_enum(QComboBox *list);
 	static void do_obs_profile_enum(QComboBox *list);
 	static void do_obs_collection_enum(QComboBox *list);
-
-	static qulonglong get_next_default() { return next_default; };
-	static void set_next_default(qulonglong num) { next_default = num; };
-	static QString get_next_default_name();
+	static void do_mmg_binding_enum(QComboBox *list,
+					const QString &current);
 
 private:
-	QString name;
 	int category;
 	int subcategory;
 	QString strs[4];
 	double nums[4];
 
-	static qulonglong next_default;
+	bool executed = false;
 
-	static void do_action_none(const MMGAction *params,
-				   const MMGMessage *midi);
-	static void do_action_stream(const MMGAction *params,
-				     const MMGMessage *midi);
-	static void do_action_record(const MMGAction *params,
-				     const MMGMessage *midi);
-	static void do_action_virtual_cam(const MMGAction *params,
-					  const MMGMessage *midi);
-	static void do_action_replay_buffer(const MMGAction *params,
-					    const MMGMessage *midi);
-	static void do_action_studio_mode(const MMGAction *params,
-					  const MMGMessage *midi);
-	static void do_action_scenes(const MMGAction *params,
-				     const MMGMessage *midi);
-	static void do_action_video_source(const MMGAction *params,
-					   const MMGMessage *midi);
-	static void do_action_audio_source(const MMGAction *params,
-					   const MMGMessage *midi);
-	static void do_action_media_source(const MMGAction *params,
-					   const MMGMessage *midi);
-	static void do_action_transitions(const MMGAction *params,
-					  const MMGMessage *midi);
-	static void do_action_filters(const MMGAction *params,
-				      const MMGMessage *midi);
-	static void do_action_hotkeys(const MMGAction *params,
-				      const MMGMessage *midi);
-	static void do_action_profiles(const MMGAction *params,
+	template<typename T>
+	static void do_action_specific(const MMGAction *params,
 				       const MMGMessage *midi);
-	static void do_action_collections(const MMGAction *params,
-					  const MMGMessage *midi);
-	static void do_action_midi(const MMGAction *params,
-				   const MMGMessage *midi);
-	static void do_action_pause(const MMGAction *params,
-				    const MMGMessage *midi);
 };
-
-using MMGActionList = QList<MMGAction *>;
