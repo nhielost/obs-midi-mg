@@ -146,113 +146,114 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		break;                                                                                 \
 	}
 
-#define INSERT_FIRST_OPTION()                                                \
-	current_action->set_sub(index);                                      \
-	ui->editor_str1->clear();                                            \
-	ui->editor_str2->clear();                                            \
-	ui->editor_str3->clear();                                            \
-	ui->lcd_double1->display(0);                                         \
-	ui->lcd_double2->display(0);                                         \
-	ui->lcd_double3->display(0);                                         \
-	ui->lcd_double4->display(0);                                         \
-	set_strs_visible();                                                  \
-	set_doubles_visible();                                               \
-	switch (current_action->get_category()) {                            \
-	case MMGAction::Category::MMGACTION_NONE:                            \
-	case MMGAction::Category::MMGACTION_STREAM:                          \
-	case MMGAction::Category::MMGACTION_RECORD:                          \
-	case MMGAction::Category::MMGACTION_VIRCAM:                          \
-	case MMGAction::Category::MMGACTION_REPBUF:                          \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_STUDIOMODE:                      \
-		if (index == 3) {                                            \
-			set_strs_visible(true);                              \
-			ui->label_str1->setText("Scene");                    \
-			MMGAction::do_obs_scene_enum(ui->editor_str1);       \
-			ui->editor_str1->addItem("Use Message Value");       \
-		}                                                            \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_SCENE:                           \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Scene");                            \
-		MMGAction::do_obs_scene_enum(ui->editor_str1);               \
-		ui->editor_str1->addItem("Use Message Value");               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                    \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Scene");                            \
-		MMGAction::do_obs_scene_enum(ui->editor_str1);               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:                    \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Source");                           \
-		MMGAction::do_obs_source_enum(                               \
-			ui->editor_str1,                                     \
-			MMGAction::Category::MMGACTION_SOURCE_AUDIO);        \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:                    \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Source");                           \
-		MMGAction::do_obs_media_enum(ui->editor_str1);               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_TRANSITION:                      \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Transition");                       \
-		MMGAction::do_obs_transition_enum(ui->editor_str1);          \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_FILTER:                          \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Source");                           \
-		MMGAction::do_obs_source_enum(                               \
-			ui->editor_str1,                                     \
-			MMGAction::Category::MMGACTION_FILTER);              \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_HOTKEY:                          \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Hotkey");                           \
-		MMGAction::do_obs_hotkey_enum(ui->editor_str1);              \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_PROFILE:                         \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Profile");                          \
-		MMGAction::do_obs_profile_enum(ui->editor_str1);             \
-		ui->editor_str1->addItem("Use Message Value");               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_COLLECTION:                      \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Collection");                       \
-		MMGAction::do_obs_collection_enum(ui->editor_str1);          \
-		ui->editor_str1->addItem("Use Message Value");               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_MIDI:                            \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Device");                           \
-		ui->editor_str1->addItems(                                   \
-			MMGDevice::get_output_device_names());               \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_INTERNAL:                        \
-		set_strs_visible(true);                                      \
-		ui->label_str1->setText("Action 1");                         \
-		MMGAction::do_mmg_binding_enum(ui->editor_str1,              \
-					       current_binding->get_name()); \
-		break;                                                       \
-	case MMGAction::Category::MMGACTION_TIMEOUT:                         \
-		set_doubles_visible(true);                                   \
-		ui->label_double1->setText("Time");                          \
-		lcd_double1.set_range(0.0, 1000.0);                          \
-		lcd_double1.set_step(1.0, 10.0);                             \
-		lcd_double1.reset();                                         \
-		break;                                                       \
-	default:                                                             \
-		break;                                                       \
+#define INSERT_FIRST_OPTION()                                               \
+	current_action->set_sub(index);                                     \
+	ui->editor_str1->clear();                                           \
+	ui->editor_str2->clear();                                           \
+	ui->editor_str3->clear();                                           \
+	ui->lcd_double1->display(0);                                        \
+	ui->lcd_double2->display(0);                                        \
+	ui->lcd_double3->display(0);                                        \
+	ui->lcd_double4->display(0);                                        \
+	set_strs_visible();                                                 \
+	set_doubles_visible();                                              \
+	switch (current_action->get_category()) {                           \
+	case MMGAction::Category::MMGACTION_NONE:                           \
+	case MMGAction::Category::MMGACTION_STREAM:                         \
+	case MMGAction::Category::MMGACTION_RECORD:                         \
+	case MMGAction::Category::MMGACTION_VIRCAM:                         \
+	case MMGAction::Category::MMGACTION_REPBUF:                         \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_STUDIOMODE:                     \
+		if (index == 3) {                                           \
+			set_strs_visible(true);                             \
+			ui->label_str1->setText("Scene");                   \
+			MMGAction::do_obs_scene_enum(ui->editor_str1);      \
+			ui->editor_str1->addItem("Use Message Value");      \
+		}                                                           \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_SCENE:                          \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Scene");                           \
+		MMGAction::do_obs_scene_enum(ui->editor_str1);              \
+		ui->editor_str1->addItem("Use Message Value");              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                   \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Scene");                           \
+		MMGAction::do_obs_scene_enum(ui->editor_str1);              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:                   \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Source");                          \
+		MMGAction::do_obs_source_enum(                              \
+			ui->editor_str1,                                    \
+			MMGAction::Category::MMGACTION_SOURCE_AUDIO);       \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_SOURCE_MEDIA:                   \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Source");                          \
+		MMGAction::do_obs_media_enum(ui->editor_str1);              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_TRANSITION:                     \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Transition");                      \
+		MMGAction::do_obs_transition_enum(ui->editor_str1);         \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_FILTER:                         \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Source");                          \
+		MMGAction::do_obs_source_enum(                              \
+			ui->editor_str1,                                    \
+			MMGAction::Category::MMGACTION_FILTER);             \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_HOTKEY:                         \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Hotkey");                          \
+		MMGAction::do_obs_hotkey_enum(ui->editor_str1);             \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_PROFILE:                        \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Profile");                         \
+		MMGAction::do_obs_profile_enum(ui->editor_str1);            \
+		ui->editor_str1->addItem("Use Message Value");              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_COLLECTION:                     \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Collection");                      \
+		MMGAction::do_obs_collection_enum(ui->editor_str1);         \
+		ui->editor_str1->addItem("Use Message Value");              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_MIDI:                           \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Device");                          \
+		ui->editor_str1->addItems(                                  \
+			MMGDevice::get_output_device_names());              \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_INTERNAL:                       \
+		set_strs_visible(true);                                     \
+		ui->label_str1->setText("Action 1");                        \
+		MMGAction::do_mmg_binding_enum(ui->editor_str1,             \
+					       current_binding->get_name(), \
+					       current_action->get_str(0)); \
+		break;                                                      \
+	case MMGAction::Category::MMGACTION_TIMEOUT:                        \
+		set_doubles_visible(true);                                  \
+		ui->label_double1->setText("Time");                         \
+		lcd_double1.set_range(0.0, 1000.0);                         \
+		lcd_double1.set_step(1.0, 10.0);                            \
+		lcd_double1.reset();                                        \
+		break;                                                      \
+	default:                                                            \
+		break;                                                      \
 	}
 
 #define INSERT_SECOND_OPTION()                                                  \
-	current_action->set_str(0, value);                                      \
 	set_strs_visible(true);                                                 \
 	set_doubles_visible();                                                  \
 	if (value.isEmpty())                                                    \
 		return;                                                         \
+	current_action->set_str(0, value);                                      \
 	ui->editor_str2->clear();                                               \
 	lcd_double1.set_use_time(false);                                        \
 	switch (current_action->get_category()) {                               \
@@ -384,7 +385,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			set_strs_visible(true, true);                           \
 			ui->label_str2->setText("Action 2");                    \
 			MMGAction::do_mmg_binding_enum(                         \
-				ui->editor_str2, current_binding->get_name());  \
+				ui->editor_str2, current_binding->get_name(),   \
+				current_action->get_str(1));                    \
 		}                                                               \
 		break;                                                          \
 	default:                                                                \
@@ -392,9 +394,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 	}
 
 #define INSERT_THIRD_OPTION()                                                  \
-	current_action->set_str(1, value);                                     \
 	if (value.isEmpty())                                                   \
 		return;                                                        \
+	current_action->set_str(1, value);                                     \
 	ui->editor_str3->clear();                                              \
 	switch (current_action->get_category()) {                              \
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                      \
@@ -610,7 +612,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			set_strs_visible(true, true, true);                    \
 			ui->label_str3->setText("Action 3");                   \
 			MMGAction::do_mmg_binding_enum(                        \
-				ui->editor_str3, current_binding->get_name()); \
+				ui->editor_str3, current_binding->get_name(),  \
+				current_action->get_str(2));                   \
 		}                                                              \
 		break;                                                         \
 	default:                                                               \

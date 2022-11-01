@@ -294,13 +294,17 @@ void MMGAction::do_obs_collection_enum(QComboBox *list)
 	bfree(collection_names);
 }
 
-void MMGAction::do_mmg_binding_enum(QComboBox *list, const QString &current)
+void MMGAction::do_mmg_binding_enum(QComboBox *list,
+				    const QString &current_binding,
+				    const QString current_select)
 {
 	for (MMGBinding *const binding :
 	     global()->find_current_device()->get_bindings()) {
-		if (binding->get_name() != current)
+		if (binding->get_name() != current_binding)
 			list->addItem(binding->get_name());
 	}
+	if (list->findText(current_select) != -1)
+		list->setCurrentText(current_select);
 }
 
 template<>

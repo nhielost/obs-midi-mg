@@ -43,9 +43,7 @@ private:
 	void reject() override;
 	void connect_ui_signals();
 	void configure_lcd_widgets();
-
 	void switch_structure_pane(enum MMGModes mode);
-	void set_device_view();
 	void set_message_view();
 	void set_action_view();
 	void set_preferences_view();

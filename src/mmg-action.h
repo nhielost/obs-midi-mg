@@ -189,7 +189,8 @@ public:
 	static void do_obs_profile_enum(QComboBox *list);
 	static void do_obs_collection_enum(QComboBox *list);
 	static void do_mmg_binding_enum(QComboBox *list,
-					const QString &current);
+					const QString &current_binding,
+					const QString current_select);
 
 private:
 	int category;

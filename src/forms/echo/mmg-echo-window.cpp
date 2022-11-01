@@ -47,6 +47,9 @@ MMGEchoWindow::MMGEchoWindow(QWidget *parent)
 void MMGEchoWindow::show_window()
 {
 	global()->load_new_devices();
+
+	QString current_device_name = global()->get_active_device_name();
+
 	ui->editor_transfer_source->clear();
 	ui->editor_transfer_dest->clear();
 	ui->editor_transfer_mode->setCurrentIndex(0);
@@ -58,10 +61,13 @@ void MMGEchoWindow::show_window()
 		ui->editor_transfer_dest->addItem(name);
 	}
 
+	ui->editor_devices->setCurrentText(current_device_name);
+
 	ui->editor_structure->clearSelection();
 	switch_structure_pane(MMGModes::MMGMODE_BINDING);
 	ui->button_preferences->setChecked(false);
 	ui->pages->setCurrentIndex(0);
+
 	setVisible(!isVisible());
 }
 
@@ -178,11 +184,6 @@ void MMGEchoWindow::configure_lcd_widgets()
 	lcd_double2.set_step(0.1, 1.0);
 	lcd_double3.set_step(0.1, 1.0);
 	lcd_double4.set_step(0.1, 1.0);
-}
-
-void MMGEchoWindow::set_device_view()
-{
-	ui->editor_devices->setCurrentText(current_device->get_name());
 }
 
 void MMGEchoWindow::set_message_view()
