@@ -69,7 +69,7 @@ void MMGEchoWindow::show_window()
 	ui->button_preferences->setChecked(false);
 	ui->pages->setCurrentIndex(0);
 
-	setVisible(!isVisible());
+	setVisible(true);
 }
 
 void MMGEchoWindow::reject()
@@ -158,6 +158,8 @@ void MMGEchoWindow::connect_ui_signals()
 		&MMGEchoWindow::i_need_help);
 	connect(ui->button_bug_report, &QPushButton::clicked, this,
 		&MMGEchoWindow::report_a_bug);
+	connect(ui->button_update_check, &QPushButton::clicked, this,
+		&MMGEchoWindow::on_update_check);
 
 	connect(ui->editor_transfer_mode,
 		QOverload<int>::of(&QComboBox::currentIndexChanged), this,

@@ -716,8 +716,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		QString filepath = QFileDialog::getOpenFileName(                                            \
 			this, tr("Open Bindings File..."), "",                                              \
 			"JSON Files (*.json)");                                                             \
-		if (!filepath.isNull())                                                                     \
+		if (!filepath.isNull()) {                                                                   \
 			global()->load(filepath);                                                           \
+			show_window();                                                                      \
+		}                                                                                           \
 	}                                                                                                   \
                                                                                                             \
 	void style::i_need_help() const                                                                     \
