@@ -48,6 +48,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #define INIT_LCD(kind) lcd_##kind = LCDData(ui->lcd_##kind);
 
+#define COMBOBOX_ITEM_STATE(list, index, state)               \
+	qobject_cast<QStandardItemModel *>(ui->list->model()) \
+		->item(index)                                 \
+		->setEnabled(state);
+
 #define INSERT_SUB_OPTIONS()                                                                           \
 	current_action->set_category((MMGAction::Category)index);                                      \
 	set_strs_visible();                                                                            \
@@ -155,6 +160,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 	ui->lcd_double2->display(0);                                        \
 	ui->lcd_double3->display(0);                                        \
 	ui->lcd_double4->display(0);                                        \
+	ui->editor_double1->setCurrentIndex(0);                             \
+	ui->editor_double2->setCurrentIndex(0);                             \
+	ui->editor_double3->setCurrentIndex(0);                             \
+	ui->editor_double4->setCurrentIndex(0);                             \
 	set_strs_visible();                                                 \
 	set_doubles_visible();                                              \
 	switch (current_action->get_category()) {                           \
@@ -239,6 +248,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		break;                                                      \
 	case MMGAction::Category::MMGACTION_TIMEOUT:                        \
 		set_doubles_visible(true);                                  \
+		COMBOBOX_ITEM_STATE(editor_double1, 2, false);              \
 		ui->label_double1->setText("Time");                         \
 		lcd_double1.set_range(0.0, 1000.0);                         \
 		lcd_double1.set_step(1.0, 10.0);                            \
@@ -256,6 +266,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 	current_action->set_str(0, value);                                      \
 	ui->editor_str2->clear();                                               \
 	lcd_double1.set_use_time(false);                                        \
+	COMBOBOX_ITEM_STATE(editor_double1, 1, true);                           \
+	COMBOBOX_ITEM_STATE(editor_double1, 2, false);                          \
 	switch (current_action->get_category()) {                               \
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                       \
 		set_strs_visible(true, true);                                   \
@@ -275,6 +287,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			break;                                                  \
 		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:     \
 			set_doubles_visible(true);                              \
+			COMBOBOX_ITEM_STATE(editor_double1, 1, false);          \
 			ui->label_double1->setText("Volume Adj.");              \
 			lcd_double1.set_range(-50.0, 50.0);                     \
 			lcd_double1.set_step(1.0, 10.0);                        \
@@ -325,6 +338,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TIME:   \
 		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TIME:  \
 			set_doubles_visible(true);                              \
+			COMBOBOX_ITEM_STATE(editor_double1, 1, false);          \
 			ui->label_double1->setText("Time Adj.");                \
 			lcd_double1.set_range(                                  \
 				0.0, get_obs_media_length(                      \
@@ -340,10 +354,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		switch ((MMGAction::Transitions)current_action->get_sub()) {    \
 		case MMGAction::Transitions::TRANSITION_CURRENT:                \
 			set_doubles_visible(true);                              \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, true);           \
 			ui->label_double1->setText("Duration");                 \
-			lcd_double1.set_range(0.0, 20000.0);                    \
+			lcd_double1.set_range(25.0, 20000.0);                   \
 			lcd_double1.set_step(25.0, 250.0);                      \
-			lcd_double1.reset();                                    \
+			lcd_double1.reset(                                      \
+				obs_frontend_get_transition_duration());        \
 			break;                                                  \
 		/*case MMGAction::Transitions::TRANSITION_TBAR:\
 			set_doubles_visible(true);\
@@ -398,11 +414,19 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		return;                                                        \
 	current_action->set_str(1, value);                                     \
 	ui->editor_str3->clear();                                              \
+	COMBOBOX_ITEM_STATE(editor_double1, 1, true);                          \
+	COMBOBOX_ITEM_STATE(editor_double3, 1, true);                          \
+	COMBOBOX_ITEM_STATE(editor_double1, 2, false);                         \
+	COMBOBOX_ITEM_STATE(editor_double2, 2, false);                         \
+	COMBOBOX_ITEM_STATE(editor_double3, 2, false);                         \
+	COMBOBOX_ITEM_STATE(editor_double4, 2, false);                         \
 	switch (current_action->get_category()) {                              \
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                      \
 		switch ((MMGAction::VideoSources)current_action->get_sub()) {  \
 		case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:           \
 			set_doubles_visible(true, true);                       \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double2, 2, true);          \
 			ui->label_double1->setText("Pos X");                   \
 			ui->label_double2->setText("Pos Y");                   \
 			lcd_double1.set_range(0.0,                             \
@@ -427,6 +451,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_CROP:               \
 			set_doubles_visible(true, true, true, true);           \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double2, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double3, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double4, 2, true);          \
 			ui->label_double1->setText("Top");                     \
 			ui->label_double2->setText("Right");                   \
 			ui->label_double3->setText("Bottom");                  \
@@ -464,6 +492,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:              \
 			set_doubles_visible(true, true, true);                 \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double2, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double3, 1, false);         \
 			ui->label_double1->setText("Scale X");                 \
 			ui->label_double2->setText("Scale Y");                 \
 			ui->label_double3->setText("Magnitude");               \
@@ -504,6 +535,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:  \
 			set_doubles_visible(true, true);                       \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, true);          \
+			COMBOBOX_ITEM_STATE(editor_double2, 2, true);          \
 			ui->label_double1->setText("Size X");                  \
 			ui->label_double2->setText("Size Y");                  \
 			lcd_double1.set_range(                                 \
@@ -545,9 +578,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 	case MMGAction::Category::MMGACTION_SOURCE_AUDIO:                      \
 		if (current_action->get_sub() == 6) {                          \
 			if (value == "Use Message Value") {                    \
-				set_double1(-1);                               \
+				current_action->set_num_state(0, 1);           \
 			} else {                                               \
 				set_double1(ui->editor_str2->currentIndex());  \
+				current_action->set_num_state(0, 0);           \
 			}                                                      \
 		}                                                              \
 		break;                                                         \
@@ -581,6 +615,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		}                                                              \
 		break;                                                         \
 	case MMGAction::Category::MMGACTION_MIDI:                              \
+		COMBOBOX_ITEM_STATE(editor_double1, 1, false);                 \
 		ui->label_double1->setText("Channel");                         \
 		lcd_double1.set_range(1.0, 16.0);                              \
 		lcd_double1.set_step(1.0, 5.0);                                \
@@ -622,6 +657,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #define INSERT_FOURTH_OPTION()                                                 \
 	current_action->set_str(2, value);                                     \
+	COMBOBOX_ITEM_STATE(editor_double1, 2, true);                          \
 	switch (current_action->get_category()) {                              \
 	case MMGAction::Category::MMGACTION_SOURCE_VIDEO:                      \
 		switch ((MMGAction::VideoSources)current_action->get_sub()) {  \
@@ -631,9 +667,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:        \
 		case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:         \
 			if (value == "Use Message Value") {                    \
-				set_double1(-1);                               \
+				current_action->set_num_state(0, 1);           \
 			} else {                                               \
 				set_double1(ui->editor_str3->currentIndex());  \
+				current_action->set_num_state(0, 0);           \
 			}                                                      \
 			break;                                                 \
 		default:                                                       \
@@ -645,6 +682,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:           \
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:           \
 			set_doubles_visible(true);                             \
+			COMBOBOX_ITEM_STATE(editor_double1, 2, false);         \
 			ui->label_double1->setText("Duration");                \
 			lcd_double1.set_range(0.0, 20000.0);                   \
 			lcd_double1.set_step(25.0, 250.0);                     \
@@ -727,7 +765,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
                                                                                                             \
 	void style::on_interface_style_change(short index)                                                  \
 	{                                                                                                   \
-		global()->preferences().set_ui_style(index);                                                \
+		/* global()->preferences().set_ui_style(index); */                                          \
 	}                                                                                                   \
                                                                                                             \
 	void style::on_update_check()                                                                       \

@@ -25,13 +25,10 @@ public:
 	void json(QJsonObject &settings_obj) const;
 
 	bool get_active() const { return active; };
-	short get_ui_style() const { return ui_style; };
 	void set_active(bool is_active);
-	void set_ui_style(short style_index) { ui_style = style_index; };
 
 private:
 	bool active = true;
-	short ui_style = 1;
 };
 
 class MMGConfig {

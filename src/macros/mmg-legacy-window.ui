@@ -137,7 +137,23 @@
          <cursorShape>PointingHandCursor</cursorShape>
         </property>
         <property name="text">
-         <string>Add...</string>
+         <string>Create...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_duplicate">
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="text">
+         <string>Copy...</string>
         </property>
        </widget>
       </item>
@@ -153,23 +169,7 @@
          <cursorShape>PointingHandCursor</cursorShape>
         </property>
         <property name="text">
-         <string>Remove...</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="button_return">
-        <property name="font">
-         <font>
-          <family>Tahoma</family>
-          <pointsize>9</pointsize>
-         </font>
-        </property>
-        <property name="cursor">
-         <cursorShape>PointingHandCursor</cursorShape>
-        </property>
-        <property name="text">
-         <string>Return...</string>
+         <string>Delete...</string>
         </property>
        </widget>
       </item>
@@ -193,6 +193,22 @@
         </property>
         <property name="text">
          <string>Preferences...</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_return">
+        <property name="font">
+         <font>
+          <family>Tahoma</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="cursor">
+         <cursorShape>PointingHandCursor</cursorShape>
+        </property>
+        <property name="text">
+         <string>Return...</string>
         </property>
        </widget>
       </item>

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
 # (e.g.: obs-myawesomeplugin) and set
-project(obs-midi-mg VERSION 2.0.0)
+project(obs-midi-mg VERSION 2.1.0)
 add_library(obs-midi-mg MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
@@ -38,8 +38,7 @@ target_sources(
           ./src/mmg-message.cpp
           ./src/mmg-utils.cpp
           ./src/obs-midi-mg.cpp
-          ./src/forms/echo/mmg-echo-window.cpp
-          ./src/forms/legacy/mmg-legacy-window.cpp)
+          ./src/ui/mmg-echo-window.cpp)
 
 target_sources(
   obs-midi-mg
@@ -50,9 +49,8 @@ target_sources(
           ./src/mmg-message.h
           ./src/mmg-utils.h
           ./src/obs-midi-mg.h
-          ./src/forms/echo/mmg-echo-window.h
-          ./src/forms/legacy/mmg-legacy-window.h
-          ./src/forms/macros/mmg-window-macros.h)
+          ./src/ui/mmg-echo-window.h
+          ./src/macros/mmg-window-macros.h)
 
 # Import libobs as main plugin dependency
 find_package(libobs REQUIRED)
@@ -105,7 +103,7 @@ elseif(OS_MACOS)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
   set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.0.0")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.1.0")
 
   target_compile_options(obs-midi-mg PRIVATE -Wall)
   # --- End of section ---

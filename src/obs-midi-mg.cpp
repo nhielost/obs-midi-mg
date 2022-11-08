@@ -18,8 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "obs-midi-mg.h"
 
-#include "forms/legacy/mmg-legacy-window.h"
-#include "forms/echo/mmg-echo-window.h"
+#include "ui/mmg-echo-window.h"
 #include "mmg-config.h"
 
 #include <QAction>
@@ -34,7 +33,6 @@ using namespace std;
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
-static MMGLegacyWindow *legacy_window;
 static MMGEchoWindow *echo_window;
 Configuration global_config;
 MMGMIDIInputDevice input;
@@ -72,17 +70,10 @@ bool obs_module_load(void)
 	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		menu_action_text);
 	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
-	if (global_config->preferences().get_ui_style() == 0) {
-		_blog(LOG_INFO, "Loading plugin using the Echo style...");
-		echo_window = new MMGEchoWindow(mainWindow);
-		QObject::connect(menu_action, &QAction::triggered, echo_window,
-				 &MMGEchoWindow::show_window);
-	} else if (global_config->preferences().get_ui_style() == 1) {
-		_blog(LOG_INFO, "Loading plugin using the Legacy style...");
-		legacy_window = new MMGLegacyWindow(mainWindow);
-		QObject::connect(menu_action, &QAction::triggered,
-				 legacy_window, &MMGLegacyWindow::show_window);
-	}
+	_blog(LOG_INFO, "Loading plugin using the Echo style...");
+	echo_window = new MMGEchoWindow(mainWindow);
+	QObject::connect(menu_action, &QAction::triggered, echo_window,
+			 &MMGEchoWindow::show_window);
 
 	// Done
 	_blog(LOG_INFO, "Plugin loaded.");

@@ -35,6 +35,7 @@ public:
 	const MMGBindingList &get_bindings() const { return bindings; };
 
 	MMGBinding *add(MMGBinding *const el = new MMGBinding);
+	MMGBinding *copy(MMGBinding *const el);
 	void remove(MMGBinding *const el);
 	MMGBinding *find_binding(const QString &name);
 	int index_of(MMGBinding *const el);
@@ -66,7 +67,7 @@ public:
 
 private:
 	QString name;
-	MMGBindingList bindings;
+	QList<MMGBinding *> bindings;
 
 	static qulonglong next_default;
 

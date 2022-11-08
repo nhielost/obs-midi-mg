@@ -48,8 +48,11 @@ bool json_old_bindings(const QJsonObject &json, MMGDevice *parent)
 			binding->set_name(json["name"].toString());
 		}
 		binding->set_toggling(json["toggling"].toBool());
-		if (message_list.value(i))
+		if (message_list.value(i)) {
 			*(binding->get_message()) = *(message_list[i]);
+		} else {
+			*(binding->get_message()) = *(message_list.last());
+		}
 		*(binding->get_action()) = *(action_list[i]);
 	}
 
@@ -122,6 +125,15 @@ MMGBinding *MMGDevice::add(MMGBinding *const el)
 	return el;
 }
 
+MMGBinding *MMGDevice::copy(MMGBinding *const el)
+{
+	MMGBinding *new_binding = add();
+	el->deep_copy(new_binding);
+	new_binding->set_name("(Copy of " + el->get_name() + ") " +
+			      MMGBinding::get_next_default_name());
+	return new_binding;
+}
+
 void MMGDevice::remove(MMGBinding *const el)
 {
 	bindings.removeAt(index_of(el));
@@ -146,7 +158,7 @@ int MMGDevice::size() const
 MMGBinding *MMGDevice::find_binding(const QString &name)
 {
 	for (MMGBinding *const el : bindings) {
-		if (name == el->get_name())
+		if (el->get_name() == name)
 			return el;
 	}
 	return nullptr;

@@ -32,12 +32,10 @@ using namespace MMGUtils;
 MMGSettings::MMGSettings(const QJsonObject &settings_obj)
 {
 	set_active(settings_obj["active"].toBool(true));
-	set_ui_style(settings_obj["ui_style"].toInt());
 }
 void MMGSettings::json(QJsonObject &settings_obj) const
 {
 	settings_obj["active"] = active;
-	settings_obj["ui_style"] = ui_style;
 }
 
 void MMGSettings::set_active(bool is_active)

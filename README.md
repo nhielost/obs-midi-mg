@@ -21,7 +21,7 @@ Go to the [Releases page](https://github.com/nhielost/obs-midi-mg/releases) and 
 
 ## Help
 
-If something needs an explanation in the plugin, click the *Help* button in the plugin, or click [here](HELP.md). 
+If help is needed, click the *Help* button in the plugin, or click [here](HELP.md). 
 
 I would love to hear honestly from you about this plugin. Feel free to share some ideas and don't be afraid to [report an issue](https://github.com/nhielost/obs-midi-mg/issues) or [post on the OBS forum discussion](https://obsproject.com/forum/threads/obs-midi-mg.158407/)!
 

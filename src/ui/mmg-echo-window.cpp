@@ -19,12 +19,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-frontend-api.h>
 
 #include <QListWidget>
+#include <QStandardItemModel>
 #include <QEvent>
 #include <QFileDialog>
 #include <QDesktopServices>
 
 #include "mmg-echo-window.h"
-#include "../../mmg-config.h"
+#include "../mmg-config.h"
 #include "../macros/mmg-window-macros.h"
 
 using namespace MMGUtils;
@@ -100,9 +101,11 @@ void MMGEchoWindow::connect_ui_signals()
 		&MMGEchoWindow::on_message_listen_continuous);
 	connect(ui->button_listen_once, &QAbstractButton::toggled, this,
 		&MMGEchoWindow::on_message_listen_once);
-	connect(ui->button_value, &QAbstractButton::toggled, this,
+	connect(ui->editor_value,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		&MMGEchoWindow::on_message_value_button_change);
-	connect(ui->button_note, &QAbstractButton::toggled, this,
+	connect(ui->editor_note,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		&MMGEchoWindow::on_message_value_button_change);
 	// Action Display Connections
 	connect(ui->editor_cat,
@@ -117,17 +120,23 @@ void MMGEchoWindow::connect_ui_signals()
 		&MMGEchoWindow::set_str2);
 	connect(ui->editor_str3, &QComboBox::currentTextChanged, this,
 		&MMGEchoWindow::set_str3);
-	connect(ui->button_double1, &QAbstractButton::toggled, this,
-		&MMGEchoWindow::on_action_double1_toggle);
-	connect(ui->button_double2, &QAbstractButton::toggled, this,
-		&MMGEchoWindow::on_action_double2_toggle);
-	connect(ui->button_double3, &QAbstractButton::toggled, this,
-		&MMGEchoWindow::on_action_double3_toggle);
-	connect(ui->button_double4, &QAbstractButton::toggled, this,
-		&MMGEchoWindow::on_action_double4_toggle);
+	connect(ui->editor_double1,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MMGEchoWindow::on_action_double1_select);
+	connect(ui->editor_double2,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MMGEchoWindow::on_action_double2_select);
+	connect(ui->editor_double3,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MMGEchoWindow::on_action_double3_select);
+	connect(ui->editor_double4,
+		QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&MMGEchoWindow::on_action_double4_select);
 	// UI Movement Buttons
 	connect(ui->button_add, &QPushButton::clicked, this,
 		&MMGEchoWindow::on_add_click);
+	connect(ui->button_duplicate, &QPushButton::clicked, this,
+		&MMGEchoWindow::on_copy_click);
 	connect(ui->button_remove, &QPushButton::clicked, this,
 		&MMGEchoWindow::on_remove_click);
 	// Device Connections
@@ -199,9 +208,9 @@ void MMGEchoWindow::set_message_view()
 
 	if (temp.get_type() == "Program Change" ||
 	    temp.get_type() == "Pitch Bend") {
-		ui->button_note->setChecked(temp.get_value_required());
+		ui->editor_note->setCurrentIndex(temp.get_value_required());
 	} else {
-		ui->button_value->setChecked(temp.get_value_required());
+		ui->editor_value->setCurrentIndex(temp.get_value_required());
 	}
 	// Re-set current_message to the correct one
 	*current_message = temp;
@@ -229,14 +238,14 @@ void MMGEchoWindow::set_action_view()
 	ui->editor_str2->setCurrentText(temp.get_str(1));
 	ui->editor_str3->setCurrentText(temp.get_str(2));
 	// Set doubles (extra jargon for using the message value)
-	on_action_double1_toggle(temp.get_num(0) == -1);
-	on_action_double2_toggle(temp.get_num(1) == -1);
-	on_action_double3_toggle(temp.get_num(2) == -1);
-	on_action_double4_toggle(temp.get_num(3) == -1);
-	lcd_double1.reset(temp.get_num(0) == -1 ? 0 : temp.get_num(0));
-	lcd_double2.reset(temp.get_num(1) == -1 ? 0 : temp.get_num(1));
-	lcd_double3.reset(temp.get_num(2) == -1 ? 0 : temp.get_num(2));
-	lcd_double4.reset(temp.get_num(3) == -1 ? 0 : temp.get_num(3));
+	ui->editor_double1->setCurrentIndex(temp.get_num_state(0));
+	ui->editor_double2->setCurrentIndex(temp.get_num_state(1));
+	ui->editor_double3->setCurrentIndex(temp.get_num_state(2));
+	ui->editor_double4->setCurrentIndex(temp.get_num_state(3));
+	lcd_double1.reset(temp.get_num_state(0) != 0 ? 0 : temp.get_num(0));
+	lcd_double2.reset(temp.get_num_state(1) != 0 ? 0 : temp.get_num(1));
+	lcd_double3.reset(temp.get_num_state(2) != 0 ? 0 : temp.get_num(2));
+	lcd_double4.reset(temp.get_num_state(3) != 0 ? 0 : temp.get_num(3));
 	// Re-set current_action to the correct one
 	*current_action = temp;
 }
@@ -245,8 +254,6 @@ void MMGEchoWindow::set_preferences_view()
 {
 	ui->editor_global_enable->setChecked(
 		global()->preferences().get_active());
-	ui->editor_interface_style->setCurrentIndex(
-		global()->preferences().get_ui_style());
 }
 
 void MMGEchoWindow::set_strs_visible(bool str1, bool str2, bool str3) const
@@ -263,15 +270,15 @@ void MMGEchoWindow::set_doubles_visible(bool double1, bool double2,
 					bool double3, bool double4) const
 {
 	SET_LCD_STATUS(double1, Visible, double1);
-	ui->button_double1->setVisible(double1);
+	ui->editor_double1->setVisible(double1);
 	SET_LCD_STATUS(double2, Visible, double2);
-	ui->button_double2->setVisible(double2);
+	ui->editor_double2->setVisible(double2);
 	ui->sep_action_1->setVisible(double2);
 	SET_LCD_STATUS(double3, Visible, double3);
-	ui->button_double3->setVisible(double3);
+	ui->editor_double3->setVisible(double3);
 	ui->sep_action_2->setVisible(double3);
 	SET_LCD_STATUS(double4, Visible, double4);
-	ui->button_double4->setVisible(double4);
+	ui->editor_double4->setVisible(double4);
 	ui->sep_action_3->setVisible(double4);
 }
 
@@ -289,10 +296,11 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 	SET_LCD_STATUS(note, Enabled, true);
 	SET_LCD_STATUS(value, Visible, true);
 	SET_LCD_STATUS(value, Enabled, true);
-	ui->button_note->setVisible(true);
-	ui->button_value->setVisible(true);
-	ui->button_note->setChecked(current_message->get_value_required());
-	ui->button_value->setChecked(current_message->get_value_required());
+	ui->editor_note->setVisible(true);
+	ui->editor_value->setVisible(true);
+	ui->editor_note->setCurrentIndex(current_message->get_value_required());
+	ui->editor_value->setCurrentIndex(
+		current_message->get_value_required());
 	on_message_value_button_change(current_message->get_value_required());
 
 	if (type == "Note On / Note Off") {
@@ -301,7 +309,7 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 		ui->label_note->setText("Note #");
 		ui->label_value->setText("Velocity");
 		current_binding->set_toggling(true);
-		ui->button_note->setVisible(false);
+		ui->editor_note->setVisible(false);
 		lcd_note.reset(current_message->get_note());
 		lcd_value.display();
 		return;
@@ -315,24 +323,24 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 	if (type == "Note On" || type == "Note Off") {
 		ui->label_note->setText("Note #");
 		ui->label_value->setText("Velocity");
-		ui->button_note->setVisible(false);
+		ui->editor_note->setVisible(false);
 		lcd_note.reset(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Control Change") {
 		ui->label_note->setText("Control #");
 		ui->label_value->setText("Value");
-		ui->button_note->setVisible(false);
+		ui->editor_note->setVisible(false);
 		lcd_note.reset(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Program Change") {
 		ui->label_note->setText("Program #");
 		SET_LCD_STATUS(value, Visible, false);
-		ui->button_value->setVisible(false);
+		ui->editor_value->setVisible(false);
 		lcd_note.reset(current_message->get_value());
 	} else if (type == "Pitch Bend") {
 		ui->label_note->setText("Pitch Adjust");
 		SET_LCD_STATUS(value, Visible, false);
-		ui->button_value->setVisible(false);
+		ui->editor_value->setVisible(false);
 		lcd_note.reset(current_message->get_value());
 	}
 }
@@ -393,10 +401,8 @@ void MMGEchoWindow::on_message_value_button_change(bool toggled)
 	current_message->set_value_required(toggled);
 	if (ui->editor_type->currentText() == "Program Change" ||
 	    ui->editor_type->currentText() == "Pitch Bend") {
-		ui->button_note->setText(toggled ? "Fixed" : "0-127");
 		SET_LCD_STATUS(note, Enabled, toggled);
 	} else {
-		ui->button_value->setText(toggled ? "Fixed" : "0-127");
 		SET_LCD_STATUS(value, Enabled, toggled);
 	}
 	lcd_note.display();
@@ -474,38 +480,34 @@ void MMGEchoWindow::set_double4(double value)
 	current_action->set_num(3, value);
 }
 
-void MMGEchoWindow::on_action_double1_toggle(bool toggle)
+void MMGEchoWindow::on_action_double1_select(int index)
 {
-	set_double1(0 - toggle);
-	ui->button_double1->setText(toggle ? "0-127" : "Fixed");
-	SET_LCD_STATUS(double1, Disabled, toggle);
+	current_action->set_num_state(0, index);
+	SET_LCD_STATUS(double1, Disabled, index != 0);
 	ui->label_double1->setDisabled(false);
 	lcd_double1.display();
 }
 
-void MMGEchoWindow::on_action_double2_toggle(bool toggle)
+void MMGEchoWindow::on_action_double2_select(int index)
 {
-	set_double2(0 - toggle);
-	ui->button_double2->setText(toggle ? "0-127" : "Fixed");
-	SET_LCD_STATUS(double2, Disabled, toggle);
+	current_action->set_num_state(1, index);
+	SET_LCD_STATUS(double2, Disabled, index != 0);
 	ui->label_double2->setDisabled(false);
 	lcd_double2.display();
 }
 
-void MMGEchoWindow::on_action_double3_toggle(bool toggle)
+void MMGEchoWindow::on_action_double3_select(int index)
 {
-	set_double3(0 - toggle);
-	ui->button_double3->setText(toggle ? "0-127" : "Fixed");
-	SET_LCD_STATUS(double3, Disabled, toggle);
+	current_action->set_num_state(2, index);
+	SET_LCD_STATUS(double3, Disabled, index != 0);
 	ui->label_double3->setDisabled(false);
 	lcd_double3.display();
 }
 
-void MMGEchoWindow::on_action_double4_toggle(bool toggle)
+void MMGEchoWindow::on_action_double4_select(int index)
 {
-	set_double4(0 - toggle);
-	ui->button_double4->setText(toggle ? "0-127" : "Fixed");
-	SET_LCD_STATUS(double4, Disabled, toggle);
+	current_action->set_num_state(3, index);
+	SET_LCD_STATUS(double4, Disabled, index != 0);
 	ui->label_double4->setDisabled(false);
 	lcd_double4.display();
 }
@@ -514,6 +516,14 @@ void MMGEchoWindow::on_add_click()
 {
 	current_binding = current_device->add();
 	add_widget_item();
+}
+
+void MMGEchoWindow::on_copy_click()
+{
+	MMGBinding *old_binding = current_binding;
+	current_binding = current_device->copy(current_binding);
+	add_widget_item();
+	current_binding = old_binding;
 }
 
 void MMGEchoWindow::on_remove_click()
@@ -526,6 +536,7 @@ void MMGEchoWindow::on_remove_click()
 
 	delete current;
 
+	ui->button_duplicate->setEnabled(false);
 	ui->button_remove->setEnabled(false);
 	on_list_selection_change(nullptr);
 }
@@ -571,6 +582,7 @@ void MMGEchoWindow::on_list_selection_change(QListWidgetItem *widget_item)
 	}
 
 	ui->button_add->setEnabled(true);
+	ui->button_duplicate->setEnabled(true);
 	ui->button_remove->setEnabled(true);
 
 	current_binding = current_device->find_binding(widget_item->text());
@@ -586,6 +598,7 @@ void MMGEchoWindow::switch_structure_pane(enum MMGModes mode)
 	ui->editor_structure->clear();
 	ui->editor_structure->setProperty("mode", QVariant::fromValue(mode));
 	ui->button_add->setEnabled(false);
+	ui->button_duplicate->setEnabled(false);
 	ui->button_remove->setEnabled(false);
 	switch (mode) {
 	case MMGModes::MMGMODE_PREFERENCES:

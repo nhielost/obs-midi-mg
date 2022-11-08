@@ -147,6 +147,13 @@ public:
 			return nums[index];
 		throw 1;
 	};
+	short get_num_state(int index) const
+	{
+		if (index >= 0 && index < 4)
+			return (nums_state & (3 << (index << 1))) >>
+			       (index << 1);
+		throw 1;
+	};
 
 	void set_category(Category val) { category = (int)val; };
 	void set_sub(int val) { subcategory = val; };
@@ -159,6 +166,12 @@ public:
 	{
 		if (index >= 0 && index < 4)
 			nums[index] = val;
+	};
+	void set_num_state(int index, short value)
+	{
+		if (index >= 0 && index < 4)
+			nums_state = (nums_state & ~(3 << (index << 1))) |
+				     (value << (index << 1));
 	};
 
 	void deep_copy(MMGAction *dest);
@@ -190,13 +203,14 @@ public:
 	static void do_obs_collection_enum(QComboBox *list);
 	static void do_mmg_binding_enum(QComboBox *list,
 					const QString &current_binding,
-					const QString current_select);
+					const QString selected_binding);
 
 private:
 	int category;
 	int subcategory;
 	QString strs[4];
 	double nums[4];
+	short nums_state;
 
 	bool executed = false;
 

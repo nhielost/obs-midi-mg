@@ -28,7 +28,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "plugin-macros.generated.h"
 
 class MMGConfig;
-class MMGLegacyWindow;
 class MMGEchoWindow;
 
 using Configuration = QSharedPointer<MMGConfig>;

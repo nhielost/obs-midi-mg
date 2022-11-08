@@ -28,12 +28,16 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 double num_or_value(const MMGAction *params, const MMGMessage *midi, int num,
-		    double mult = 128.0, double value_oper = 0.0)
+		    double default_value = 0, double mult = 128.0,
+		    double value_oper = 0.0)
 {
-	return (params->get_num(num) == -1
-			? qRound(((midi->get_value() + value_oper) / 128.0) *
-				 mult)
-			: params->get_num(num));
+	if (params->get_num_state(num) == 1) {
+		return qRound(((midi->get_value() + value_oper) / 128.0) *
+			      mult);
+	} else if (params->get_num_state(num) == 2) {
+		return default_value;
+	}
+	return params->get_num(num);
 }
 
 struct R {
@@ -53,20 +57,30 @@ MMGAction::MMGAction()
 	set_num(1, 0.0);
 	set_num(2, 0.0);
 	set_num(3, 0.0);
+	nums_state = 0;
 	blog(LOG_DEBUG, "Empty action created.");
 }
 
 MMGAction::MMGAction(const QJsonObject &obj)
 {
-	category = obj["category"].toInt(0);
-	subcategory = obj["sub"].toInt(0);
+	category = obj["category"].toInt();
+	subcategory = obj["sub"].toInt();
+
 	set_str(0, obj["str1"].toString());
 	set_str(1, obj["str2"].toString());
 	set_str(2, obj["str3"].toString());
-	set_num(0, obj["num1"].toDouble());
-	set_num(1, obj["num2"].toDouble());
-	set_num(2, obj["num3"].toDouble());
-	set_num(3, obj["num4"].toDouble());
+
+	nums_state = obj["nums_state"].toInt();
+	for (int i = 0; i < 4; ++i) {
+		nums[i] = obj["num" + i].toDouble();
+		if (obj["nums_state"].isUndefined()) {
+			if (nums[i] == -1) {
+				set_num_state(i, 1);
+				nums[i] = 0;
+			}
+		}
+	}
+
 	blog(LOG_DEBUG, "Action created.");
 }
 
@@ -82,6 +96,7 @@ void MMGAction::json(QJsonObject &action_obj) const
 	action_obj["num2"] = get_num(1);
 	action_obj["num3"] = get_num(2);
 	action_obj["num4"] = get_num(3);
+	action_obj["nums_state"] = nums_state;
 }
 
 void MMGAction::blog(int log_status, const QString &message) const
@@ -101,6 +116,10 @@ void MMGAction::deep_copy(MMGAction *dest)
 	dest->set_num(1, nums[1]);
 	dest->set_num(2, nums[2]);
 	dest->set_num(3, nums[3]);
+	dest->set_num_state(0, get_num_state(0));
+	dest->set_num_state(1, get_num_state(1));
+	dest->set_num_state(2, get_num_state(2));
+	dest->set_num_state(3, get_num_state(3));
 }
 
 void MMGAction::do_obs_scene_enum(QComboBox *list)
@@ -296,15 +315,15 @@ void MMGAction::do_obs_collection_enum(QComboBox *list)
 
 void MMGAction::do_mmg_binding_enum(QComboBox *list,
 				    const QString &current_binding,
-				    const QString current_select)
+				    const QString selected_binding)
 {
 	for (MMGBinding *const binding :
 	     global()->find_current_device()->get_bindings()) {
 		if (binding->get_name() != current_binding)
 			list->addItem(binding->get_name());
 	}
-	if (list->findText(current_select) != -1)
-		list->setCurrentText(current_select);
+	if (list->findText(selected_binding) != -1)
+		list->setCurrentText(selected_binding);
 }
 
 template<>
@@ -567,10 +586,11 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 
 	switch ((MMGAction::VideoSources)params->get_sub()) {
 	case MMGAction::VideoSources::SOURCE_VIDEO_POSITION:
+		obs_sceneitem_get_pos(obs_sceneitem, &coordinates);
 		vec2_set(&coordinates,
-			 num_or_value(params, midi, 0,
+			 num_or_value(params, midi, 0, coordinates.x,
 				      get_obs_dimensions().first),
-			 num_or_value(params, midi, 1,
+			 num_or_value(params, midi, 1, coordinates.y,
 				      get_obs_dimensions().second));
 		obs_sceneitem_set_pos(obs_sceneitem, &coordinates);
 		break;
@@ -598,16 +618,18 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_CROP:
 		// align and length used for length and width of sources
+		obs_sceneitem_get_crop(obs_sceneitem, &crop);
 		align = get_obs_source_dimensions(params->get_str(1)).first;
 		length = get_obs_source_dimensions(params->get_str(1)).second;
-		crop.top = num_or_value(params, midi, 0, length);
-		crop.right = num_or_value(params, midi, 1, align);
-		crop.bottom = num_or_value(params, midi, 2, length);
-		crop.left = num_or_value(params, midi, 3, align);
+		crop.top = num_or_value(params, midi, 0, crop.top, length);
+		crop.right = num_or_value(params, midi, 1, crop.right, align);
+		crop.bottom =
+			num_or_value(params, midi, 2, crop.bottom, length);
+		crop.left = num_or_value(params, midi, 3, crop.left, align);
 		obs_sceneitem_set_crop(obs_sceneitem, &crop);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:
-		if (params->get_num(0) == -1 && midi->get_value() > 8) {
+		if (params->get_num_state(0) == 1 && midi->get_value() > 8) {
 			params->blog(
 				LOG_INFO,
 				"<Video Sources> action failed - MIDI value exceeded choice options.");
@@ -624,16 +646,20 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 		obs_sceneitem_set_alignment(obs_sceneitem, align);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALE:
-		// align variable is used for multiplier, length is used for proportionality
-		align = params->get_num(2) == -1 ? 1 : params->get_num(2);
-		length = midi->get_value() == -1 ? 127 : 100;
+		// Multiplier
+		length = 100 / params->get_num(2);
+		obs_sceneitem_get_scale(obs_sceneitem, &coordinates);
 		vec2_set(&coordinates,
-			 num_or_value(params, midi, 0) / length * align,
-			 num_or_value(params, midi, 1) / length * align);
+			 num_or_value(params, midi, 0, coordinates.x * length,
+				      100, 1) /
+				 length,
+			 num_or_value(params, midi, 1, coordinates.y * length,
+				      100, 1) /
+				 length);
 		obs_sceneitem_set_scale(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:
-		if (params->get_num(0) == -1 && midi->get_value() > 5) {
+		if (params->get_num_state(0) == 1 && midi->get_value() > 5) {
 			params->blog(
 				LOG_INFO,
 				"<Video Sources> action failed - MIDI value exceeded choice options.");
@@ -645,10 +671,10 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_ROTATION:
 		obs_sceneitem_set_rot(obs_sceneitem,
-				      num_or_value(params, midi, 0, 360.0));
+				      num_or_value(params, midi, 0, 0, 360.0));
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:
-		if (params->get_num(0) == -1 && midi->get_value() > 6) {
+		if (params->get_num_state(0) == 1 && midi->get_value() > 6) {
 			params->blog(
 				LOG_INFO,
 				"<Video Sources> action failed - MIDI value exceeded choice options.");
@@ -659,15 +685,16 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 			(obs_bounds_type)num_or_value(params, midi, 0));
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:
+		obs_sceneitem_get_bounds(obs_sceneitem, &coordinates);
 		vec2_set(&coordinates,
-			 num_or_value(params, midi, 0,
+			 num_or_value(params, midi, 0, coordinates.x,
 				      get_obs_dimensions().first),
-			 num_or_value(params, midi, 1,
+			 num_or_value(params, midi, 1, coordinates.y,
 				      get_obs_dimensions().second));
 		obs_sceneitem_set_bounds(obs_sceneitem, &coordinates);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
-		if (params->get_num(0) == -1 && midi->get_value() > 8) {
+		if (params->get_num_state(0) == 1 && midi->get_value() > 8) {
 			params->blog(
 				LOG_INFO,
 				"<Video Sources> action failed - MIDI value exceeded choice options.");
@@ -684,7 +711,7 @@ void MMGAction::do_action_specific<MMGAction::VideoSources>(
 		obs_sceneitem_set_bounds_alignment(obs_sceneitem, align);
 		break;
 	case MMGAction::VideoSources::SOURCE_VIDEO_BLEND_MODE:
-		if (params->get_num(0) == -1 && midi->get_value() > 6) {
+		if (params->get_num_state(0) == 1 && midi->get_value() > 6) {
 			params->blog(
 				LOG_INFO,
 				"<Video Sources> action failed - MIDI value exceeded choice options.");
@@ -727,25 +754,25 @@ void MMGAction::do_action_specific<MMGAction::AudioSources>(
 		// Value only has range 0-127, meaning full volume cannot be achieved (as it is divided by 128).
 		// Adding one allows the capability of full volume.
 		// ADDITION: Removing 1% from the value and changing it to 0% for muting is not as noticable.
-		if (params->get_num(0) == -1 && midi->get_value() == 0) {
+		if (params->get_num_state(0) == 1 && midi->get_value() == 0) {
 			obs_source_set_volume(obs_source, 0);
 		} else {
 			obs_source_set_volume(
 				obs_source,
-				std::pow((num_or_value(params, midi, 0, 100.0,
-						       1) /
+				std::pow((num_or_value(params, midi, 0, 0,
+						       100.0, 1) /
 					  100.0),
 					 3.0));
 		}
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
 		if (std::cbrt(obs_source_get_volume(obs_source)) * 100.0 +
-			    num_or_value(params, midi, 0, 100, -64) >=
+			    params->get_num(0) >=
 		    100.0) {
 			obs_source_set_volume(obs_source, 1);
 		} else if (std::cbrt(obs_source_get_volume(obs_source)) *
 					   100.0 +
-				   num_or_value(params, midi, 0, 100.0, -64) <=
+				   params->get_num(0) <=
 			   0.0) {
 			obs_source_set_volume(obs_source, 0);
 		} else {
@@ -753,9 +780,7 @@ void MMGAction::do_action_specific<MMGAction::AudioSources>(
 				obs_source,
 				std::pow(std::cbrt(obs_source_get_volume(
 						 obs_source)) +
-						 (num_or_value(params, midi, 0,
-							       100.0, -64) /
-						  100.0),
+						 (params->get_num(0) / 100.0),
 					 3.0));
 		}
 		break;
@@ -773,10 +798,10 @@ void MMGAction::do_action_specific<MMGAction::AudioSources>(
 		// Hard limit is set at 3175 ms
 		obs_source_set_sync_offset(
 			obs_source,
-			(num_or_value(params, midi, 0, 3200.0) * 1000000));
+			(num_or_value(params, midi, 0, 0, 3200.0) * 1000000));
 		break;
 	case MMGAction::AudioSources::SOURCE_AUDIO_MONITOR:
-		if (params->get_num(0) && midi->get_value() >= 3) {
+		if (params->get_num_state(0) == 1 && midi->get_value() >= 3) {
 			params->blog(
 				LOG_INFO,
 				"<Audio Sources> action failed - MIDI value exceeds audio monitor option count.");
@@ -814,10 +839,7 @@ void MMGAction::do_action_specific<MMGAction::MediaSources>(
 		return;
 	}
 	obs_media_state state = obs_source_media_get_state(obs_source);
-	auto new_time = (int64_t)(num_or_value(params, midi, 0,
-					       get_obs_media_length(
-						       params->get_str(0))) *
-				  1000);
+
 	switch ((MMGAction::MediaSources)params->get_sub()) {
 	case MMGAction::MediaSources::SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
 		switch (state) {
@@ -842,7 +864,11 @@ void MMGAction::do_action_specific<MMGAction::MediaSources>(
 		obs_source_media_stop(obs_source);
 		break;
 	case MMGAction::MediaSources::SOURCE_MEDIA_TIME:
-		obs_source_media_set_time(obs_source, new_time);
+		obs_source_media_set_time(
+			obs_source,
+			num_or_value(params, midi, 0, 0,
+				     get_obs_media_length(params->get_str(0))) *
+				1000);
 		break;
 	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TRACK:
 		obs_source_media_next(obs_source);
@@ -852,13 +878,13 @@ void MMGAction::do_action_specific<MMGAction::MediaSources>(
 		break;
 	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TIME:
 		obs_source_media_set_time(
-			obs_source,
-			obs_source_media_get_time(obs_source) + new_time);
+			obs_source, obs_source_media_get_time(obs_source) +
+					    params->get_num(0));
 		break;
 	case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TIME:
 		obs_source_media_set_time(
-			obs_source,
-			obs_source_media_get_time(obs_source) - new_time);
+			obs_source, obs_source_media_get_time(obs_source) -
+					    params->get_num(0));
 		break;
 	default:
 		break;
@@ -870,14 +896,12 @@ template<>
 void MMGAction::do_action_specific<MMGAction::Transitions>(
 	const MMGAction *params, const MMGMessage *midi)
 {
-	Q_UNUSED(midi);
 	OBSSourceAutoRelease obs_transition =
 		obs_get_transition_by_name(params->get_str(0).qtocs());
 	if (!obs_transition)
 		obs_transition = obs_frontend_get_current_transition();
-	int obs_transition_time =
-		params->get_num(0) == 0 ? obs_frontend_get_transition_duration()
-					: params->get_num(0);
+	int obs_transition_time = num_or_value(
+		params, midi, 0, obs_frontend_get_transition_duration(), 3200);
 	OBSSourceAutoRelease obs_source =
 		obs_get_source_by_name(params->get_str(2).qtocs());
 	OBSSceneAutoRelease obs_scene =
@@ -951,7 +975,7 @@ void MMGAction::do_action_specific<MMGAction::Filters>(const MMGAction *params,
 				       !obs_source_enabled(obs_filter));
 		break;
 	case MMGAction::Filters::FILTER_REORDER:
-		if (num_or_value(params, midi, 0, 128.0, 1) - 1 >=
+		if (num_or_value(params, midi, 0, 0, 128.0, 1) - 1 >=
 		    obs_source_filter_count(obs_source)) {
 			params->blog(
 				LOG_INFO,
@@ -960,8 +984,8 @@ void MMGAction::do_action_specific<MMGAction::Filters>(const MMGAction *params,
 		}
 		obs_source_filter_set_order(obs_source, obs_filter,
 					    OBS_ORDER_MOVE_TOP);
-		for (int i = 0; i < num_or_value(params, midi, 0, 128.0, 1) - 1;
-		     ++i) {
+		for (int i = 0;
+		     i < num_or_value(params, midi, 0, 0, 128.0, 1) - 1; ++i) {
 			obs_source_filter_set_order(obs_source, obs_filter,
 						    OBS_ORDER_MOVE_DOWN);
 		}
@@ -1112,26 +1136,26 @@ void MMGAction::do_action_specific<MMGAction::MidiMessage>(
 	const MMGAction *params, const MMGMessage *midi)
 {
 	libremidi::message message;
-	int channel = params->get_num(0) < 1 ? 1 : params->get_num(0);
 	if (params->get_str(1) == "Note On") {
 		message = libremidi::message::note_on(
-			channel, num_or_value(params, midi, 1),
+			params->get_num(0), num_or_value(params, midi, 1),
 			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Note Off") {
 		message = libremidi::message::note_off(
-			channel, num_or_value(params, midi, 1),
+			params->get_num(0), num_or_value(params, midi, 1),
 			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Control Change") {
 		message = libremidi::message::control_change(
-			channel, num_or_value(params, midi, 1),
+			params->get_num(0), num_or_value(params, midi, 1),
 			num_or_value(params, midi, 2));
 	} else if (params->get_str(1) == "Program Change") {
 		message = libremidi::message::program_change(
-			channel, num_or_value(params, midi, 1));
+			params->get_num(0), num_or_value(params, midi, 1));
 	} else if (params->get_str(1) == "Pitch Bend") {
 		int num1 = num_or_value(params, midi, 1);
 		message = libremidi::message::pitch_bend(
-			channel, num1 >= 64 ? ((num1 - 64) << 1) : 0, num1);
+			params->get_num(0), num1 >= 64 ? ((num1 - 64) << 1) : 0,
+			num1);
 	} else {
 		params->blog(
 			LOG_INFO,

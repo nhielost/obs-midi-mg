@@ -44,7 +44,6 @@ public:
 	MMGMessage *const get_message() const { return message; };
 	MMGAction *const get_action() const { return action; };
 
-	bool is_valid();
 	void deep_copy(MMGBinding *dest);
 	void do_action(const MMGSharedMessage &el);
 	void reset_execution() { action->reset_execution(); };
