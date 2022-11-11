@@ -23,7 +23,6 @@ qulonglong MMGBinding::next_default = 1;
 MMGBinding::MMGBinding()
 {
 	name = get_next_default_name();
-	toggling = false;
 	enabled = true;
 	message = new MMGMessage;
 	action = new MMGAction;
@@ -35,7 +34,6 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 	name = obj["name"].toString();
 	if (name.isEmpty())
 		name = get_next_default_name();
-	toggling = obj["toggling"].toBool();
 	enabled = obj["enabled"].toBool(true);
 	message = new MMGMessage(obj["message"].toObject());
 	action = new MMGAction(obj["action"].toObject());
@@ -45,7 +43,6 @@ MMGBinding::MMGBinding(const QJsonObject &obj)
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
 	binding_obj["name"] = name;
-	binding_obj["toggling"] = toggling;
 	binding_obj["enabled"] = enabled;
 	QJsonObject msg;
 	message->json(msg);
@@ -79,15 +76,13 @@ void MMGBinding::do_action(const MMGSharedMessage &incoming)
 
 	action->do_action(incoming);
 
-	if (toggling)
-		message->toggle();
+	message->toggle();
 }
 
 void MMGBinding::deep_copy(MMGBinding *dest)
 {
 	if (!name.contains("Untitled Binding"))
 		dest->set_name(name);
-	dest->set_toggling(get_toggling());
 	message->deep_copy(dest->get_message());
 	action->deep_copy(dest->get_action());
 }

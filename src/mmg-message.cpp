@@ -25,6 +25,8 @@ MMGMessage::MMGMessage()
 	note = 0;
 	value = 0;
 	value_require = false;
+	value_toggle = false;
+	type_toggle = false;
 	blog(LOG_DEBUG, "Empty message created.");
 }
 
@@ -35,6 +37,8 @@ MMGMessage::MMGMessage(const libremidi::message &message)
 	note = get_midi_note(message);
 	value = get_midi_value(message);
 	value_require = true;
+	value_toggle = false;
+	type_toggle = false;
 }
 
 MMGMessage::MMGMessage(const QJsonObject &obj)
@@ -44,6 +48,8 @@ MMGMessage::MMGMessage(const QJsonObject &obj)
 	note = obj["note"].toInt();
 	value = obj["value"].toInt();
 	value_require = obj["value_require"].toBool(value != -1);
+	value_toggle = obj["value_toggle"].toBool();
+	type_toggle = obj["type_toggle"].toBool();
 	blog(LOG_DEBUG, "Message created.");
 }
 
@@ -54,6 +60,8 @@ void MMGMessage::json(QJsonObject &message_obj) const
 	message_obj["note"] = note;
 	message_obj["value"] = value;
 	message_obj["value_require"] = value_require;
+	message_obj["value_toggle"] = value_toggle;
+	message_obj["type_toggle"] = type_toggle;
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
@@ -147,23 +155,32 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 
 void MMGMessage::toggle()
 {
-	if (type == "Note On") {
-		type = "Note Off";
-	} else if (type == "Note Off") {
-		type = "Note On";
+	if (type_toggle) {
+		if (type == "Note On") {
+			type = "Note Off";
+		} else if (type == "Note Off") {
+			type = "Note On";
+		}
+	}
+	if (value_toggle) {
+		if (value == 127) {
+			value = 0;
+		} else if (value == 0) {
+			value = 127;
+		}
 	}
 }
 
 bool MMGMessage::is_acceptable(const MMGMessage *test) const
 {
-	bool isTrue = true;
-	isTrue &= (channel == test->get_channel());
-	isTrue &= (type == test->get_type());
+	bool is_true = true;
+	is_true &= (channel == test->get_channel());
+	is_true &= (type == test->get_type());
 	if (type != "Program Change" && type != "Pitch Bend")
-		isTrue &= (note == test->get_note());
-	if (value_require)
-		isTrue &= (value == test->get_value());
-	return isTrue;
+		is_true &= (note == test->get_note());
+	if (value_require || value_toggle)
+		is_true &= (value == test->get_value());
+	return is_true;
 }
 
 void MMGMessage::deep_copy(MMGMessage *dest)
@@ -173,4 +190,6 @@ void MMGMessage::deep_copy(MMGMessage *dest)
 	dest->set_note(note);
 	dest->set_value(value);
 	dest->set_value_required(value_require);
+	dest->set_value_toggle(value_toggle);
+	dest->set_type_toggle(type_toggle);
 }

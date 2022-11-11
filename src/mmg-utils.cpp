@@ -91,9 +91,18 @@ void LCDData::up_major()
 			       : internal_val + major_step;
 	display();
 }
-void LCDData::reset(double value)
+void LCDData::set_default_value(double val)
 {
-	internal_val = value;
+	if (val > maximum || val < minimum)
+		return;
+	default_val = val;
+	set_value(default_val);
+}
+void LCDData::set_value(double val)
+{
+	if (val > maximum || val < minimum)
+		return;
+	internal_val = val;
 	display();
 }
 

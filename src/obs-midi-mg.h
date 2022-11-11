@@ -38,15 +38,5 @@ using MMGMIDIOutputDevice = QSharedPointer<libremidi::midi_out>;
 MMGMIDIInputDevice input_device();
 MMGMIDIOutputDevice output_device();
 
-enum class MMGModes {
-	MMGMODE_NONE,
-	MMGMODE_PREFERENCES,
-	MMGMODE_DEVICE,
-	MMGMODE_BINDING,
-	MMGMODE_MESSAGE,
-	MMGMODE_ACTION
-};
-Q_DECLARE_METATYPE(MMGModes);
-
 #define OBS_MIDIMG_VERSION "v" PLUGIN_VERSION
 #define qtocs() toStdString().c_str()

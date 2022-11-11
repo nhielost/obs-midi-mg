@@ -69,7 +69,7 @@
     <number>0</number>
    </property>
    <property name="currentIndex">
-    <number>2</number>
+    <number>1</number>
    </property>
    <widget class="QWidget" name="empty_page">
     <property name="palette">
@@ -4279,6 +4279,11 @@
       <item>
        <property name="text">
         <string>Fixed</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Toggle</string>
        </property>
       </item>
      </widget>

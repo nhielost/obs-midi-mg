@@ -252,7 +252,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		ui->label_double1->setText("Time");                         \
 		lcd_double1.set_range(0.0, 1000.0);                         \
 		lcd_double1.set_step(1.0, 10.0);                            \
-		lcd_double1.reset();                                        \
+		lcd_double1.set_default_value(0.0);                         \
 		break;                                                      \
 	default:                                                            \
 		break;                                                      \
@@ -283,7 +283,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Volume");                   \
 			lcd_double1.set_range(0.0, 100.0);                      \
 			lcd_double1.set_step(1.0, 10.0);                        \
-			lcd_double1.reset();                                    \
+			lcd_double1.set_default_value(0.0);                     \
 			break;                                                  \
 		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:     \
 			set_doubles_visible(true);                              \
@@ -291,7 +291,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Volume Adj.");              \
 			lcd_double1.set_range(-50.0, 50.0);                     \
 			lcd_double1.set_step(1.0, 10.0);                        \
-			lcd_double1.reset();                                    \
+			lcd_double1.set_default_value(0.0);                     \
 			break;                                                  \
 		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_ON:      \
 		case MMGAction::AudioSources::SOURCE_AUDIO_VOLUME_MUTE_OFF:     \
@@ -303,7 +303,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Offset");                   \
 			lcd_double1.set_range(0.0, 20000.0);                    \
 			lcd_double1.set_step(25.0, 250.0);                      \
-			lcd_double1.reset();                                    \
+			lcd_double1.set_default_value(0.0);                     \
 			break;                                                  \
 		case MMGAction::AudioSources::SOURCE_AUDIO_MONITOR:             \
 			set_strs_visible(true, true);                           \
@@ -330,7 +330,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 				0.0, get_obs_media_length(                      \
 					     current_action->get_str(0)));      \
 			lcd_double1.set_step(1.0, 10.0);                        \
-			lcd_double1.reset();                                    \
+			lcd_double1.set_default_value(0.0);                     \
 			break;                                                  \
 		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_FORWARD_TRACK:  \
 		case MMGAction::MediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TRACK: \
@@ -344,7 +344,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 				0.0, get_obs_media_length(                      \
 					     current_action->get_str(0)));      \
 			lcd_double1.set_step(1.0, 10.0);                        \
-			lcd_double1.reset();                                    \
+			lcd_double1.set_default_value(0.0);                     \
 			break;                                                  \
 		default:                                                        \
 			break;                                                  \
@@ -358,7 +358,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Duration");                 \
 			lcd_double1.set_range(25.0, 20000.0);                   \
 			lcd_double1.set_step(25.0, 250.0);                      \
-			lcd_double1.reset(                                      \
+			lcd_double1.set_default_value(                          \
 				obs_frontend_get_transition_duration());        \
 			break;                                                  \
 		/*case MMGAction::Transitions::TRANSITION_TBAR:\
@@ -366,7 +366,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Position (%)");\
 			lcd_double1.set_range(0.0, 100.0);\
 			lcd_double1.set_step(0.5, 5.0);\
-			lcd_double1.reset();\
+			lcd_double1.set_default_value(0.0);\
 			break;*/               \
 		case MMGAction::Transitions::TRANSITION_SOURCE_SHOW:            \
 		case MMGAction::Transitions::TRANSITION_SOURCE_HIDE:            \
@@ -432,11 +432,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			lcd_double1.set_range(0.0,                             \
 					      get_obs_dimensions().first);     \
 			lcd_double1.set_step(0.5, 5.0);                        \
-			lcd_double1.reset();                                   \
+			lcd_double1.set_default_value(0.0);                    \
 			lcd_double2.set_range(0.0,                             \
 					      get_obs_dimensions().second);    \
 			lcd_double2.set_step(0.5, 5.0);                        \
-			lcd_double2.reset();                                   \
+			lcd_double2.set_default_value(0.0);                    \
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_DISPLAY:            \
 			set_strs_visible(true, true, true);                    \
@@ -463,22 +463,22 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 				0.0,                                           \
 				get_obs_source_dimensions(value).second >> 1); \
 			lcd_double1.set_step(0.5, 5.0);                        \
-			lcd_double1.reset();                                   \
+			lcd_double1.set_default_value(0.0);                    \
 			lcd_double2.set_range(                                 \
 				0.0,                                           \
 				get_obs_source_dimensions(value).first >> 1);  \
 			lcd_double2.set_step(0.5, 5.0);                        \
-			lcd_double2.reset();                                   \
+			lcd_double2.set_default_value(0.0);                    \
 			lcd_double3.set_range(                                 \
 				0.0,                                           \
 				get_obs_source_dimensions(value).second >> 1); \
 			lcd_double3.set_step(0.5, 5.0);                        \
-			lcd_double3.reset();                                   \
+			lcd_double3.set_default_value(0.0);                    \
 			lcd_double4.set_range(                                 \
 				0.0,                                           \
 				get_obs_source_dimensions(value).first >> 1);  \
 			lcd_double4.set_step(0.5, 5.0);                        \
-			lcd_double4.reset();                                   \
+			lcd_double4.set_default_value(0.0);                    \
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_ALIGNMENT:          \
 			set_strs_visible(true, true, true);                    \
@@ -500,13 +500,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double3->setText("Magnitude");               \
 			lcd_double1.set_range(0.0, 100.0);                     \
 			lcd_double1.set_step(1.0, 10.0);                       \
-			lcd_double1.reset(0.0);                                \
+			lcd_double1.set_default_value(0.0);                    \
 			lcd_double2.set_range(0.0, 100.0);                     \
 			lcd_double2.set_step(1.0, 10.0);                       \
-			lcd_double2.reset(0.0);                                \
+			lcd_double2.set_default_value(0.0);                    \
 			lcd_double3.set_range(0.5, 100.0);                     \
 			lcd_double3.set_step(0.5, 5.0);                        \
-			lcd_double3.reset(1.0);                                \
+			lcd_double3.set_default_value(1.0);                    \
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_SCALEFILTER:        \
 			set_strs_visible(true, true, true);                    \
@@ -520,7 +520,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Rotation");                \
 			lcd_double1.set_range(0.0, 360.0);                     \
 			lcd_double1.set_step(0.5, 5.0);                        \
-			lcd_double1.reset();                                   \
+			lcd_double1.set_default_value(0.0);                    \
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:  \
 			set_strs_visible(true, true, true);                    \
@@ -544,13 +544,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 					     ui->editor_str1->currentText())   \
 					     .first);                          \
 			lcd_double1.set_step(0.5, 5.0);                        \
-			lcd_double1.reset();                                   \
+			lcd_double1.set_default_value(0.0);                    \
 			lcd_double2.set_range(                                 \
 				0.0, get_obs_source_dimensions(                \
 					     ui->editor_str1->currentText())   \
 					     .second);                         \
 			lcd_double2.set_step(0.5, 5.0);                        \
-			lcd_double2.reset();                                   \
+			lcd_double2.set_default_value(0.0);                    \
 			break;                                                 \
 		case MMGAction::VideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN: \
 			set_strs_visible(true, true, true);                    \
@@ -608,7 +608,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 				1.0, get_obs_source_filter_count(              \
 					     ui->editor_str1->currentText())); \
 			lcd_double1.set_step(1.0, 5.0);                        \
-			lcd_double1.reset(1.0);                                \
+			lcd_double1.set_default_value(1.0);                    \
 			break;                                                 \
 		default:                                                       \
 			break;                                                 \
@@ -619,13 +619,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 		ui->label_double1->setText("Channel");                         \
 		lcd_double1.set_range(1.0, 16.0);                              \
 		lcd_double1.set_step(1.0, 5.0);                                \
-		lcd_double1.reset(1.0);                                        \
+		lcd_double1.set_default_value(1.0);                            \
 		lcd_double2.set_range(0.0, 127.0);                             \
 		lcd_double2.set_step(1.0, 10.0);                               \
-		lcd_double2.reset();                                           \
+		lcd_double2.set_default_value(0.0);                            \
 		lcd_double3.set_range(0.0, 127.0);                             \
 		lcd_double3.set_step(1.0, 10.0);                               \
-		lcd_double3.reset();                                           \
+		lcd_double3.set_default_value(0.0);                            \
 		if (value == "Note On" || value == "Note Off") {               \
 			set_doubles_visible(true, true, true);                 \
 			ui->label_double2->setText("Note #");                  \
@@ -686,7 +686,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 			ui->label_double1->setText("Duration");                \
 			lcd_double1.set_range(0.0, 20000.0);                   \
 			lcd_double1.set_step(25.0, 250.0);                     \
-			lcd_double1.reset();                                   \
+			lcd_double1.set_default_value(0.0);                    \
 			break;                                                 \
 		default:                                                       \
 			break;                                                 \

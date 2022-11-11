@@ -65,7 +65,7 @@ void MMGEchoWindow::show_window()
 	ui->editor_devices->setCurrentText(current_device_name);
 
 	ui->editor_structure->clearSelection();
-	switch_structure_pane(MMGModes::MMGMODE_BINDING);
+	switch_structure_pane(1);
 	ui->button_preferences->setChecked(false);
 	ui->pages->setCurrentIndex(0);
 
@@ -201,32 +201,25 @@ void MMGEchoWindow::set_message_view()
 {
 	// Because current_message is modified in these function calls (LCDData::reset),
 	// this uses a const version of it to get its values
-	const MMGMessage temp = *current_message;
+	const MMGMessage temp_message = *current_message;
 
-	lcd_channel.reset(temp.get_channel());
-	lcd_note.reset(temp.get_note());
-	SET_LCD_STATUS(value, Enabled, temp.get_value_required());
-	lcd_value.reset(temp.get_value());
+	lcd_channel.set_value(temp_message.get_channel());
+	lcd_note.set_value(temp_message.get_note());
+	lcd_value.set_value(temp_message.get_value());
 
-	if (temp.get_type() == "Program Change" ||
-	    temp.get_type() == "Pitch Bend") {
-		ui->editor_note->setCurrentIndex(temp.get_value_required());
-	} else {
-		ui->editor_value->setCurrentIndex(temp.get_value_required());
-	}
-	// Re-set current_message to the correct one
-	*current_message = temp;
-
-	if (current_binding->get_toggling()) {
+	if (temp_message.get_type_toggle()) {
 		on_message_type_change("Note On / Note Off");
 	} else {
-		on_message_type_change(temp.get_type());
+		on_message_type_change(temp_message.get_type());
 	}
+
+	// Re-set current_message to the correct one
+	*current_message = temp_message;
 }
 
 void MMGEchoWindow::set_action_view()
 {
-	// Because current_action is modified in these function calls (LCDData::reset),
+	// Because current_action is modified in these function calls (LCDData::set_default_value),
 	// this uses a const version of it to get its values
 	const MMGAction temp = *current_action;
 	// Set category
@@ -244,10 +237,10 @@ void MMGEchoWindow::set_action_view()
 	ui->editor_double2->setCurrentIndex(temp.get_num_state(1));
 	ui->editor_double3->setCurrentIndex(temp.get_num_state(2));
 	ui->editor_double4->setCurrentIndex(temp.get_num_state(3));
-	lcd_double1.reset(temp.get_num_state(0) != 0 ? 0 : temp.get_num(0));
-	lcd_double2.reset(temp.get_num_state(1) != 0 ? 0 : temp.get_num(1));
-	lcd_double3.reset(temp.get_num_state(2) != 0 ? 0 : temp.get_num(2));
-	lcd_double4.reset(temp.get_num_state(3) != 0 ? 0 : temp.get_num(3));
+	lcd_double1.set_value(temp.get_num_state(0) == 1 ? 0 : temp.get_num(0));
+	lcd_double2.set_value(temp.get_num_state(1) == 1 ? 0 : temp.get_num(1));
+	lcd_double3.set_value(temp.get_num_state(2) == 1 ? 0 : temp.get_num(2));
+	lcd_double4.set_value(temp.get_num_state(3) == 1 ? 0 : temp.get_num(3));
 	// Re-set current_action to the correct one
 	*current_action = temp;
 }
@@ -290,7 +283,7 @@ void MMGEchoWindow::on_device_change(const QString &name)
 		return;
 	current_device = global()->find_device(name);
 	global()->set_active_device_name(name);
-	switch_structure_pane(MMGModes::MMGMODE_BINDING);
+	switch_structure_pane(1);
 }
 
 void MMGEchoWindow::on_message_type_change(const QString &type)
@@ -300,7 +293,10 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 	SET_LCD_STATUS(value, Enabled, true);
 	ui->editor_note->setVisible(true);
 	ui->editor_value->setVisible(true);
-	ui->editor_note->setCurrentIndex(current_message->get_value_required());
+	COMBOBOX_ITEM_STATE(editor_value, 2, false);
+
+	bool temp_value_toggle = current_message->get_value_toggle();
+
 	ui->editor_value->setCurrentIndex(
 		current_message->get_value_required());
 	on_message_value_button_change(current_message->get_value_required());
@@ -310,9 +306,14 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 		current_message->set_type("Note On");
 		ui->label_note->setText("Note #");
 		ui->label_value->setText("Velocity");
-		current_binding->set_toggling(true);
+		current_message->set_type_toggle(true);
+		COMBOBOX_ITEM_STATE(editor_value, 2, true);
+		if (temp_value_toggle) {
+			ui->editor_value->setCurrentIndex(2);
+			on_message_value_button_change(2);
+		}
 		ui->editor_note->setVisible(false);
-		lcd_note.reset(current_message->get_note());
+		lcd_note.set_value(current_message->get_note());
 		lcd_value.display();
 		return;
 	}
@@ -320,30 +321,39 @@ void MMGEchoWindow::on_message_type_change(const QString &type)
 	current_message->set_type(type);
 	ui->editor_type->setCurrentText(type);
 
-	current_binding->set_toggling(false);
+	current_message->set_type_toggle(false);
 
 	if (type == "Note On" || type == "Note Off") {
 		ui->label_note->setText("Note #");
 		ui->label_value->setText("Velocity");
 		ui->editor_note->setVisible(false);
-		lcd_note.reset(current_message->get_note());
+		COMBOBOX_ITEM_STATE(editor_value, 2, true);
+		if (temp_value_toggle) {
+			ui->editor_value->setCurrentIndex(2);
+			on_message_value_button_change(2);
+		}
+		lcd_note.set_value(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Control Change") {
 		ui->label_note->setText("Control #");
 		ui->label_value->setText("Value");
 		ui->editor_note->setVisible(false);
-		lcd_note.reset(current_message->get_note());
+		lcd_note.set_value(current_message->get_note());
 		lcd_value.display();
 	} else if (type == "Program Change") {
 		ui->label_note->setText("Program #");
 		SET_LCD_STATUS(value, Visible, false);
 		ui->editor_value->setVisible(false);
-		lcd_note.reset(current_message->get_value());
+		ui->editor_note->setCurrentIndex(
+			current_message->get_value_required());
+		lcd_note.set_value(current_message->get_value());
 	} else if (type == "Pitch Bend") {
 		ui->label_note->setText("Pitch Adjust");
 		SET_LCD_STATUS(value, Visible, false);
 		ui->editor_value->setVisible(false);
-		lcd_note.reset(current_message->get_value());
+		ui->editor_note->setCurrentIndex(
+			current_message->get_value_required());
+		lcd_note.set_value(current_message->get_value());
 	}
 }
 
@@ -364,7 +374,8 @@ void MMGEchoWindow::on_message_listen_once(bool toggled)
 		global()->set_listening(false);
 		ui->button_listen_once->setText("Listen Once...");
 		ui->button_listen_once->setChecked(false);
-		current_binding->set_toggling(false);
+		current_message->set_type_toggle(false);
+		current_message->set_value_toggle(false);
 		current_message->set_type(incoming->get_type());
 		current_message->set_channel(incoming->get_channel());
 		current_message->set_note(incoming->get_note());
@@ -388,7 +399,8 @@ void MMGEchoWindow::on_message_listen_continuous(bool toggled)
 		// supported types)
 		if (ui->editor_type->findText(incoming->get_type()) == -1)
 			return;
-		current_binding->set_toggling(false);
+		current_message->set_type_toggle(false);
+		current_message->set_value_toggle(false);
 		current_message->set_type(incoming->get_type());
 		current_message->set_channel(incoming->get_channel());
 		current_message->set_note(incoming->get_note());
@@ -398,14 +410,18 @@ void MMGEchoWindow::on_message_listen_continuous(bool toggled)
 	});
 }
 
-void MMGEchoWindow::on_message_value_button_change(bool toggled)
+void MMGEchoWindow::on_message_value_button_change(int index)
 {
-	current_message->set_value_required(toggled);
+	current_message->set_value_required(index == 1);
+	current_message->set_value_toggle(index == 2);
+	if (index == 2)
+		current_message->set_value(127);
+
 	if (ui->editor_type->currentText() == "Program Change" ||
 	    ui->editor_type->currentText() == "Pitch Bend") {
-		SET_LCD_STATUS(note, Enabled, toggled);
+		SET_LCD_STATUS(note, Enabled, index == 1);
 	} else {
-		SET_LCD_STATUS(value, Enabled, toggled);
+		SET_LCD_STATUS(value, Enabled, index == 1);
 	}
 	lcd_note.display();
 	lcd_value.display();
@@ -516,16 +532,12 @@ void MMGEchoWindow::on_action_double4_select(int index)
 
 void MMGEchoWindow::on_add_click()
 {
-	current_binding = current_device->add();
-	add_widget_item();
+	add_widget_item(current_device->add());
 }
 
 void MMGEchoWindow::on_copy_click()
 {
-	MMGBinding *old_binding = current_binding;
-	current_binding = current_device->copy(current_binding);
-	add_widget_item();
-	current_binding = old_binding;
+	add_widget_item(current_device->copy(current_binding));
 }
 
 void MMGEchoWindow::on_remove_click()
@@ -545,8 +557,7 @@ void MMGEchoWindow::on_remove_click()
 
 void MMGEchoWindow::on_preferences_click(bool toggle)
 {
-	switch_structure_pane(toggle ? MMGModes::MMGMODE_PREFERENCES
-				     : MMGModes::MMGMODE_BINDING);
+	switch_structure_pane(1 + toggle);
 	ui->button_preferences->setText(toggle ? "Return to Bindings..."
 					       : "Preferences...");
 }
@@ -595,40 +606,33 @@ void MMGEchoWindow::on_list_selection_change(QListWidgetItem *widget_item)
 	ui->pages->setCurrentIndex(1);
 }
 
-void MMGEchoWindow::switch_structure_pane(enum MMGModes mode)
+void MMGEchoWindow::switch_structure_pane(int page)
 {
 	ui->editor_structure->clear();
-	ui->editor_structure->setProperty("mode", QVariant::fromValue(mode));
 	ui->button_add->setEnabled(false);
 	ui->button_duplicate->setEnabled(false);
 	ui->button_remove->setEnabled(false);
-	switch (mode) {
-	case MMGModes::MMGMODE_PREFERENCES:
-		ui->pages->setCurrentIndex(2);
+	ui->pages->setCurrentIndex(page);
+
+	if (page != 1)
 		return;
-	case MMGModes::MMGMODE_BINDING:
-		ui->button_add->setEnabled(true);
-		for (MMGBinding *const binding_el :
-		     current_device->get_bindings()) {
-			current_binding = binding_el;
-			add_widget_item();
-		}
-		ui->pages->setCurrentIndex(1);
-		break;
-	default:
-		ui->pages->setCurrentIndex(0);
+
+	ui->button_add->setEnabled(true);
+	if (!current_device)
 		return;
+	for (MMGBinding *const binding_el : current_device->get_bindings()) {
+		add_widget_item(binding_el);
 	}
 	on_list_selection_change(nullptr);
 }
 
-void MMGEchoWindow::add_widget_item() const
+void MMGEchoWindow::add_widget_item(const MMGBinding *binding) const
 {
 	QListWidgetItem *new_item = new QListWidgetItem;
 	new_item->setFlags((Qt::ItemFlag)0b110011);
 	new_item->setCheckState(
-		(Qt::CheckState)(current_binding->get_enabled() ? 2 : 0));
-	new_item->setText(current_binding->get_name());
+		(Qt::CheckState)(binding->get_enabled() ? 2 : 0));
+	new_item->setText(binding->get_name());
 	ui->editor_structure->addItem(new_item);
 }
 

@@ -34,12 +34,16 @@ public:
 	int get_note() const { return note; };
 	int get_value() const { return value; };
 	bool get_value_required() const { return value_require; };
+	bool get_value_toggle() const { return value_toggle; }
+	bool get_type_toggle() const { return type_toggle; }
 
 	void set_type(const QString &val) { type = val; };
 	void set_channel(int val) { channel = val; };
 	void set_note(int val) { note = val; };
 	void set_value(int val) { value = val; };
 	void set_value_required(bool val) { value_require = val; };
+	void set_value_toggle(bool val) { value_toggle = val; };
+	void set_type_toggle(bool val) { type_toggle = val; };
 
 	void toggle();
 	bool is_acceptable(const MMGMessage *test) const;
@@ -55,6 +59,8 @@ private:
 	int note;
 	int value;
 	bool value_require;
+	bool value_toggle;
+	bool type_toggle;
 };
 
 using MMGSharedMessage = QSharedPointer<MMGMessage>;

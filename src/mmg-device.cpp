@@ -47,7 +47,6 @@ bool json_old_bindings(const QJsonObject &json, MMGDevice *parent)
 		} else {
 			binding->set_name(json["name"].toString());
 		}
-		binding->set_toggling(json["toggling"].toBool());
 		if (message_list.value(i)) {
 			*(binding->get_message()) = *(message_list[i]);
 		} else {

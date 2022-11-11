@@ -34,11 +34,9 @@ public:
 	void blog(int log_status, const QString &message) const;
 
 	const QString &get_name() const { return name; };
-	bool get_toggling() const { return toggling; };
 	bool get_enabled() const { return enabled; };
 
 	void set_name(const QString &val) { name = val; };
-	void set_toggling(bool val) { toggling = val; };
 	void set_enabled(bool val) { enabled = val; };
 
 	MMGMessage *const get_message() const { return message; };
@@ -54,7 +52,6 @@ public:
 
 private:
 	QString name;
-	bool toggling;
 	bool enabled;
 	MMGMessage *message;
 	MMGAction *action;

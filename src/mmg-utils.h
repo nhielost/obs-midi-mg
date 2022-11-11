@@ -41,14 +41,16 @@ public:
 	void set_range(double min, double max);
 	void set_step(double minor, double major);
 
+	double get_value() const { return internal_val; };
+	void set_value(double val);
+	void set_default_value(double val);
+
 	void set_use_time(bool time) { use_time = time; }
 
 	void down_major();
 	void down_minor();
 	void up_minor();
 	void up_major();
-	double get_value() const { return internal_val; };
-	void reset(double value = 0.0);
 
 	void display();
 
@@ -59,6 +61,8 @@ private:
 	double minimum = 0.0;
 	double minor_step = 1.0;
 	double major_step = 10.0;
+
+	double default_val = 0.0;
 	double internal_val = 0.0;
 
 	bool use_time = false;

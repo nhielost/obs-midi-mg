@@ -43,7 +43,7 @@ private:
 	void reject() override;
 	void connect_ui_signals();
 	void configure_lcd_widgets();
-	void switch_structure_pane(enum MMGModes mode);
+	void switch_structure_pane(int page);
 	void set_message_view();
 	void set_action_view();
 	void set_preferences_view();
@@ -63,7 +63,7 @@ private:
 	void set_double2(double value);
 	void set_double3(double value);
 	void set_double4(double value);
-	void add_widget_item() const;
+	void add_widget_item(const MMGBinding *binding) const;
 	void export_bindings();
 	void import_bindings();
 	void i_need_help() const;
@@ -76,7 +76,7 @@ private slots:
 	void on_message_type_change(const QString &type);
 	void on_message_listen_continuous(bool toggled);
 	void on_message_listen_once(bool toggled);
-	void on_message_value_button_change(bool toggled);
+	void on_message_value_button_change(int index);
 	void on_action_cat_change(int index);
 	void on_action_sub_change(int index);
 	void on_action_double1_select(int index);
