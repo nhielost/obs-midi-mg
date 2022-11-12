@@ -72,7 +72,7 @@ MMGAction::MMGAction(const QJsonObject &obj)
 
 	nums_state = obj["nums_state"].toInt();
 	for (int i = 0; i < 4; ++i) {
-		nums[i] = obj["num" + i].toDouble();
+		nums[i] = obj[QString::number(i + 1).prepend("num")].toDouble();
 		if (obj["nums_state"].isUndefined()) {
 			if (nums[i] == -1) {
 				set_num_state(i, 1);
@@ -963,6 +963,10 @@ void MMGAction::do_action_specific<MMGAction::Filters>(const MMGAction *params,
 			"<Filters> action failed - Filter in source does not exist.");
 		return;
 	}
+	OBSDataAutoRelease filter_data = obs_source_get_settings(obs_filter);
+	QJsonDocument doc =
+		QJsonDocument::fromJson(obs_data_get_json(filter_data));
+	QString s = obs_data_get_json(filter_data);
 	switch ((MMGAction::Filters)params->get_sub()) {
 	case MMGAction::Filters::FILTER_SHOW:
 		obs_source_set_enabled(obs_filter, true);
