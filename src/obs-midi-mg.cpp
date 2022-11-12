@@ -40,65 +40,63 @@ MMGMIDIOutputDevice output;
 
 void _blog(int log_status, const QString &message)
 {
-	QString temp_msg = "Main -> ";
-	temp_msg.append(message);
-	global_blog(log_status, temp_msg);
+  QString temp_msg = "Main -> ";
+  temp_msg.append(message);
+  global_blog(log_status, temp_msg);
 }
 
 bool obs_module_load(void)
 {
-	_blog(LOG_INFO, "Loading plugin...");
+  _blog(LOG_INFO, "Loading plugin...");
 
-	// Create the obs-midi-mg dir in plugin_config if it doesn't exist
-	auto *config_path = obs_module_config_path("");
-	if (!QDir(config_path).exists())
-		QDir().mkdir(config_path);
-	bfree(config_path);
+  // Create the obs-midi-mg dir in plugin_config if it doesn't exist
+  auto *config_path = obs_module_config_path("");
+  if (!QDir(config_path).exists())
+    QDir().mkdir(config_path);
+  bfree(config_path);
 
-	// Load the configuration
-	global_config.reset(new MMGConfig());
+  // Load the configuration
+  global_config.reset(new MMGConfig());
 
-	// Load the libremidi device objects
-	input.reset(new libremidi::midi_in());
-	output.reset(new libremidi::midi_out());
+  // Load the libremidi device objects
+  input.reset(new libremidi::midi_in());
+  output.reset(new libremidi::midi_out());
 
-	// Load any new devices and open the input port
-	global_config->load_new_devices();
+  // Load any new devices and open the input port
+  global_config->load_new_devices();
 
-	// Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
-	const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
-	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(
-		menu_action_text);
-	auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
-	_blog(LOG_INFO, "Loading plugin using the Echo style...");
-	echo_window = new MMGEchoWindow(mainWindow);
-	QObject::connect(menu_action, &QAction::triggered, echo_window,
-			 &MMGEchoWindow::show_window);
+  // Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
+  const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
+  auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(menu_action_text);
+  auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
+  _blog(LOG_INFO, "Loading plugin using the Echo style...");
+  echo_window = new MMGEchoWindow(mainWindow);
+  QObject::connect(menu_action, &QAction::triggered, echo_window, &MMGEchoWindow::show_window);
 
-	// Done
-	_blog(LOG_INFO, "Plugin loaded.");
-	return true;
+  // Done
+  _blog(LOG_INFO, "Plugin loaded.");
+  return true;
 }
 
 void obs_module_unload()
 {
-	global_config.reset();
-	input.reset();
-	output.reset();
-	_blog(LOG_INFO, "Plugin unloaded.");
+  global_config.reset();
+  input.reset();
+  output.reset();
+  _blog(LOG_INFO, "Plugin unloaded.");
 }
 
 Configuration global()
 {
-	return global_config;
+  return global_config;
 }
 
 MMGMIDIInputDevice input_device()
 {
-	return input;
+  return input;
 }
 
 MMGMIDIOutputDevice output_device()
 {
-	return output;
+  return output;
 }

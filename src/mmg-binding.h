@@ -21,42 +21,42 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGBinding {
-public:
-	explicit MMGBinding();
-	explicit MMGBinding(const QJsonObject &obj);
-	~MMGBinding()
-	{
-		delete message;
-		delete action;
-	};
+  public:
+  explicit MMGBinding();
+  explicit MMGBinding(const QJsonObject &obj);
+  ~MMGBinding()
+  {
+    delete message;
+    delete action;
+  };
 
-	void json(QJsonObject &binding_obj) const;
-	void blog(int log_status, const QString &message) const;
+  void json(QJsonObject &binding_obj) const;
+  void blog(int log_status, const QString &message) const;
 
-	const QString &get_name() const { return name; };
-	bool get_enabled() const { return enabled; };
+  const QString &get_name() const { return name; };
+  bool get_enabled() const { return enabled; };
 
-	void set_name(const QString &val) { name = val; };
-	void set_enabled(bool val) { enabled = val; };
+  void set_name(const QString &val) { name = val; };
+  void set_enabled(bool val) { enabled = val; };
 
-	MMGMessage *const get_message() const { return message; };
-	MMGAction *const get_action() const { return action; };
+  MMGMessage *const get_message() const { return message; };
+  MMGAction *const get_action() const { return action; };
 
-	void deep_copy(MMGBinding *dest);
-	void do_action(const MMGSharedMessage &el);
-	void reset_execution() { action->reset_execution(); };
+  void deep_copy(MMGBinding *dest);
+  void do_action(const MMGSharedMessage &el);
+  void reset_execution() { action->reset_execution(); };
 
-	static qulonglong get_next_default() { return next_default; };
-	static void set_next_default(qulonglong num) { next_default = num; };
-	static QString get_next_default_name();
+  static qulonglong get_next_default() { return next_default; };
+  static void set_next_default(qulonglong num) { next_default = num; };
+  static QString get_next_default_name();
 
-private:
-	QString name;
-	bool enabled;
-	MMGMessage *message;
-	MMGAction *action;
+  private:
+  QString name;
+  bool enabled;
+  MMGMessage *message;
+  MMGAction *action;
 
-	static qulonglong next_default;
+  static qulonglong next_default;
 };
 
 using MMGBindingList = QList<MMGBinding *>;

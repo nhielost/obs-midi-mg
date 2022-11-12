@@ -44,11 +44,11 @@ BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakStringLiterals: false  # apparently unpredictable
-ColumnLimit: 80
+ColumnLimit: 100
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-ConstructorInitializerIndentWidth: 8
-ContinuationIndentWidth: 8
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
 Cpp11BracedListStyle: true
 DerivePointerAlignment: false
 DisableFormat: false
@@ -60,13 +60,13 @@ ForEachMacros:
 IncludeBlocks: Preserve
 IndentCaseLabels: false
 IndentPPDirectives: None
-IndentWidth: 8
+IndentWidth: 2
 IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: true
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 #ObjCBinPackProtocolList: Auto  # requires clang-format 7
-ObjCBlockIndentWidth: 8
+ObjCBlockIndentWidth: 2
 ObjCSpaceAfterProperty: true
 ObjCSpaceBeforeProtocolList: true
 

@@ -19,56 +19,49 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-device.h"
 
 struct MMGSettings {
-public:
-	MMGSettings() = default;
-	explicit MMGSettings(const QJsonObject &settings_obj);
-	void json(QJsonObject &settings_obj) const;
+  public:
+  MMGSettings() = default;
+  explicit MMGSettings(const QJsonObject &settings_obj);
+  void json(QJsonObject &settings_obj) const;
 
-	bool get_active() const { return active; };
-	void set_active(bool is_active);
+  bool get_active() const { return active; };
+  void set_active(bool is_active);
 
-private:
-	bool active = true;
+  private:
+  bool active = true;
 };
 
 class MMGConfig {
-public:
-	MMGConfig() { load(); };
-	~MMGConfig() { clear(); };
+  public:
+  MMGConfig() { load(); };
+  ~MMGConfig() { clear(); };
 
-	void blog(int log_status, const QString &message) const;
+  void blog(int log_status, const QString &message) const;
 
-	void load(const QString &path_str = QString());
-	void save(const QString &path_str = QString()) const;
-	void clear();
-	void load_new_devices();
-	const QString &get_active_device_name() { return active_device_name; };
-	void set_active_device_name(const QString &name);
-	MMGDevice *find_device(const QString &name);
-	MMGDevice *find_current_device()
-	{
-		return find_device(active_device_name);
-	};
-	const QStringList get_device_names() const;
-	MMGSettings &preferences() { return settings; };
+  void load(const QString &path_str = QString());
+  void save(const QString &path_str = QString()) const;
+  void clear();
+  void load_new_devices();
+  const QString &get_active_device_name() { return active_device_name; };
+  void set_active_device_name(const QString &name);
+  MMGDevice *find_device(const QString &name);
+  MMGDevice *find_current_device() { return find_device(active_device_name); };
+  const QStringList get_device_names() const;
+  MMGSettings &preferences() { return settings; };
 
-	static QString get_filepath();
-	static void
-	set_listening_callback(std::function<void(MMGMessage *)> callback)
-	{
-		cb = callback;
-	};
-	static void set_listening(bool value) { listening = value; };
-	static bool is_listening(MMGMessage *incoming);
+  static QString get_filepath();
+  static void set_listening_callback(std::function<void(MMGMessage *)> callback) { cb = callback; };
+  static void set_listening(bool value) { listening = value; };
+  static bool is_listening(MMGMessage *incoming);
 
-private:
-	MMGDevices devices;
-	MMGSettings settings;
-	QString active_device_name = "";
+  private:
+  MMGDevices devices;
+  MMGSettings settings;
+  QString active_device_name = "";
 
-	void check_device_default_names();
+  void check_device_default_names();
 
-	static bool listening;
-	static std::function<void(MMGMessage *)> cb;
+  static bool listening;
+  static std::function<void(MMGMessage *)> cb;
 };
 Q_DECLARE_METATYPE(MMGConfig);

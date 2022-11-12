@@ -32,46 +32,45 @@ void global_blog(int log_status, const QString &message);
 namespace MMGUtils {
 
 class LCDData {
-public:
-	LCDData() = default;
-	explicit LCDData(QLCDNumber *lcd_ptr);
+  public:
+  LCDData() = default;
+  explicit LCDData(QLCDNumber *lcd_ptr);
 
-	double get_minor_step() const { return minor_step; }
-	double get_major_step() const { return major_step; }
-	void set_range(double min, double max);
-	void set_step(double minor, double major);
+  double get_minor_step() const { return minor_step; }
+  double get_major_step() const { return major_step; }
+  void set_range(double min, double max);
+  void set_step(double minor, double major);
 
-	double get_value() const { return internal_val; };
-	void set_value(double val);
-	void set_default_value(double val);
+  double get_value() const { return internal_val; };
+  void set_value(double val);
+  void set_default_value(double val);
 
-	void set_use_time(bool time) { use_time = time; }
+  void set_use_time(bool time) { use_time = time; }
 
-	void down_major();
-	void down_minor();
-	void up_minor();
-	void up_major();
+  void down_major();
+  void down_minor();
+  void up_minor();
+  void up_major();
 
-	void display();
+  void display();
 
-private:
-	QLCDNumber *lcd = nullptr;
+  private:
+  QLCDNumber *lcd = nullptr;
 
-	double maximum = 100.0;
-	double minimum = 0.0;
-	double minor_step = 1.0;
-	double major_step = 10.0;
+  double maximum = 100.0;
+  double minimum = 0.0;
+  double minor_step = 1.0;
+  double major_step = 10.0;
 
-	double default_val = 0.0;
-	double internal_val = 0.0;
+  double default_val = 0.0;
+  double internal_val = 0.0;
 
-	bool use_time = false;
+  bool use_time = false;
 };
 
 void call_midi_callback(const libremidi::message &message);
 
-bool json_key_exists(const QJsonObject &obj, QString key,
-		     QJsonValue::Type value_type);
+bool json_key_exists(const QJsonObject &obj, QString key, QJsonValue::Type value_type);
 bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type);
 
 bool bool_from_str(const QString &str);
