@@ -17,27 +17,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #pragma once
-#include <memory>
+#include "mmg-action.h"
 
-#include <QObject>
+MMGUtils::MMGString MMGAction::empty_str{};
+MMGUtils::MMGNumber MMGAction::empty_num{};
 
-#include <obs.hpp>
-
-#include <libremidi/libremidi.hpp>
-
-#include "plugin-macros.generated.h"
-
-class MMGConfig;
-class MMGEchoWindow;
-
-using Configuration = QSharedPointer<MMGConfig>;
-Configuration global();
-
-using MMGMIDIInputDevice = QSharedPointer<libremidi::midi_in>;
-using MMGMIDIOutputDevice = QSharedPointer<libremidi::midi_out>;
-MMGMIDIInputDevice input_device();
-MMGMIDIOutputDevice output_device();
-
-#define OBS_MIDIMG_VERSION "v" PLUGIN_VERSION
-#define qtocs() toUtf8().constData()
-#define mmgtocs() str().qtocs()
+void MMGAction::blog(int log_status, const QString &message) const
+{
+  global_blog(log_status, "Actions -> " + message);
+};

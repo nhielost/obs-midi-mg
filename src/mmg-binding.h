@@ -18,7 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include "mmg-message.h"
-#include "mmg-action.h"
+#include "actions/mmg-action.h"
 
 class MMGBinding {
   public:
@@ -42,6 +42,8 @@ class MMGBinding {
   MMGMessage *const get_message() const { return message; };
   MMGAction *const get_action() const { return action; };
 
+  void set_action_type(int index);
+  void set_action_type(const QJsonObject &json_obj);
   void deep_copy(MMGBinding *dest);
   void do_action(const MMGSharedMessage &el);
   void reset_execution() { action->reset_execution(); };

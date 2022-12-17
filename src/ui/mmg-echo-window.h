@@ -15,7 +15,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "ui_mmg-echo-window.h"
 #include "../mmg-utils.h"
+#include "mmg-fields.h"
 #include "../mmg-device.h"
+
+#define IF_ACTION_ENABLED if (!action_display_params.initializing)
 
 class MMGEchoWindow : public QDialog {
   Q_OBJECT
@@ -35,6 +38,9 @@ class MMGEchoWindow : public QDialog {
   MMGUtils::LCDData lcd_double3;
   MMGUtils::LCDData lcd_double4;
 
+  QList<MMGFields *> field_groups;
+  MMGUtils::MMGActionDisplayParams action_display_params;
+
   MMGDevice *current_device = nullptr;
   MMGBinding *current_binding = nullptr;
   MMGMessage *current_message = nullptr;
@@ -42,25 +48,29 @@ class MMGEchoWindow : public QDialog {
 
   void reject() override;
   void connect_ui_signals();
-  void configure_lcd_widgets();
   void switch_structure_pane(int page);
   void set_message_view();
   void set_action_view();
   void set_preferences_view();
-  void set_strs_visible(bool str1 = false, bool str2 = false, bool str3 = false) const;
-  void set_doubles_visible(bool double1 = false, bool double2 = false, bool double3 = false,
-			   bool double4 = false) const;
-  void set_sub_options(std::initializer_list<QString> list) const;
-  void set_channel(double value);
-  void set_note(double value);
-  void set_value(double value);
-  void set_str1(const QString &value);
-  void set_str2(const QString &value);
-  void set_str3(const QString &value);
-  void set_double1(double value);
-  void set_double2(double value);
-  void set_double3(double value);
-  void set_double4(double value);
+  void change_sub_options();
+  void set_channel(double value) { current_message->channel() = value; }
+  void set_note(double value)
+  {
+    (ui->lcd_value->isVisible() ? current_message->note() : current_message->value()) = value;
+  };
+  void set_value(double value) { current_message->value() = value; };
+  void set_str1(const QString &value) { IF_ACTION_ENABLED current_action->str1() = value; };
+  void set_str2(const QString &value) { IF_ACTION_ENABLED current_action->str2() = value; };
+  void set_str3(const QString &value) { IF_ACTION_ENABLED current_action->str3() = value; };
+  void set_double1(double value) { IF_ACTION_ENABLED current_action->num1() = value; };
+  void set_double2(double value) { IF_ACTION_ENABLED current_action->num2() = value; };
+  void set_double3(double value) { IF_ACTION_ENABLED current_action->num3() = value; };
+  void set_double4(double value) { IF_ACTION_ENABLED current_action->num4() = value; };
+  void display_action_fields();
+  void change_str1_options(const QString &value);
+  void change_str2_options(const QString &value);
+  void change_str3_options(const QString &value);
+  void change_action_secondary();
   void add_widget_item(const MMGBinding *binding) const;
   void export_bindings();
   void import_bindings();
@@ -77,10 +87,6 @@ class MMGEchoWindow : public QDialog {
   void on_message_value_button_change(int index);
   void on_action_cat_change(int index);
   void on_action_sub_change(int index);
-  void on_action_double1_select(int index);
-  void on_action_double2_select(int index);
-  void on_action_double3_select(int index);
-  void on_action_double4_select(int index);
   void on_active_change(bool toggle);
   void on_preferences_click(bool toggle);
   void on_transfer_mode_change(short index);
@@ -92,4 +98,6 @@ class MMGEchoWindow : public QDialog {
   void on_remove_click();
   void on_list_selection_change(QListWidgetItem *widget_item);
   void on_list_widget_state_change(QListWidgetItem *widget_item);
+  void on_binding_drag(const QModelIndex &parent, int start, int end, const QModelIndex &dest,
+		       int row) const;
 };

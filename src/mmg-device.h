@@ -36,6 +36,7 @@ class MMGDevice {
 
   MMGBinding *add(MMGBinding *const el = new MMGBinding);
   MMGBinding *copy(MMGBinding *const el);
+  void move(int from, int to);
   void remove(MMGBinding *const el);
   MMGBinding *find_binding(const QString &name);
   int index_of(MMGBinding *const el);

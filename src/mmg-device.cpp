@@ -20,8 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 bool json_old_bindings(const QJsonObject &json, MMGDevice *parent)
 {
-  if (json.isEmpty())
-    return false;
+  if (json.isEmpty()) return false;
 
   QList<MMGMessage *> message_list;
   QList<MMGAction *> action_list;
@@ -33,12 +32,13 @@ bool json_old_bindings(const QJsonObject &json, MMGDevice *parent)
   }
   if (MMGUtils::json_key_exists(json, "actions", QJsonValue::Array)) {
     for (QJsonValue val : json["actions"].toArray()) {
-      action_list.append(new MMGAction(val.toObject()));
+      json["action"] = val.toObject();
+      MMGBinding temp_binding(json);
+      action_list.append(temp_binding.get_action());
     }
   }
 
-  if (action_list.isEmpty())
-    return false;
+  if (action_list.isEmpty()) return false;
 
   for (qlonglong i = 0; i < action_list.size(); ++i) {
     MMGBinding *binding = parent->add();
@@ -63,13 +63,11 @@ qulonglong MMGDevice::next_default = 0;
 MMGDevice::MMGDevice(const QJsonObject &data)
 {
   name = data["name"].toString();
-  if (name.isEmpty())
-    name = get_next_default_name();
+  if (name.isEmpty()) name = get_next_default_name();
   if (MMGUtils::json_key_exists(data, "bindings", QJsonValue::Array)) {
     QJsonArray arr = data["bindings"].toArray();
     for (QJsonValue json_binding : arr) {
-      if (json_old_bindings(json_binding.toObject(), this))
-	continue;
+      if (json_old_bindings(json_binding.toObject(), this)) continue;
       if (MMGUtils::json_is_valid(json_binding, QJsonValue::Object)) {
 	add(new MMGBinding(json_binding.toObject()));
       }
@@ -104,11 +102,10 @@ QString MMGDevice::get_next_default_name()
 void MMGDevice::check_binding_default_names()
 {
   for (const MMGBinding *binding : bindings) {
-    if (binding->get_name().startsWith("Untitled Binding ")) {
+    if (binding->get_name().contains("Untitled Binding ")) {
       QString name = binding->get_name();
-      qulonglong num = QVariant(name.remove("Untitled Binding ")).toULongLong();
-      if (num > MMGBinding::get_next_default())
-	MMGBinding::set_next_default(num);
+      qulonglong num = QVariant(name.split("Untitled Binding ").last()).toULongLong();
+      if (num > MMGBinding::get_next_default()) MMGBinding::set_next_default(num);
     }
   }
 }
@@ -123,8 +120,14 @@ MMGBinding *MMGDevice::copy(MMGBinding *const el)
 {
   MMGBinding *new_binding = add();
   el->deep_copy(new_binding);
-  new_binding->set_name("(Copy of " + el->get_name() + ") " + MMGBinding::get_next_default_name());
+  new_binding->set_name("(Copy of " + el->get_name() + ") " + new_binding->get_name());
   return new_binding;
+}
+
+void MMGDevice::move(int from, int to)
+{
+  if (from >= size()) return;
+  to == size() ? bindings.append(bindings.takeAt(from)) : bindings.move(from, to);
 }
 
 void MMGDevice::remove(MMGBinding *const el)
@@ -137,8 +140,7 @@ int MMGDevice::index_of(MMGBinding *const el)
   int i = -1;
   for (MMGBinding *const binding : bindings) {
     ++i;
-    if (binding == el)
-      return i;
+    if (binding == el) return i;
   }
   return -1;
 }
@@ -151,19 +153,16 @@ int MMGDevice::size() const
 MMGBinding *MMGDevice::find_binding(const QString &name)
 {
   for (MMGBinding *const el : bindings) {
-    if (el->get_name() == name)
-      return el;
+    if (el->get_name() == name) return el;
   }
   return nullptr;
 }
 
 void MMGDevice::open_input_port(MMGDevice *device)
 {
-  if (!device)
-    return;
+  if (!device) return;
 
-  if (input_port_open())
-    close_input_port();
+  if (input_port_open()) close_input_port();
 
   device->blog(LOG_INFO, "Opening input port...");
 
@@ -187,11 +186,9 @@ void MMGDevice::open_input_port(MMGDevice *device)
 
 void MMGDevice::open_output_port(MMGDevice *device)
 {
-  if (!device)
-    return;
+  if (!device) return;
 
-  if (output_port_open())
-    close_output_port();
+  if (output_port_open()) close_output_port();
 
   device->blog(LOG_INFO, "Opening output port...");
 

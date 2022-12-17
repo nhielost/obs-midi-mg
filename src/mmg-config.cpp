@@ -41,8 +41,7 @@ void MMGSettings::json(QJsonObject &settings_obj) const
 void MMGSettings::set_active(bool is_active)
 {
   active = is_active;
-  if (!global())
-    return;
+  if (!global()) return;
   if (!active)
     MMGDevice::close_input_port();
   else
@@ -65,8 +64,7 @@ void MMGConfig::check_device_default_names()
     if (device->get_name().startsWith("Untitled Device ")) {
       QString name = device->get_name();
       qulonglong num = QVariant(name.remove("Untitled Device ")).toULongLong();
-      if (num > MMGDevice::get_next_default())
-	MMGDevice::set_next_default(num);
+      if (num > MMGDevice::get_next_default()) MMGDevice::set_next_default(num);
     }
   }
 }
@@ -102,8 +100,7 @@ void MMGConfig::load(const QString &path_str)
     blog(LOG_INFO, "Configuration file data loaded. Extracting...");
   }
 
-  if (!devices.isEmpty())
-    clear();
+  if (!devices.isEmpty()) clear();
 
   if (json_key_exists(doc.object(), "config", QJsonValue::Array)) {
     // JSON file found, introduce devices from the file (even if nonexistent)
@@ -151,7 +148,7 @@ void MMGConfig::save(const QString &path_str) const
   auto default_path = obs_module_config_path(get_filepath().qtocs());
   QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
   file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
-  qlonglong result = file.write(QJsonDocument(config_obj).toJson(QJsonDocument::Compact));
+  qlonglong result = file.write(json_to_str(config_obj));
   if (result < 0) {
     blog(LOG_INFO, "Configuration unable to be saved. Reason: ");
     blog(LOG_INFO, file.errorString());
@@ -203,19 +200,15 @@ void MMGConfig::load_new_devices()
 
 void MMGConfig::set_active_device_name(const QString &name)
 {
-  if (active_device_name == name)
-    return;
+  if (active_device_name == name) return;
   active_device_name = name;
-  if (settings.get_active())
-    MMGDevice::open_input_port(find_current_device());
+  if (settings.get_active()) MMGDevice::open_input_port(find_current_device());
 }
 
 MMGDevice *MMGConfig::find_device(const QString &name)
 {
   for (MMGDevice *const device : devices) {
-    if (device->get_name() == name) {
-      return device;
-    }
+    if (device->get_name() == name) return device;
   }
   return nullptr;
 }

@@ -29,21 +29,14 @@ class MMGMessage {
   void json(QJsonObject &message_obj) const;
   void blog(int log_status, const QString &message) const;
 
-  const QString &get_type() const { return type; };
-  int get_channel() const { return channel; };
-  int get_note() const { return note; };
-  int get_value() const { return value; };
-  bool get_value_required() const { return value_require; };
-  bool get_value_toggle() const { return value_toggle; }
-  bool get_type_toggle() const { return type_toggle; }
-
-  void set_type(const QString &val) { type = val; };
-  void set_channel(int val) { channel = val; };
-  void set_note(int val) { note = val; };
-  void set_value(int val) { value = val; };
-  void set_value_required(bool val) { value_require = val; };
-  void set_value_toggle(bool val) { value_toggle = val; };
-  void set_type_toggle(bool val) { type_toggle = val; };
+  MMGUtils::MMGString &type() { return _type; };
+  const MMGUtils::MMGString &type() const { return _type; };
+  MMGUtils::MMGNumber &channel() { return _channel; };
+  const MMGUtils::MMGNumber &channel() const { return _channel; };
+  MMGUtils::MMGNumber &note() { return _note; };
+  const MMGUtils::MMGNumber &note() const { return _note; };
+  MMGUtils::MMGNumber &value() { return _value; };
+  const MMGUtils::MMGNumber &value() const { return _value; };
 
   void toggle();
   bool is_acceptable(const MMGMessage *test) const;
@@ -54,13 +47,10 @@ class MMGMessage {
   static int get_midi_value(const libremidi::message &mess);
 
   private:
-  int channel;
-  QString type;
-  int note;
-  int value;
-  bool value_require;
-  bool value_toggle;
-  bool type_toggle;
+  MMGUtils::MMGNumber _channel;
+  MMGUtils::MMGString _type;
+  MMGUtils::MMGNumber _note;
+  MMGUtils::MMGNumber _value;
 };
 
 using MMGSharedMessage = QSharedPointer<MMGMessage>;

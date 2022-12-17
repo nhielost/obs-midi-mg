@@ -51,8 +51,7 @@ bool obs_module_load(void)
 
   // Create the obs-midi-mg dir in plugin_config if it doesn't exist
   auto *config_path = obs_module_config_path("");
-  if (!QDir(config_path).exists())
-    QDir().mkdir(config_path);
+  if (!QDir(config_path).exists()) QDir().mkdir(config_path);
   bfree(config_path);
 
   // Load the configuration

@@ -48,7 +48,7 @@ The device that is selected in the *Active Device* field is the device that is c
 
 Bindings associated with the current active device are listed in the top left corner. To edit them, select the binding name in the list. The message and the action will appear on the right. To change the binding's name, double click it in the list and change the name.
 
-Bindings can now be duplicated. To do this, click a binding, then click *Copy Binding*. A new binding should appear in the list with the same values as the one selected.
+To duplicate bindings, click a binding, then click *Copy Binding*. A new binding should appear in the list with the same values as the one selected.
 
 ### Preferences
 
@@ -74,11 +74,15 @@ If the type is set to *Note On / Note Off*, the message will toggle to the other
 
 Actions are composed of a category, subcategory and other fields. These fields are changed dynamically when the categories and subcategories are changed. 
 
-In addition, some of the fields can use the message value field as their value. The list fields use this by an option called *Use Message Value*, while the number fields can be changed to *0-127*. In *0-127* mode, the action will use the message value according to the action specification (see below for specifics).
+In addition, some of the fields can use the message value field as their value. The list fields use this by an option called *Use Message Value*, while the number fields can be changed to *0-127*. In *0-127* mode, the plugin will use the message value according to the action specification (see below).
 
 When a number field is in *Fixed* mode, the plugin will use the value that is displayed in the number field for that action. 
 
-For some actions, a new *Ignore* mode is present in number fields. In this mode, the plugin will ignore the value in that field while setting other values in other fields. This is the most useful when having to set two values (e.g. Move Source or Source Scale), but only one needs to change.
+For some actions, an *Ignore* mode and a *127-0* mode are present in number fields.
+
+In *Ignore* mode, the plugin will ignore the value in that field while setting other values in other fields. This is the most useful when having to set two values (e.g. Move Source or Source Scale), but only one needs to change.
+
+In *127-0* mode, plugin will use the message value according to the action specification, but in reverse. This is most useful with actions like Rotate Source where rotating the opposite direction is desired.
 
 ----------------------------------------------------
 
@@ -207,9 +211,9 @@ All Media Sources actions contain these list fields in addition to the fields li
 | Subcategory | Description | List Fields | Number Fields |
 |---|---|---|---|
 | Change Current Transition | Sets the current transition. | **TRANSITION**: The name of the transition to use. | **DURATION <sub>[7](#using-the-message-value)</sub>**: The duration of the transition selected. If a value of 0 is used, the plugin will use the current transition duration. |
-| Set Transition Bar (Studio Mode) | Sets the transition bar position.<br>Fails if not in Studio Mode.<br>*COMING SOON!* | *N/A* | **POSITION <sub>[5](#using-the-message-value)</sub>**: The percent transitioned by the transition bar. |
 | Set Source Show Transition | Sets the transition that will be used when a source becomes shown. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[6](#using-the-message-value)</sub>**: The duration of the transition selected. |
 | Set Source Hide Transition | Sets the transition that will be used when a source becomes hidden. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[6](#using-the-message-value)</sub>**: The duration of the transition selected. |
+| Set Transition Bar (Studio Mode) | Sets the transition bar position.<br>Fails if not in Studio Mode. | *N/A* | **POSITION <sub>[5](#using-the-message-value)</sub>**: The percent transitioned by the transition bar. |
 
 ### Filters
 
@@ -226,13 +230,13 @@ All Filters actions contain these list fields in addition to the fields listed i
 | Hide Filter | Hides a filter on a specified source. | *N/A* | *N/A* |
 | Toggle Filter Display | Shows a filter on a specified source if it is hidden, hides it otherwise. | *N/A* | *N/A* |
 | Reorder Filter Appearance | Moves filter up and down the list on a specified source. | *N/A* | **POSITION <sub>[1,7](#using-the-message-value)</sub>**: The new position of the filter in the list. |
-| Change Custom Properties | Changes custom properties of a filter.<br>*COMING SOON!* | **PROPERTIES**: The properties to change in the filter. | *N/A* |
+| Custom Filter Settings | Changes custom properties of a filter. | *N/A* | *N/A* |
 
 ### Hotkeys
 
 | Subcategory | Description | List Fields | Number Fields |
 |---|---|---|---|
-| Activate Hotkey | Activates a custom hotkey. | **HOTKEY**: The name of the hotkey to activate. | *N/A* |
+| Activate Predefined Hotkey | Activates a hotkey. | **GROUP**: The category of hotkeys as found in the Hotkeys settings menu.<br>**HOTKEY**: The name of the hotkey to activate. | *N/A* |
 
 ### Profiles
 
@@ -250,7 +254,7 @@ All Filters actions contain these list fields in addition to the fields listed i
 
 | Subcategory | Description | List Fields | Number Fields |
 |---|---|---|---|
-| Send a MIDI Message | Sends the specified MIDI message to the specified MIDI device. | **DEVICE**: The name of the device to send  the message to.<br>**TYPE**: The message type. | **CHANNEL**: The message channel.<br>**DATA 1 <sub>[8](#using-the-message-value)</sub>**: The message note / control / program / pitch.<br>**DATA 2 <sub>[7](#using-the-message-value)</sub>**: The message value / velocity. |
+| Send a MIDI Message | Sends the specified MIDI message to the specified MIDI device. <sub>[8](#using-the-message-value)</sub> | **DEVICE**: The name of the device to send  the message to.<br>**TYPE**: The message type. | **CHANNEL**: The message channel.<br>**DATA 1**: The message note / control / program / pitch.<br>**DATA 2**: The message value / velocity. |
 
 ### Internal
 
@@ -295,7 +299,7 @@ If any fields are marked with a subscript listed below, they are eligible to be 
 
 <sub>**[7](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message value/velocity will correspond exactly to the value provided. A value of 0 corresponds to 0, and a value of 127 corresponds to 127.
 
-<sub>**[8](#using-the-message-value)**</sub> When using this field in *0-127* mode, an incoming message note/control/program/pitch bend will correspond exactly to the value provided. A value of 0 corresponds to 0, and a value of 127 corresponds to 127.
+<sub>**[8](#using-the-message-value)**</sub> When using the MIDI action, all Use Message Value options will correspond directly to the sent MIDI message values, including the message type.
 
 ----------------------------------------------------
 
