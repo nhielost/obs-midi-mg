@@ -563,7 +563,7 @@ else()
     set(OBS_PLUGIN64_DESTINATION "obs-plugins/64bit")
 
     set(OBS_DATA_DESTINATION "data")
-    
+
     if(MSVC)
       # Set default Visual Studio CL.exe compile options.
       #
@@ -618,7 +618,7 @@ else()
         "$<$<CONFIG:DEBUG>:LINKER\:/INCREMENTAL\:NO>"
         "$<$<CONFIG:RELWITHDEBINFO>:LINKER\:/INCREMENTAL\:NO;/OPT\:ICF>")
     endif()
-    
+
   endif()
 
   # Helper function for plugin targets (Windows and Linux version)
