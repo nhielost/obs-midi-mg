@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-midi.h"
 #include "../mmg-config.h"
+#include "../mmg-midiout.h"
 
 using namespace MMGUtils;
 
@@ -40,113 +41,139 @@ void MMGActionMIDI::blog(int log_status, const QString &message) const
 
 void MMGActionMIDI::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
+  MMGAction::json(json_obj);
+
   device.json(json_obj, "device", false);
-  type.json(json_obj, "type", true);
-  channel.json(json_obj, "channel", true);
-  note.json(json_obj, "note", true);
-  value.json(json_obj, "value", true);
+  type.json(json_obj, "type");
+  channel.json(json_obj, "channel");
+  note.json(json_obj, "note");
+  value.json(json_obj, "value");
 }
 
-void MMGActionMIDI::do_action(const MMGMessage *midi)
+void MMGActionMIDI::execute(const MMGMessage *midi) const
 {
-  if (get_sub() == 0) {
-    MMGDevice *const output = global()->find_device(device);
+  if (sub() == 0) {
+    MMGDevice *output = global()->find(device);
     if (!output) {
       blog(LOG_INFO, "FAILED: Output device is not connected or does not exist.");
       return;
     }
-    libremidi::message msg;
-    QString _type = type.state() == MMGString::STRINGSTATE_MIDI ? midi->type() : type;
-    int _channel = channel.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->channel() : channel;
-    int _note = note.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->note() : note;
-    int _value = value.choose(midi);
-    if (_type == "Note On") {
-      msg = libremidi::message::note_on(_channel, _note, _value);
-    } else if (_type == "Note Off") {
-      msg = libremidi::message::note_off(_channel, _note, _value);
-    } else if (_type == "Control Change") {
-      msg = libremidi::message::control_change(_channel, _note, _value);
-    } else if (_type == "Program Change") {
-      msg = libremidi::message::program_change(_channel, _value);
-    } else if (_type == "Pitch Bend") {
-      msg = libremidi::message::pitch_bend(_channel, (_value <= 64 ? 0 : _value - 64) * 2, _value);
-    } else {
-      msg = libremidi::message();
-    }
-    if (!MMGDevice::output_port_open()) MMGDevice::open_output_port(output);
-    output->output_send(msg);
-    MMGDevice::close_output_port();
+
+    MMGMessage msg;
+    msg.type()->set_str(type.state() == MMGString::STRINGSTATE_MIDI ? midi->type() : type);
+    msg.channel()->set_num(channel.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->channel()
+									  : channel);
+    msg.note()->set_num(note.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->note() : note);
+    msg.value()->set_num(value.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->value() : value);
+
+    if (!output_device()->isOutputPortOpen()) output_device()->openOutputPort(output);
+    output_device()->sendMessage(&msg);
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionMIDI::deep_copy(MMGAction *dest) const
+void MMGActionMIDI::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  device.copy(&dest->str1());
-  type.copy(&dest->str2());
-  channel.copy(&dest->num1());
-  note.copy(&dest->num2());
-  value.copy(&dest->num3());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionMIDI *>(dest);
+  if (!casted) return;
+
+  casted->device = device.copy();
+  casted->type = type.copy();
+  casted->channel = channel.copy();
+  casted->note = note.copy();
+  casted->value = value.copy();
 }
 
-void MMGActionMIDI::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionMIDI::setEditable(bool edit)
 {
-  val.list = {"Send Single Message"};
+  device.set_edit(edit);
+  type.set_edit(edit);
+  channel.set_edit(edit);
+  note.set_edit(edit);
+  value.set_edit(edit);
 }
-void MMGActionMIDI::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionMIDI::createDisplay(QWidget *parent)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Output Device";
-  val.list = MMGDevice::get_output_device_names();
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&device);
+  _display->setStr2Storage(&type);
+
+  MMGNumberDisplay *channel_display = new MMGNumberDisplay(_display->numberDisplays());
+  channel_display->setStorage(&channel, true);
+  _display->numberDisplays()->add(channel_display);
+  MMGNumberDisplay *note_display = new MMGNumberDisplay(_display->numberDisplays());
+  note_display->setStorage(&note, true);
+  _display->numberDisplays()->add(note_display);
+  MMGNumberDisplay *value_display = new MMGNumberDisplay(_display->numberDisplays());
+  value_display->setStorage(&value, true);
+  _display->numberDisplays()->add(value_display);
+
+  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
+  _display->connect(_display, &MMGActionDisplay::str2Changed, [&]() { setList2Config(); });
 }
-void MMGActionMIDI::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionMIDI::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR2;
-  val.label_text = "Message Type";
-  val.list = {"Note On",        "Note Off",   "Control Change",
-	      "Program Change", "Pitch Bend", "Use Message Type"};
+  sub->addItem("Send Single Message");
 }
-void MMGActionMIDI::change_options_str3(MMGActionDisplayParams &val)
+
+void MMGActionMIDI::setSubConfig()
 {
-  val.label_lcds[0] = "Channel";
-  val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_MIDI;
-  val.lcds[0]->set_range(1.0, 16.0);
-  val.lcds[0]->set_step(1.0, 5.0);
-  val.lcds[0]->set_default_value(1.0);
+  _display->setStr1Visible(false);
+  _display->setStr2Visible(false);
+  _display->setStr3Visible(false);
 
-  val.combo_display[1] = MMGActionDisplayParams::COMBODISPLAY_MIDI;
-  val.lcds[1]->set_range(0.0, 127.0);
-  val.lcds[1]->set_step(1.0, 10.0);
-  val.lcds[1]->set_default_value(0.0);
-
-  val.combo_display[2] = MMGActionDisplayParams::COMBODISPLAY_MIDI;
-  val.lcds[2]->set_range(0.0, 127.0);
-  val.lcds[2]->set_step(1.0, 10.0);
-  val.lcds[2]->set_default_value(0.0);
-
-  type.set_state(type == "Use Message Type" ? MMGString::STRINGSTATE_MIDI
-					    : MMGString::STRINGSTATE_FIXED);
-
-  QString actual_type = type.state() > 0 ? val.extra_data : type;
-  val.display &= ~MMGActionDisplayParams::DISPLAY_NUM3;
-  if (actual_type.contains("Note")) {
-    val.display |= MMGActionDisplayParams::DISPLAY_NUM3;
-    val.label_lcds[1] = "Note #";
-    val.label_lcds[2] = "Velocity";
-  } else if (actual_type == "Control Change") {
-    val.display |= MMGActionDisplayParams::DISPLAY_NUM3;
-    val.label_lcds[1] = "Control #";
-    val.label_lcds[2] = "Value";
-  } else if (actual_type == "Program Change") {
-    val.display |= MMGActionDisplayParams::DISPLAY_NUM2;
-    val.label_lcds[1] = "Program #";
-  } else if (actual_type == "Pitch Bend") {
-    val.display |= MMGActionDisplayParams::DISPLAY_NUM2;
-    val.label_lcds[1] = "Pitch Adjust";
-  }
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Output Device");
+  _display->setStr1Options(output_device()->outputDeviceNames());
 }
-void MMGActionMIDI::change_options_final(MMGActionDisplayParams &val) {}
+
+void MMGActionMIDI::setList1Config()
+{
+  _display->setStr2Visible(true);
+  _display->setStr2Description("Message Type");
+  _display->setStr2Options(
+    {"Note On", "Note Off", "Control Change", "Program Change", "Pitch Bend", "Use Message Type"});
+}
+
+void MMGActionMIDI::setList2Config()
+{
+  MMGNumberDisplay *channel_display = _display->numberDisplays()->fieldAt(0);
+  MMGNumberDisplay *note_display = _display->numberDisplays()->fieldAt(1);
+  MMGNumberDisplay *value_display = _display->numberDisplays()->fieldAt(2);
+
+  channel_display->setDescription("Channel");
+  channel_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
+  channel_display->setBounds(1.0, 16.0);
+  channel_display->setStep(1.0);
+  channel_display->setDefaultValue(1.0);
+
+  note_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
+  note_display->setBounds(0.0, 127.0);
+  note_display->setStep(1.0);
+  note_display->setDefaultValue(0.0);
+
+  value_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
+  value_display->setBounds(0.0, 127.0);
+  value_display->setStep(1.0);
+  value_display->setDefaultValue(0.0);
+
+  type.set_state(type == "Use Message Type");
+
+  setLabels();
+}
+
+void MMGActionMIDI::setLabels()
+{
+  if (!_display) return;
+
+  MMGNumberDisplay *note_display = _display->numberDisplays()->fieldAt(1);
+  MMGNumberDisplay *value_display = _display->numberDisplays()->fieldAt(2);
+
+  set_message_labels(type.state() ? _display->parentBinding()->message()->type() : type,
+		     note_display, value_display);
+}

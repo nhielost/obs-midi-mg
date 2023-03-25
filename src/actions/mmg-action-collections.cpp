@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,12 +35,12 @@ void MMGActionCollections::blog(int log_status, const QString &message) const
 
 void MMGActionCollections::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-  collection.json(json_obj, "collection", true);
+  MMGAction::json(json_obj);
+
+  collection.json(json_obj, "collection");
 }
 
-void MMGActionCollections::do_action(const MMGMessage *midi)
+void MMGActionCollections::execute(const MMGMessage *midi) const
 {
   const QStringList collections = MMGActionCollections::enumerate();
 
@@ -66,7 +66,7 @@ void MMGActionCollections::do_action(const MMGMessage *midi)
       &name, true);
   };
 
-  if (get_sub() == 0) {
+  if (sub() == 0) {
     set_collection((collection.state() == MMGString::STRINGSTATE_MIDI
 		      ? collections[(int)midi->value()]
 		      : collection)
@@ -74,13 +74,21 @@ void MMGActionCollections::do_action(const MMGMessage *midi)
   }
 
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionCollections::deep_copy(MMGAction *dest) const
+void MMGActionCollections::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  collection.copy(&dest->str1());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionCollections *>(dest);
+  if (!casted) return;
+
+  casted->collection = collection.copy();
+}
+
+void MMGActionCollections::setEditable(bool edit)
+{
+  collection.set_edit(edit);
 }
 
 const QStringList MMGActionCollections::enumerate()
@@ -96,21 +104,23 @@ const QStringList MMGActionCollections::enumerate()
   return list;
 }
 
-void MMGActionCollections::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionCollections::createDisplay(QWidget *parent)
 {
-  val.list = {"Switch Scene Collections"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&collection);
 }
-void MMGActionCollections::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionCollections::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Scene Collection";
-  val.list = enumerate();
-  val.list.append("Use Message Value");
+  sub->addItem("Switch Scene Collections");
 }
-void MMGActionCollections::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionCollections::setSubConfig()
 {
-  collection.set_state(collection == "Use Message Value" ? MMGString::STRINGSTATE_MIDI
-							 : MMGString::STRINGSTATE_FIXED);
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Scene Collection");
+  QStringList options = enumerate();
+  options.append("Use Message Value");
+  _display->setStr1Options(options);
 }
-void MMGActionCollections::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionCollections::change_options_final(MMGActionDisplayParams &val) {}

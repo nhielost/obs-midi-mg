@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -53,13 +53,13 @@ void MMGActionHotkeys::blog(int log_status, const QString &message) const
 
 void MMGActionHotkeys::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
+  MMGAction::json(json_obj);
+
   hotkey_group.json(json_obj, "hotkey_group", false);
   hotkey.json(json_obj, "hotkey", false);
 }
 
-void MMGActionHotkeys::do_action(const MMGMessage *midi)
+void MMGActionHotkeys::execute(const MMGMessage *midi) const
 {
   Q_UNUSED(midi);
   struct HotkeyRequestBody {
@@ -110,7 +110,7 @@ void MMGActionHotkeys::do_action(const MMGMessage *midi)
     return;
   }
 
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionHotkeys::HOTKEY_PREDEF:
       obs_queue_task(
 	OBS_TASK_UI,
@@ -126,15 +126,23 @@ void MMGActionHotkeys::do_action(const MMGMessage *midi)
       break;
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionHotkeys::deep_copy(MMGAction *dest) const
+void MMGActionHotkeys::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  hotkey_group.copy(&dest->str1());
-  hotkey_desc.copy(&dest->str2());
-  hotkey.copy(&dest->str3());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionHotkeys *>(dest);
+  if (!casted) return;
+
+  casted->hotkey_group = hotkey_group.copy();
+  casted->hotkey = hotkey.copy();
+}
+
+void MMGActionHotkeys::setEditable(bool edit)
+{
+  hotkey_group.set_edit(edit);
+  hotkey.set_edit(edit);
 }
 
 const QStringList MMGActionHotkeys::enumerate_names(const QString &category)
@@ -258,21 +266,35 @@ const QStringList MMGActionHotkeys::enumerate_eligible()
   return list;
 }
 
-void MMGActionHotkeys::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionHotkeys::createDisplay(QWidget *parent)
 {
-  val.list = {"Activate Predefined Hotkey"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&hotkey_group);
+  _display->setStr2Storage(&hotkey);
+
+  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
 }
-void MMGActionHotkeys::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionHotkeys::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Group";
-  val.list = enumerate_eligible();
+  sub->addItem("Activate Predefined Hotkey");
 }
-void MMGActionHotkeys::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionHotkeys::setSubConfig()
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR2;
-  val.label_text = "Hotkey";
-  val.list = enumerate_descriptions(hotkey_group);
+  _display->setStr1Visible(false);
+  _display->setStr2Visible(false);
+  _display->setStr3Visible(false);
+
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Group");
+  _display->setStr1Options(enumerate_eligible());
 }
-void MMGActionHotkeys::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionHotkeys::change_options_final(MMGActionDisplayParams &val) {}
+
+void MMGActionHotkeys::setList1Config()
+{
+  _display->setStr2Visible(true);
+  _display->setStr2Description("Hotkey");
+  _display->setStr2Options(enumerate_descriptions(hotkey_group));
+}

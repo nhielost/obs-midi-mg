@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,12 +34,12 @@ void MMGActionScenes::blog(int log_status, const QString &message) const
 
 void MMGActionScenes::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-  scene.json(json_obj, "scene", true);
+  MMGAction::json(json_obj);
+
+  scene.json(json_obj, "scene");
 }
 
-void MMGActionScenes::do_action(const MMGMessage *midi)
+void MMGActionScenes::execute(const MMGMessage *midi) const
 {
   const QStringList scenes = MMGActionScenes::enumerate();
 
@@ -55,7 +55,7 @@ void MMGActionScenes::do_action(const MMGMessage *midi)
     return;
   }
 
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionScenes::SCENE_SCENE:
       obs_frontend_set_current_scene(source_obs_scene);
       break;
@@ -64,13 +64,21 @@ void MMGActionScenes::do_action(const MMGMessage *midi)
   }
 
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionScenes::deep_copy(MMGAction *dest) const
+void MMGActionScenes::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  scene.copy(&dest->str1());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionScenes *>(dest);
+  if (!casted) return;
+
+  casted->scene = scene.copy();
+}
+
+void MMGActionScenes::setEditable(bool edit)
+{
+  scene.set_edit(edit);
 }
 
 const QStringList MMGActionScenes::enumerate()
@@ -104,21 +112,23 @@ const QStringList MMGActionScenes::enumerate_items(const QString &scene)
   return r.list;
 }
 
-void MMGActionScenes::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionScenes::createDisplay(QWidget *parent)
 {
-  val.list = {"Scene Switching"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&scene);
 }
-void MMGActionScenes::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionScenes::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Scene";
-  val.list = enumerate();
-  val.list.append("Use Message Value");
+  sub->addItem("Scene Switching");
 }
-void MMGActionScenes::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionScenes::setSubConfig()
 {
-  scene.set_state(scene == "Use Message Value" ? MMGString::STRINGSTATE_MIDI
-					       : MMGString::STRINGSTATE_FIXED);
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Scene");
+  QStringList options = enumerate();
+  options.append("Use Message Value");
+  _display->setStr1Options(options);
 }
-void MMGActionScenes::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionScenes::change_options_final(MMGActionDisplayParams &val) {}

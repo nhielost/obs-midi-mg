@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,12 +35,12 @@ void MMGActionStudioMode::blog(int log_status, const QString &message) const
 
 void MMGActionStudioMode::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-  scene.json(json_obj, "scene", true);
+  MMGAction::json(json_obj);
+
+  scene.json(json_obj, "scene");
 }
 
-void MMGActionStudioMode::do_action(const MMGMessage *midi)
+void MMGActionStudioMode::execute(const MMGMessage *midi) const
 {
   const QStringList scenes = MMGActionScenes::enumerate();
 
@@ -65,7 +65,7 @@ void MMGActionStudioMode::do_action(const MMGMessage *midi)
     (scene.state() == MMGString::STRINGSTATE_MIDI ? scenes[(int)midi->value()] : scene).qtocs());
   OBSSourceAutoRelease obs_preview_scene = obs_frontend_get_current_preview_scene();
 
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionStudioMode::STUDIOMODE_ON:
       set_studio_mode(true);
       break;
@@ -90,35 +90,44 @@ void MMGActionStudioMode::do_action(const MMGMessage *midi)
   }
 
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionStudioMode::deep_copy(MMGAction *dest) const
+void MMGActionStudioMode::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  scene.copy(&dest->str1());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionStudioMode *>(dest);
+  if (!casted) return;
+
+  casted->scene = scene.copy();
 }
 
-void MMGActionStudioMode::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionStudioMode::setEditable(bool edit)
 {
-  val.list = {"Turn On Studio Mode", "Turn Off Studio Mode", "Toggle Studio Mode",
-	      "Change Preview Scene", "Preview to Program"};
+  scene.set_edit(edit);
 }
-void MMGActionStudioMode::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionStudioMode::createDisplay(QWidget *parent)
 {
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&scene);
+}
+
+void MMGActionStudioMode::setSubOptions(QComboBox *sub)
+{
+  sub->addItems({"Turn On Studio Mode", "Turn Off Studio Mode", "Toggle Studio Mode",
+		 "Change Preview Scene", "Preview to Program"});
+}
+
+void MMGActionStudioMode::setSubConfig()
+{
+  _display->setStr1Visible(false);
   if (subcategory == 3) {
-    val.display = MMGActionDisplayParams::DISPLAY_STR1;
-    val.label_text = "Preview Scene";
-    val.list = MMGActionScenes::enumerate();
-    val.list.append("Use Message Value");
+    _display->setStr1Visible(true);
+    _display->setStr1Description("Scene");
+    QStringList options = MMGActionScenes::enumerate();
+    options.append("Use Message Value");
+    _display->setStr1Options(options);
   }
 }
-void MMGActionStudioMode::change_options_str2(MMGActionDisplayParams &val)
-{
-  if (subcategory == 3) {
-    scene.set_state(scene == "Use Message Value" ? MMGString::STRINGSTATE_MIDI
-						 : MMGString::STRINGSTATE_FIXED);
-  }
-}
-void MMGActionStudioMode::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionStudioMode::change_options_final(MMGActionDisplayParams &val) {}

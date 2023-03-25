@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -33,13 +33,7 @@ void MMGActionReplayBuffer::blog(int log_status, const QString &message) const
   global_blog(log_status, "<Replay Buffer> Action -> " + message);
 }
 
-void MMGActionReplayBuffer::json(QJsonObject &json_obj) const
-{
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-}
-
-void MMGActionReplayBuffer::do_action(const MMGMessage *midi)
+void MMGActionReplayBuffer::execute(const MMGMessage *midi) const
 {
   config_t *obs_config = obs_frontend_get_profile_config();
   if ((QString(config_get_string(obs_config, "Output", "Mode")) == "Simple" &&
@@ -51,7 +45,7 @@ void MMGActionReplayBuffer::do_action(const MMGMessage *midi)
   }
 
   Q_UNUSED(midi);
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionReplayBuffer::REPBUF_ON:
       if (!obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_start();
       break;
@@ -72,20 +66,10 @@ void MMGActionReplayBuffer::do_action(const MMGMessage *midi)
       break;
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionReplayBuffer::deep_copy(MMGAction *dest) const
+void MMGActionReplayBuffer::setSubOptions(QComboBox *sub)
 {
-  dest->set_sub(subcategory);
+  sub->addItems(
+    {"Start Replay Buffer", "Stop Replay Buffer", "Toggle Replay Buffer", "Save Replay Buffer"});
 }
-
-void MMGActionReplayBuffer::change_options_sub(MMGActionDisplayParams &val)
-{
-  val.list = {"Start Replay Buffer", "Stop Replay Buffer", "Toggle Replay Buffer",
-	      "Save Replay Buffer"};
-}
-void MMGActionReplayBuffer::change_options_str1(MMGActionDisplayParams &val) {}
-void MMGActionReplayBuffer::change_options_str2(MMGActionDisplayParams &val) {}
-void MMGActionReplayBuffer::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionReplayBuffer::change_options_final(MMGActionDisplayParams &val) {}

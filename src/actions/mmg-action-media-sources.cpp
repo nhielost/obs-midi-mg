@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,13 +35,13 @@ void MMGActionMediaSources::blog(int log_status, const QString &message) const
 
 void MMGActionMediaSources::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
+  MMGAction::json(json_obj);
+
   source.json(json_obj, "source", false);
-  num.json(json_obj, "num", true);
+  num.json(json_obj, "num");
 }
 
-void MMGActionMediaSources::do_action(const MMGMessage *midi)
+void MMGActionMediaSources::execute(const MMGMessage *midi) const
 {
   OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
   if (!obs_source) {
@@ -54,7 +54,7 @@ void MMGActionMediaSources::do_action(const MMGMessage *midi)
   }
   obs_media_state state = obs_source_media_get_state(obs_source);
 
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionMediaSources::SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
       switch (state) {
 	case OBS_MEDIA_STATE_PLAYING:
@@ -78,8 +78,7 @@ void MMGActionMediaSources::do_action(const MMGMessage *midi)
       obs_source_media_stop(obs_source);
       break;
     case MMGActionMediaSources::SOURCE_MEDIA_TIME:
-      obs_source_media_set_time(obs_source,
-				num.choose(midi, 0, get_obs_media_length(source)) * 1000);
+      obs_source_media_set_time(obs_source, num.choose(midi) * 1000);
       break;
     case MMGActionMediaSources::SOURCE_MEDIA_SKIP_FORWARD_TRACK:
       obs_source_media_next(obs_source);
@@ -97,14 +96,23 @@ void MMGActionMediaSources::do_action(const MMGMessage *midi)
       break;
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionMediaSources::deep_copy(MMGAction *dest) const
+void MMGActionMediaSources::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  source.copy(&dest->str1());
-  num.copy(&dest->num1());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionMediaSources *>(dest);
+  if (!casted) return;
+
+  casted->source = source.copy();
+  casted->num = num.copy();
+}
+
+void MMGActionMediaSources::setEditable(bool edit)
+{
+  source.set_edit(edit);
+  num.set_edit(edit);
 }
 
 const QStringList MMGActionMediaSources::enumerate()
@@ -122,54 +130,69 @@ const QStringList MMGActionMediaSources::enumerate()
   return list;
 }
 
-void MMGActionMediaSources::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionMediaSources::createDisplay(QWidget *parent)
 {
-  val.list = {"Play or Pause",     "Restart",           "Stop",
-	      "Set Track Time",    "Next Track",        "Previous Track",
-	      "Skip Forward Time", "Skip Backward Time"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&source);
+
+  MMGNumberDisplay *num_display = new MMGNumberDisplay(_display->numberDisplays());
+  num_display->setStorage(&num, true);
+  num_display->setVisible(false);
+  _display->numberDisplays()->add(num_display);
+
+  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
 }
-void MMGActionMediaSources::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionMediaSources::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Media Source";
-  val.list = enumerate();
+  sub->addItems({"Play or Pause", "Restart", "Stop", "Set Track Time", "Next Track",
+		 "Previous Track", "Skip Forward Time", "Skip Backward Time"});
 }
-void MMGActionMediaSources::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionMediaSources::setSubConfig()
 {
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Media Source");
+  _display->setStr1Options(enumerate());
+}
+
+void MMGActionMediaSources::setList1Config()
+{
+  MMGNumberDisplay *num_display = _display->numberDisplays()->fieldAt(0);
+  num_display->setVisible(false);
+
   switch ((Actions)subcategory) {
-    case SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
-    case SOURCE_MEDIA_RESTART:
-    case SOURCE_MEDIA_STOP:
-    case SOURCE_MEDIA_SKIP_FORWARD_TRACK:
-    case SOURCE_MEDIA_SKIP_BACKWARD_TRACK:
-      break;
     case SOURCE_MEDIA_TIME:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM1;
-
-      val.label_lcds[0] = "Time";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_MIDI |
-			     MMGActionDisplayParams::COMBODISPLAY_MIDI_INVERT;
-      val.lcds[0]->set_use_time(true);
-      val.lcds[0]->set_range(0.0, get_obs_media_length(source));
-      val.lcds[0]->set_step(1.0, 10.0);
-      val.lcds[0]->set_default_value(0.0);
-
+      num_display->setVisible(!source.str().isEmpty());
+      num_display->setDescription("Time");
+      num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
+      num_display->setTimeFormat(true);
+      num_display->setBounds(0.0, sourceDuration());
+      num_display->setStep(1.0);
+      num_display->setDefaultValue(0.0);
       break;
+
     case SOURCE_MEDIA_SKIP_FORWARD_TIME:
     case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM1;
-
-      val.label_lcds[0] = "Time Adjust";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_FIXED;
-      val.lcds[0]->set_use_time(true);
-      val.lcds[0]->set_range(0.0, get_obs_media_length(source));
-      val.lcds[0]->set_step(1.0, 10.0);
-      val.lcds[0]->set_default_value(0.0);
-
+      num_display->setVisible(!source.str().isEmpty());
+      num_display->setDescription("Time Adjust");
+      num_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
+      num_display->setTimeFormat(true);
+      num_display->setBounds(0.0, sourceDuration());
+      num_display->setStep(1.0);
+      num_display->setDefaultValue(0.0);
       break;
+
     default:
-      break;
+      return;
   }
+  num_display->reset();
 }
-void MMGActionMediaSources::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionMediaSources::change_options_final(MMGActionDisplayParams &val) {}
+
+double MMGActionMediaSources::sourceDuration() const
+{
+  return obs_source_media_get_duration(
+	   OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs()))) /
+	 1000.0;
+}

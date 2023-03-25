@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
 # (e.g.: obs-myawesomeplugin) and set
-project(obs-midi-mg VERSION 2.2.0)
+project(obs-midi-mg VERSION 2.3.0)
 add_library(obs-midi-mg MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
@@ -49,14 +49,18 @@ target_sources(
           ./src/actions/mmg-action-collections.cpp
           ./src/actions/mmg-action-midi.cpp
           ./src/actions/mmg-action-internal.cpp
-          ./src/actions/mmg-action-timeout.cpp
           ./src/mmg-binding.cpp
           ./src/mmg-config.cpp
           ./src/mmg-device.cpp
           ./src/mmg-message.cpp
+          ./src/mmg-midiin.cpp
+          ./src/mmg-midiout.cpp
           ./src/mmg-utils.cpp
           ./src/obs-midi-mg.cpp
           ./src/ui/mmg-fields.cpp
+          ./src/ui/mmg-lcd-number.cpp
+          ./src/ui/mmg-number-display.cpp
+          ./src/ui/mmg-action-display.cpp
           ./src/ui/mmg-echo-window.cpp)
 
 target_sources(
@@ -79,15 +83,19 @@ target_sources(
           ./src/actions/mmg-action-collections.h
           ./src/actions/mmg-action-midi.h
           ./src/actions/mmg-action-internal.h
-          ./src/actions/mmg-action-timeout.h
           ./src/mmg-action-include.h
           ./src/mmg-binding.h
           ./src/mmg-config.h
           ./src/mmg-device.h
           ./src/mmg-message.h
+          ./src/mmg-midiin.h
+          ./src/mmg-midiout.h
           ./src/mmg-utils.h
           ./src/obs-midi-mg.h
           ./src/ui/mmg-fields.h
+          ./src/ui/mmg-lcd-number.h
+          ./src/ui/mmg-number-display.h
+          ./src/ui/mmg-action-display.h
           ./src/ui/mmg-echo-window.h)
 
 # Import libobs as main plugin dependency
@@ -129,6 +137,10 @@ if(OS_WINDOWS)
   configure_file(cmake/bundle/windows/installer-Windows.iss.in
                  ${CMAKE_BINARY_DIR}/installer-Windows.generated.iss)
 
+  configure_file(cmake/bundle/windows/resource.rc.in
+                 ${CMAKE_BINARY_DIR}/obs-midi-mg.rc)
+  target_sources(obs-midi-mg PRIVATE ${CMAKE_BINARY_DIR}/obs-midi-mg.rc)
+
   if(MSVC)
     target_compile_options(obs-midi-mg PRIVATE /W3)
   endif()
@@ -141,7 +153,7 @@ elseif(OS_MACOS)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
   set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.2.0")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.3.0")
 
   target_compile_options(obs-midi-mg PRIVATE -Wall)
   # --- End of section ---

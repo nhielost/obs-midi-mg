@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,45 +20,69 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "obs-midi-mg.h"
 
 #include <QJsonDocument>
-#include <QHash>
 #include <QJsonValue>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QLCDNumber>
+#include <QTimer>
+#include <QScrollArea>
 #include <QComboBox>
 #include <QDateTime>
 #include <QLabel>
+#include <QLayout>
+
+#define MMG_ENABLED if (editable)
 
 void global_blog(int log_status, const QString &message);
 
 class MMGMessage;
-class MMGAction;
+class MMGNumberDisplay;
 
 namespace MMGUtils {
+
+struct MMGPair {
+  QString key;
+  QVariant val;
+
+  bool operator==(const MMGPair &other) const { return key == other.key && val == other.val; };
+};
 
 struct MMGNumber {
   MMGNumber(){};
   MMGNumber(const QJsonObject &json_obj, const QString &preferred, int fallback_num);
 
-  enum State { NUMBERSTATE_FIXED, NUMBERSTATE_MIDI, NUMBERSTATE_MIDI_INVERT, NUMBERSTATE_IGNORE };
+  enum State { NUMBERSTATE_FIXED, NUMBERSTATE_MIDI, NUMBERSTATE_CUSTOM, NUMBERSTATE_IGNORE };
 
   double num() const { return number; };
+  double min() const { return lower; };
+  double max() const { return higher; };
   State state() const { return num_state; };
-  void set_num(double val) { number = val; };
-  void set_state(State state) { num_state = state; }
+  void set_num(double val) { MMG_ENABLED number = val; };
+  void set_min(double val) { MMG_ENABLED lower = val; };
+  void set_max(double val) { MMG_ENABLED higher = val; };
+  void set_state(State state) { MMG_ENABLED num_state = state; }
+  void set_state(short state) { MMG_ENABLED num_state = (State)state; }
 
-  void json(QJsonObject &json_obj, const QString &prefix, bool use_state) const;
-  void copy(MMGNumber *dest) const;
+  void json(QJsonObject &json_obj, const QString &prefix, bool use_bounds = true) const;
+  MMGNumber copy() const { return *this; };
+  void set_edit(bool edit) { editable = edit; };
 
-  double choose(const MMGMessage *midi, double default_val = 0.0, double mult = 128.0,
-		bool add_one = false);
+  double choose(const MMGMessage *midi, double default_val = 0.0) const;
 
   operator double() const { return number; };
-  double operator=(double val) { return number = val; };
+  double operator=(double val)
+  {
+    set_num(val);
+    return number;
+  };
 
   private:
   double number = 0.0;
-  State num_state{NUMBERSTATE_FIXED};
+  double lower = 0.0;
+  double higher = 100.0;
+  bool editable = true;
+
+  State num_state = NUMBERSTATE_FIXED;
 };
 struct MMGString {
   MMGString(){};
@@ -68,149 +92,68 @@ struct MMGString {
 
   const QString &str() const { return string; };
   State state() const { return str_state; };
-  void set_str(const QString &val) { string = val; };
-  void set_state(State state) { str_state = state; }
+  void set_str(const QString &val) { MMG_ENABLED string = val; };
+  void set_state(State state) { MMG_ENABLED str_state = state; }
+  void set_state(short state) { MMG_ENABLED str_state = (State)state; }
 
-  void json(QJsonObject &json_obj, const QString &prefix, bool use_state) const;
-  void copy(MMGString *dest) const;
+  void json(QJsonObject &json_obj, const QString &prefix, bool use_state = true) const;
+  MMGString copy() const { return *this; };
+  void set_edit(bool edit) { editable = edit; };
 
   operator const QString &() const { return string; };
-  QString &operator=(const QString &val) { return string = val; };
+  QString &operator=(const QString &val)
+  {
+    set_str(val);
+    return string;
+  };
 
   bool operator==(const char *ch) const { return string == ch; };
   bool operator!=(const char *ch) const { return string != ch; };
 
   private:
   QString string;
-  State str_state{STRINGSTATE_FIXED};
-};
-
-class LCDData {
-  public:
-  LCDData(){};
-  explicit LCDData(QLCDNumber *lcd_ptr);
-
-  void set_storage(MMGNumber *number);
-  void can_set(bool can_set) { editable = can_set; };
-
-  double get_minor_step() const { return minor_step; }
-  double get_major_step() const { return major_step; }
-  void set_range(double min, double max);
-  void set_step(double minor, double major);
-
-  void set_value(double val);
-  void set_default_value(double val) { default_val = val; };
-  void reset();
-
-  void set_state(int index);
-
-  void set_use_time(bool time) { use_time = time; }
-
-  void down_major();
-  void down_minor();
-  void up_minor();
-  void up_major();
-
-  void display();
-
-  private:
-  QLCDNumber *lcd = nullptr;
-  MMGNumber *storage = nullptr;
+  State str_state = STRINGSTATE_FIXED;
   bool editable = true;
-
-  double maximum = 100.0;
-  double minimum = 0.0;
-  double minor_step = 1.0;
-  double major_step = 10.0;
-
-  double default_val = 0.0;
-
-  bool use_time = false;
 };
 
-struct MMGActionDisplayParams {
-  enum FieldDisplay : int {
-    DISPLAY_NONE = 0,
-    DISPLAY_STR1 = 1,   // STR1
-    DISPLAY_STR2 = 3,   // STR1 + STR2
-    DISPLAY_STR3 = 7,   // STR1 + STR2 + STR3
-    DISPLAY_NUM1 = 8,   // NUM1
-    DISPLAY_NUM2 = 24,  // NUM1 + NUM2
-    DISPLAY_NUM3 = 56,  // NUM1 + NUM2 + NUM3
-    DISPLAY_NUM4 = 120, // NUM1 + NUM2 + NUM3 + NUM4
-    DISPLAY_SEC = 128
-  };
-  using FieldDisplayFlags = int;
+class MMGTimer : public QTimer {
+  Q_OBJECT
 
-  enum LCDComboDisplay : short {
-    COMBODISPLAY_FIXED = 0,
-    COMBODISPLAY_MIDI = 1,
-    COMBODISPLAY_MIDI_INVERT = 2,
-    COMBODISPLAY_IGNORE = 4,
-    COMBODISPLAY_ALL = 7
-  };
-  using LCDComboDisplayFlags = short;
+  public:
+  MMGTimer(QObject *parent = nullptr);
 
-  void clear()
-  {
-    display = DISPLAY_NONE;
+  signals:
+  void resetting(int);
+  void stopping();
 
-    label_text = "";
-    list.clear();
-
-    combo_display[0] = COMBODISPLAY_MIDI;
-    combo_display[1] = COMBODISPLAY_MIDI;
-    combo_display[2] = COMBODISPLAY_MIDI;
-    combo_display[3] = COMBODISPLAY_MIDI;
-    label_lcds[0] = "";
-    label_lcds[1] = "";
-    label_lcds[2] = "";
-    label_lcds[3] = "";
-  };
-
-  // Window will fill in the LCD
-  // MMGAction will respond with these values full
-
-  bool initializing = false;
-  FieldDisplayFlags display = DISPLAY_NONE;
-
-  QString label_text;
-  QStringList list;
-
-  LCDComboDisplayFlags combo_display[4]{COMBODISPLAY_MIDI, COMBODISPLAY_MIDI, COMBODISPLAY_MIDI,
-					COMBODISPLAY_MIDI};
-  QString label_lcds[4];
-  LCDData *lcds[4];
-
-  QString extra_data;
+  public slots:
+  void stopTimer() { emit stopping(); };
+  void reset(int time);
 };
 
-void call_midi_callback(const libremidi::message &message);
+void set_message_labels(const QString &type, MMGNumberDisplay *note_display,
+			MMGNumberDisplay *value_display);
 
-bool json_key_exists(const QJsonObject &obj, const QString &key, QJsonValue::Type value_type);
-bool json_is_valid(const QJsonValue &value, QJsonValue::Type value_type);
 const QByteArray json_to_str(const QJsonObject &json_obj);
 const QJsonObject json_from_str(const QByteArray &str);
+void debug_json(const QJsonValue &val);
 
 bool bool_from_str(const QString &str);
-QString num_to_str(int num, const QString &prefix);
+double num_from_str(const QString &str);
+QString num_to_str(int num, const QString &prefix = "");
 
 void open_message_box(const QString &title, const QString &text);
 
 void transfer_bindings(short mode, const QString &source, const QString &dest);
 
-vec2 get_obs_dimensions();
-vec2 get_obs_source_dimensions(const QString &name);
+const vec3 get_obs_property_bounds(obs_property_t *prop);
+const vec3 get_obs_property_bounds(obs_source_t *source, const QString &field);
+const QList<MMGPair> get_obs_property_options(obs_property_t *prop);
+const QList<MMGPair> get_obs_property_options(obs_source_t *source, const QString &field);
+uint argb_abgr(uint rgb);
 
-obs_source_t *get_obs_transition_by_name(const QString &name);
-bool get_obs_transition_fixed_length(const QString &name);
-
-double get_obs_media_length(const QString &name);
-
-const vec3 get_obs_filter_property_bounds(obs_property_t *prop);
-const vec3 get_obs_filter_property_bounds(obs_source_t *filter, const QString &field);
-const QHash<QString, QString> get_obs_filter_property_options(obs_property_t *prop);
-const QHash<QString, QString> get_obs_filter_property_options(obs_source_t *filter,
-							      const QString &field);
+void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json,
+			      const MMGMessage *midi_value);
 }
-Q_DECLARE_METATYPE(MMGUtils::LCDData);
+
+#undef MMG_ENABLED

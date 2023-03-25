@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -41,38 +41,37 @@ class MMGActionVideoSources : public MMGAction {
   };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
+  void execute(const MMGMessage *midi) const override;
   void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_SOURCE_VIDEO; }
+  Category category() const override { return Category::MMGACTION_SOURCE_VIDEO; }
 
-  MMGUtils::MMGString &str1() override { return parent_scene; };
-  const MMGUtils::MMGString &str1() const override { return parent_scene; };
-  MMGUtils::MMGString &str2() override { return source; };
-  const MMGUtils::MMGString &str2() const override { return source; };
-  MMGUtils::MMGString &str3() override { return action; };
-  const MMGUtils::MMGString &str3() const override { return action; };
-  MMGUtils::MMGNumber &num1() override { return nums[0]; };
-  const MMGUtils::MMGNumber &num1() const override { return nums[0]; };
-  MMGUtils::MMGNumber &num2() override { return nums[1]; };
-  const MMGUtils::MMGNumber &num2() const override { return nums[1]; };
-  MMGUtils::MMGNumber &num3() override { return nums[2]; };
-  const MMGUtils::MMGNumber &num3() const override { return nums[2]; };
-  MMGUtils::MMGNumber &num4() override { return nums[3]; };
-  const MMGUtils::MMGNumber &num4() const override { return nums[3]; };
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
-
-  static const QStringList enumerate(const QString &restriction = "");
+  static const QStringList enumerate();
+  static const vec2 obsResolution();
+  const vec2 sourceResolution() const;
 
   private:
   MMGUtils::MMGString parent_scene;
   MMGUtils::MMGString source;
   MMGUtils::MMGString action;
+  MMGUtils::MMGString json_str;
   MMGUtils::MMGNumber nums[4];
+
+  void setSubConfig() override;
+  void setList1Config() override;
+  void setList2Config() override;
+
+  const MMGUtils::MMGNumber &num1() const { return nums[0]; };
+  const MMGUtils::MMGNumber &num2() const { return nums[1]; };
+  const MMGUtils::MMGNumber &num3() const { return nums[2]; };
+  const MMGUtils::MMGNumber &num4() const { return nums[3]; };
+
+  static const QStringList alignment_options;
+  static const QStringList boundingbox_options;
+  static const QStringList scalefilter_options;
+  static const QStringList blendmode_options;
 };

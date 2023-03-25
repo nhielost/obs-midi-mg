@@ -12,9 +12,6 @@ on:
     branches:
       - master
 
-env:
-  PLUGIN_NAME: 'obs-midi-mg'
-
 jobs:
   clang_check:
     name: 01 - Code Format Check
@@ -89,25 +86,27 @@ jobs:
           if [[ '${{ secrets.MACOS_SIGNING_APPLICATION_IDENTITY }}' != '' && \
                 '${{ secrets.MACOS_SIGNING_INSTALLER_IDENTITY }}' != '' && \
                 '${{ secrets.MACOS_SIGNING_CERT }}' != '' ]] {
-            print '::set-output name=haveCodesignIdent::true'
+            print 'haveCodesignIdent=true' >> $GITHUB_OUTPUT
           } else {
-            print '::set-output name=haveCodesignIdent::false'
+            print 'haveCodesignIdent=false' >> $GITHUB_OUTPUT
           }
 
           if [[ '${{ secrets.MACOS_NOTARIZATION_USERNAME }}' != '' && \
                 '${{ secrets.MACOS_NOTARIZATION_PASSWORD }}' != '' ]] {
-            print '::set-output name=haveNotarizationUser::true'
+            print 'haveNotarizationUser=true' >> $GITHUB_OUTPUT
           } else {
-            print '::set-output name=haveNotarizationUser::false'
+            print 'haveNotarizationUser=false' >> $GITHUB_OUTPUT
           }
           print '::endgroup::'
 
-          print "::set-output name=ccacheDate::$(date +"%Y-%m-%d")"
-          print "::set-output name=commitHash::${"$(git rev-parse HEAD)"[0,9]}"
+          print "ccacheDate=$(date +"%Y-%m-%d")" >> $GITHUB_OUTPUT
+          print "commitHash=${"$(git rev-parse HEAD)"[0,9]}" >> $GITHUB_OUTPUT
+
+          print "pluginName=$(jq -r '.name' buildspec.json)" >> $GITHUB_OUTPUT
 
       - name: Restore Compilation Cache
         id: ccache-cache
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/.ccache
           key: macos-${{ matrix.arch }}-ccache-plugin-${{ steps.setup.outputs.ccacheDate }}
@@ -119,9 +118,9 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           if [[ -n "$(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "${{ github.event.pull_request.url }}" | jq -e '.labels[] | select(.name == "Seeking Testers")')" ]] {
-            print '::set-output name=found::true'
+            print 'found=true' >> $GITHUB_OUTPUT
           } else {
-            print '::set-output name=found::false'
+            print 'found=false' >> $GITHUB_OUTPUT
           }
 
       - name: Install Apple Developer Certificate
@@ -164,8 +163,8 @@ jobs:
         if: ${{ success() && (github.event_name != 'pull_request' || steps.seekingTesters.outputs.found == 'true') }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.PLUGIN_NAME }}-macos-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
-          path: ${{ github.workspace }}/plugin/release/${{ env.PLUGIN_NAME }}-*-macos-${{ matrix.arch }}.pkg
+          name: ${{ steps.setup.outputs.pluginName }}-macos-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
+          path: ${{ github.workspace }}/plugin/release/${{ steps.setup.outputs.pluginName }}-*-macos-${{ matrix.arch }}.pkg
 
   linux_build:
     name: 02 - Linux
@@ -201,12 +200,13 @@ jobs:
         id: setup
         run: |
           ## SETUP ENVIRONMENT SCRIPT
-          echo "::set-output name=ccacheDate::$(date +"%Y-%m-%d")"
-          echo "::set-output name=commitHash::$(git rev-parse HEAD | cut -c1-9)"
+          echo "ccacheDate=$(date +"%Y-%m-%d")" >> $GITHUB_OUTPUT
+          echo "commitHash=$(git rev-parse HEAD | cut -c1-9)" >> $GITHUB_OUTPUT
+          echo "pluginName=$(jq -r '.name' buildspec.json)" >> $GITHUB_OUTPUT
 
       - name: Restore Compilation Cache
         id: ccache-cache
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/.ccache
           key: linux-${{ matrix.arch }}-ccache-plugin-${{ steps.setup.outputs.ccacheDate }}
@@ -219,9 +219,9 @@ jobs:
         run: |
           ## GITHUB LABEL SCRIPT
           if [[ -n "$(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -s "${{ github.event.pull_request.url }}" | jq -e '.labels[] | select(.name == "Seeking Testers")')" ]]; then
-            echo '::set-output name=found::true'
+            echo 'found=true' >> $GITHUB_OUTPUT
           else
-            echo '::set-output name=found::false'
+            echo 'found=false' >> $GITHUB_OUTPUT
           fi
 
       - name: Build Plugin
@@ -242,8 +242,8 @@ jobs:
         if: ${{ success() && (github.event_name != 'pull_request' || steps.seekingTesters.outputs.found == 'true') }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.PLUGIN_NAME }}-linux-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
-          path: ${{ github.workspace }}/plugin/release/${{ env.PLUGIN_NAME }}-*-linux-${{ matrix.arch }}.*
+          name: ${{ steps.setup.outputs.pluginName }}-linux-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
+          path: ${{ github.workspace }}/plugin/release/${{ steps.setup.outputs.pluginName }}-*-linux-${{ matrix.arch }}.*
 
   windows_build:
     name: 02 - Windows
@@ -251,7 +251,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        arch: [x86, x64]
+        arch: [x64]
     if: always()
     needs: [clang_check]
     outputs:
@@ -280,7 +280,10 @@ jobs:
         run: |
           ## SETUP ENVIRONMENT SCRIPT
           $CommitHash = (git rev-parse HEAD)[0..8] -join ''
-          Write-Output "::set-output name=commitHash::${CommitHash}"
+          "commitHash=${CommitHash}" >> $env:GITHUB_OUTPUT
+          $BuildSpec = Get-Content -Path buildspec.json -Raw | ConvertFrom-Json
+          $PluginName = $BuildSpec.name
+          "pluginName=${PluginName}" >> $env:GITHUB_OUTPUT
 
       - name: Check for GitHub Labels
         id: seekingTesters
@@ -301,7 +304,7 @@ jobs:
             $false
           }
 
-          Write-Output "::set-output name=found::$(([string]${LabelFound}).ToLower())"
+          "found=$(([string]${LabelFound}).ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Build Plugin
         uses: ./plugin/.github/actions/build-plugin
@@ -322,8 +325,8 @@ jobs:
         if: ${{ success() && (github.event_name != 'pull_request' || steps.seekingTesters.outputs.found == 'true') }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.PLUGIN_NAME }}-windows-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
-          path: ${{ github.workspace }}/plugin/release/${{ env.PLUGIN_NAME }}-*.zip
+          name: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
+          path: ${{ github.workspace }}/plugin/release/${{ steps.setup.outputs.pluginName }}-*.zip
 
       - name: Package Plugin Installer
         if: ${{ startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request' }}
@@ -338,8 +341,8 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.PLUGIN_NAME }}-windows-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}-installer
-          path: ${{ github.workspace }}/plugin/release/${{ env.PLUGIN_NAME }}-*.exe
+          name: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}-installer
+          path: ${{ github.workspace }}/plugin/release/${{ steps.setup.outputs.pluginName }}-*.exe
 
   make-release:
     name: 03 - Create and upload release
@@ -349,12 +352,22 @@ jobs:
     defaults:
       run:
         shell: bash
+    permissions:
+      contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: plugin
+          submodules: recursive
+
       - name: Get Metadata
+        working-directory: ${{ github.workspace }}/plugin
         id: metadata
         run: |
           ## METADATA SCRIPT
-          echo "::set-output name=version::${GITHUB_REF/refs\/tags\//}"
+          echo "version=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          echo "pluginName=$(jq -r '.name' buildspec.json)" >> $GITHUB_OUTPUT
 
       - name: Download build artifacts
         uses: actions/download-artifact@v3
@@ -375,7 +388,7 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.metadata.outputs.version, 'rc') || contains(steps.metadata.outputs.version, 'beta') }}
           tag_name: ${{ steps.metadata.outputs.version }}
-          name: "${{ env.PLUGIN_NAME }} ${{ steps.metadata.outputs.version }}"
+          name: "${{ steps.metadata.outputs.pluginName }} ${{ steps.metadata.outputs.version }}"
           body_path: ${{ github.workspace }}/CHECKSUMS.txt
           files: |
             ${{ github.workspace }}/**/*.zip

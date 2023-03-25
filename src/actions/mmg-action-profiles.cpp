@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,12 +34,12 @@ void MMGActionProfiles::blog(int log_status, const QString &message) const
 
 void MMGActionProfiles::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-  profile.json(json_obj, "profile", true);
+  MMGAction::json(json_obj);
+
+  profile.json(json_obj, "profile");
 }
 
-void MMGActionProfiles::do_action(const MMGMessage *midi)
+void MMGActionProfiles::execute(const MMGMessage *midi) const
 {
   const QStringList profiles = MMGActionProfiles::enumerate();
 
@@ -65,7 +65,7 @@ void MMGActionProfiles::do_action(const MMGMessage *midi)
       &name, true);
   };
 
-  if (get_sub() == 0) {
+  if (sub() == 0) {
     if (!(obs_frontend_streaming_active() || obs_frontend_recording_active() ||
 	  obs_frontend_virtualcam_active())) {
       set_profile(
@@ -75,13 +75,21 @@ void MMGActionProfiles::do_action(const MMGMessage *midi)
   }
 
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionProfiles::deep_copy(MMGAction *dest) const
+void MMGActionProfiles::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  profile.copy(&dest->str1());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionProfiles *>(dest);
+  if (!casted) return;
+
+  casted->profile = profile.copy();
+}
+
+void MMGActionProfiles::setEditable(bool edit)
+{
+  profile.set_edit(edit);
 }
 
 const QStringList MMGActionProfiles::enumerate()
@@ -97,21 +105,23 @@ const QStringList MMGActionProfiles::enumerate()
   return list;
 }
 
-void MMGActionProfiles::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionProfiles::createDisplay(QWidget *parent)
 {
-  val.list = {"Switch Profiles"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&profile);
 }
-void MMGActionProfiles::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionProfiles::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Profile";
-  val.list = enumerate();
-  val.list.append("Use Message Value");
+  sub->addItem("Switch Profiles");
 }
-void MMGActionProfiles::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionProfiles::setSubConfig()
 {
-  profile.set_state(profile == "Use Message Value" ? MMGString::STRINGSTATE_MIDI
-						   : MMGString::STRINGSTATE_FIXED);
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Profile");
+  QStringList options = enumerate();
+  options.append("Use Message Value");
+  _display->setStr1Options(options);
 }
-void MMGActionProfiles::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionProfiles::change_options_final(MMGActionDisplayParams &val) {}

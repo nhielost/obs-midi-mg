@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,42 +18,43 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-binding.h"
 #include "mmg-action-include.h"
+#include "mmg-config.h"
 
-qulonglong MMGBinding::next_default = 1;
+qulonglong MMGBinding::next_default = 0;
 
 MMGBinding::MMGBinding()
 {
-  name = get_next_default_name();
-  enabled = true;
-  message = new MMGMessage;
-  action = new MMGActionNone;
+  _name = get_next_default_name();
+  setEnabled(true);
+  _message = new MMGMessage;
+  _action = new MMGActionNone;
   blog(LOG_DEBUG, "Empty binding created.");
 }
 
-MMGBinding::MMGBinding(const QJsonObject &obj) : name(obj["name"].toString())
+MMGBinding::MMGBinding(const QJsonObject &obj) : _name(obj["name"].toString())
 {
-  if (name.isEmpty()) name = get_next_default_name();
-  enabled = obj["enabled"].toBool(true);
-  message = new MMGMessage(obj["message"].toObject());
-  set_action_type(obj["action"].toObject());
+  if (_name.isEmpty()) _name = get_next_default_name();
+  setEnabled(obj["enabled"].toBool(true));
+  _message = new MMGMessage(obj["message"].toObject());
+  setCategory(obj["action"].toObject());
   blog(LOG_DEBUG, "Binding created.");
 }
 
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
-  binding_obj["name"] = name;
-  binding_obj["enabled"] = enabled;
+  binding_obj["name"] = _name;
+  binding_obj["enabled"] = _enabled;
   QJsonObject msg;
-  message->json(msg);
+  _message->json(msg);
   binding_obj["message"] = msg;
   QJsonObject act;
-  action->json(act);
+  _action->json(act);
   binding_obj["action"] = act;
 }
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Binding {" + name + "} -> " + message);
+  global_blog(log_status, "Binding {" + _name + "} -> " + message);
 }
 
 QString MMGBinding::get_next_default_name()
@@ -61,145 +62,146 @@ QString MMGBinding::get_next_default_name()
   return QVariant(++MMGBinding::next_default).toString().prepend("Untitled Binding ");
 }
 
-void MMGBinding::do_action(const MMGSharedMessage &incoming)
+void MMGBinding::execute(const MMGSharedMessage &incoming)
 {
-  if (!enabled) return;
-
-  if (!message->is_acceptable(incoming.get())) {
+  if (!_message->acceptable(incoming.get())) {
     blog(LOG_DEBUG, "Message received is not acceptable.");
-    return;
+  } else {
+    _action->execute(incoming.get());
+    _message->toggle();
   }
-
-  action->do_action(incoming.get());
-
-  message->toggle();
 }
 
-void MMGBinding::deep_copy(MMGBinding *dest)
+void MMGBinding::copy(MMGBinding *dest)
 {
-  if (!name.contains("Untitled Binding")) dest->set_name(name);
-  message->deep_copy(dest->get_message());
-  dest->set_action_type((int)action->get_category());
-  action->deep_copy(dest->get_action());
+  if (!_name.contains("Untitled Binding")) dest->setName(_name);
+  _message->copy(dest->message());
+  dest->setCategory((int)_action->category());
+  _action->copy(dest->action());
 }
 
-void MMGBinding::set_action_type(int index)
+void MMGBinding::setEnabled(bool enabled)
 {
-  delete action;
+  _enabled = enabled;
+
+  if (enabled) {
+    connect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
+  } else {
+    disconnect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
+  }
+}
+
+void MMGBinding::setCategory(int index)
+{
+  delete _action;
   switch ((MMGAction::Category)index) {
-    case MMGAction::Category::MMGACTION_STREAM:
-      action = new MMGActionStream();
+    case MMGAction::MMGACTION_STREAM:
+      _action = new MMGActionStream();
       break;
-    case MMGAction::Category::MMGACTION_RECORD:
-      action = new MMGActionRecord();
+    case MMGAction::MMGACTION_RECORD:
+      _action = new MMGActionRecord();
       break;
-    case MMGAction::Category::MMGACTION_VIRCAM:
-      action = new MMGActionVirtualCam();
+    case MMGAction::MMGACTION_VIRCAM:
+      _action = new MMGActionVirtualCam();
       break;
-    case MMGAction::Category::MMGACTION_REPBUF:
-      action = new MMGActionReplayBuffer();
+    case MMGAction::MMGACTION_REPBUF:
+      _action = new MMGActionReplayBuffer();
       break;
-    case MMGAction::Category::MMGACTION_STUDIOMODE:
-      action = new MMGActionStudioMode();
+    case MMGAction::MMGACTION_STUDIOMODE:
+      _action = new MMGActionStudioMode();
       break;
-    case MMGAction::Category::MMGACTION_SCENE:
-      action = new MMGActionScenes();
+    case MMGAction::MMGACTION_SCENE:
+      _action = new MMGActionScenes();
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
-      action = new MMGActionVideoSources();
+    case MMGAction::MMGACTION_SOURCE_VIDEO:
+      _action = new MMGActionVideoSources();
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
-      action = new MMGActionAudioSources();
+    case MMGAction::MMGACTION_SOURCE_AUDIO:
+      _action = new MMGActionAudioSources();
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
-      action = new MMGActionMediaSources();
+    case MMGAction::MMGACTION_SOURCE_MEDIA:
+      _action = new MMGActionMediaSources();
       break;
-    case MMGAction::Category::MMGACTION_TRANSITION:
-      action = new MMGActionTransitions();
+    case MMGAction::MMGACTION_TRANSITION:
+      _action = new MMGActionTransitions();
       break;
-    case MMGAction::Category::MMGACTION_FILTER:
-      action = new MMGActionFilters();
+    case MMGAction::MMGACTION_FILTER:
+      _action = new MMGActionFilters();
       break;
-    case MMGAction::Category::MMGACTION_HOTKEY:
-      action = new MMGActionHotkeys();
+    case MMGAction::MMGACTION_HOTKEY:
+      _action = new MMGActionHotkeys();
       break;
-    case MMGAction::Category::MMGACTION_PROFILE:
-      action = new MMGActionProfiles();
+    case MMGAction::MMGACTION_PROFILE:
+      _action = new MMGActionProfiles();
       break;
-    case MMGAction::Category::MMGACTION_COLLECTION:
-      action = new MMGActionCollections();
+    case MMGAction::MMGACTION_COLLECTION:
+      _action = new MMGActionCollections();
       break;
-    case MMGAction::Category::MMGACTION_MIDI:
-      action = new MMGActionMIDI();
+    case MMGAction::MMGACTION_MIDI:
+      _action = new MMGActionMIDI();
       break;
-    case MMGAction::Category::MMGACTION_INTERNAL:
-      action = new MMGActionInternal();
-      break;
-    case MMGAction::Category::MMGACTION_TIMEOUT:
-      action = new MMGActionTimeout();
+    case MMGAction::MMGACTION_INTERNAL:
+      _action = new MMGActionInternal();
       break;
     default:
-      action = new MMGActionNone();
+      _action = new MMGActionNone();
       break;
   }
 }
 
-void MMGBinding::set_action_type(const QJsonObject &json_obj)
+void MMGBinding::setCategory(const QJsonObject &json_obj)
 {
   switch ((MMGAction::Category)json_obj["category"].toInt()) {
-    case MMGAction::Category::MMGACTION_STREAM:
-      action = new MMGActionStream(json_obj);
+    case MMGAction::MMGACTION_STREAM:
+      _action = new MMGActionStream(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_RECORD:
-      action = new MMGActionRecord(json_obj);
+    case MMGAction::MMGACTION_RECORD:
+      _action = new MMGActionRecord(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_VIRCAM:
-      action = new MMGActionVirtualCam(json_obj);
+    case MMGAction::MMGACTION_VIRCAM:
+      _action = new MMGActionVirtualCam(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_REPBUF:
-      action = new MMGActionReplayBuffer(json_obj);
+    case MMGAction::MMGACTION_REPBUF:
+      _action = new MMGActionReplayBuffer(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_STUDIOMODE:
-      action = new MMGActionStudioMode(json_obj);
+    case MMGAction::MMGACTION_STUDIOMODE:
+      _action = new MMGActionStudioMode(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_SCENE:
-      action = new MMGActionScenes(json_obj);
+    case MMGAction::MMGACTION_SCENE:
+      _action = new MMGActionScenes(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_VIDEO:
-      action = new MMGActionVideoSources(json_obj);
+    case MMGAction::MMGACTION_SOURCE_VIDEO:
+      _action = new MMGActionVideoSources(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_AUDIO:
-      action = new MMGActionAudioSources(json_obj);
+    case MMGAction::MMGACTION_SOURCE_AUDIO:
+      _action = new MMGActionAudioSources(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_SOURCE_MEDIA:
-      action = new MMGActionMediaSources(json_obj);
+    case MMGAction::MMGACTION_SOURCE_MEDIA:
+      _action = new MMGActionMediaSources(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_TRANSITION:
-      action = new MMGActionTransitions(json_obj);
+    case MMGAction::MMGACTION_TRANSITION:
+      _action = new MMGActionTransitions(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_FILTER:
-      action = new MMGActionFilters(json_obj);
+    case MMGAction::MMGACTION_FILTER:
+      _action = new MMGActionFilters(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_HOTKEY:
-      action = new MMGActionHotkeys(json_obj);
+    case MMGAction::MMGACTION_HOTKEY:
+      _action = new MMGActionHotkeys(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_PROFILE:
-      action = new MMGActionProfiles(json_obj);
+    case MMGAction::MMGACTION_PROFILE:
+      _action = new MMGActionProfiles(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_COLLECTION:
-      action = new MMGActionCollections(json_obj);
+    case MMGAction::MMGACTION_COLLECTION:
+      _action = new MMGActionCollections(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_MIDI:
-      action = new MMGActionMIDI(json_obj);
+    case MMGAction::MMGACTION_MIDI:
+      _action = new MMGActionMIDI(json_obj);
       break;
-    case MMGAction::Category::MMGACTION_INTERNAL:
-      action = new MMGActionInternal(json_obj);
-      break;
-    case MMGAction::Category::MMGACTION_TIMEOUT:
-      action = new MMGActionTimeout(json_obj);
+    case MMGAction::MMGACTION_INTERNAL:
+      _action = new MMGActionInternal(json_obj);
       break;
     default:
-      action = new MMGActionNone();
+      _action = new MMGActionNone();
       break;
   }
 }

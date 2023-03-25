@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,42 +21,41 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 class MMGActionTransitions : public MMGAction {
   public:
-  explicit MMGActionTransitions() { blog(LOG_DEBUG, "Empty action created."); };
+  explicit MMGActionTransitions();
   explicit MMGActionTransitions(const QJsonObject &json_obj);
+
   enum Actions {
     TRANSITION_CURRENT,
     TRANSITION_SOURCE_SHOW,
     TRANSITION_SOURCE_HIDE,
-    TRANSITION_TBAR
+    TRANSITION_TBAR_ACTIVATE,
+    TRANSITION_TBAR_RELEASE,
+    TRANSITION_CUSTOM
   };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
+  void execute(const MMGMessage *midi) const override;
   void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_TRANSITION; }
-
-  MMGUtils::MMGString &str1() override { return transition; };
-  const MMGUtils::MMGString &str1() const override { return transition; };
-  MMGUtils::MMGString &str2() override { return parent_scene; };
-  const MMGUtils::MMGString &str2() const override { return parent_scene; };
-  MMGUtils::MMGString &str3() override { return source; };
-  const MMGUtils::MMGString &str3() const override { return source; };
-  MMGUtils::MMGNumber &num1() override { return num; };
-  const MMGUtils::MMGNumber &num1() const override { return num; };
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
+  Category category() const override { return Category::MMGACTION_TRANSITION; }
 
   static const QStringList enumerate();
+  obs_source_t *sourceByName() const;
+  bool transitionFixed() const;
 
   private:
   MMGUtils::MMGString transition;
   MMGUtils::MMGString parent_scene;
   MMGUtils::MMGString source;
+  MMGUtils::MMGString json_str;
   MMGUtils::MMGNumber num;
+
+  void setSubConfig() override;
+  void setList1Config() override;
+  void setList2Config() override;
+  void setList3Config() override;
 };

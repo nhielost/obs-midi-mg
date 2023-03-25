@@ -16,20 +16,39 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#include "mmg-action.h"
+#ifndef MMG_MIDIOUT_H
+#define MMG_MIDIOUT_H
 
-void MMGAction::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "Actions -> " + message);
-}
+#include "obs-midi-mg.h"
+#include "mmg-message.h"
 
-void MMGAction::json(QJsonObject &json_obj) const
-{
-  json_obj["category"] = (int)category();
-  json_obj["sub"] = subcategory;
-}
+class MMGDevice;
 
-void MMGAction::copy(MMGAction *dest) const
-{
-  dest->setSub(subcategory);
-}
+class MMGMIDIOut : public QObject {
+  Q_OBJECT
+
+  public:
+  MMGMIDIOut();
+  void blog(int log_status, const QString &message) const;
+
+  bool isOutputPortOpen();
+
+  const QStringList outputDeviceNames();
+  uint outputPort(MMGDevice *device);
+
+  public slots:
+  void openOutputPort(MMGDevice *device);
+  void closeOutputPort();
+  void sendMessage(const MMGMessage *midi);
+
+  private slots:
+  void sendThru(MMGDevice *);
+
+  private:
+  libremidi::midi_out midi_out;
+  MMGUtils::MMGTimer *thru_timer;
+
+  friend class MMGMIDIIn;
+};
+
+#endif // MMG_MIDIOUT_H
