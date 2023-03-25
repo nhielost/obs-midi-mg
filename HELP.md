@@ -68,7 +68,9 @@ If a binding is disabled, the message will not be listened to. This can be chang
 
 Messages are composed of a type, channel, and one or two other values. These values can be inputted manually or, by using the *Listen to Message* feature, can be inputted by the input device automatically. Only one message can activate any action (no longer can one use multiple messages to do this).
 
-If the type is set to *Note On / Note Off*, the message will toggle to the other type every time that it is received (i.e. if the message is currently listening for a Note On type, it will switch to Note Off type when it is received, and viceversa).
+If the *Toggle Note On / Off Messages* option is checked, the message will toggle to the other type every time that it is received (i.e. if the message is currently listening for a Note On type, it will switch to Note Off type when it is received, and viceversa).
+
+If the *Toggle Velocity* option is checked, the message will toggle the velocity between 127 and 0 every time that it is received.
 
 ### Actions
 
@@ -78,11 +80,11 @@ In addition, some of the fields can use the message value field as their value. 
 
 When a number field is in *Fixed* mode, the plugin will use the value that is displayed in the number field for that action. 
 
-For some actions, an *Ignore* mode and a *127-0* mode are present in number fields.
+For some actions, a *Custom* mode and an *Ignore* mode are present in number fields.
+
+In *Custom* mode, the plugin will use the message value according to the boundary specified in the action. The top number corresponds to a MIDI value of 0, and the bottom number corresponds to a MIDI value of 127. This allows for more control over the range of those actions that support it.
 
 In *Ignore* mode, the plugin will ignore the value in that field while setting other values in other fields. This is the most useful when having to set two values (e.g. Move Source or Source Scale), but only one needs to change.
-
-In *127-0* mode, plugin will use the message value according to the action specification, but in reverse. This is most useful with actions like Rotate Source where rotating the opposite direction is desired.
 
 ----------------------------------------------------
 
@@ -96,7 +98,7 @@ In *127-0* mode, plugin will use the message value according to the action speci
 
 ### Streaming
 
-| Subcategory | Description| List Fields | Number Fields |
+| Subcategory | Description | List Fields | Number Fields |
 |---|---|---|---|
 | Start Streaming | Starts the stream if it is not running. | *N/A* | *N/A* |
 | Stop Streaming | Stops the stream if it is running. | *N/A* | *N/A* |
@@ -170,6 +172,7 @@ All Video Sources actions contain these list fields in addition to the fields li
 | Align Source Bounding Box | Changes the alignment of the bounding box of the source on the current scene. | **ALIGNMENT <sub>[2](#using-the-message-value)</sub>**: The alignment state of the bounding box of the source. | *N/A* |
 | Source Blending Mode | Changes the blending mode of the source on the current scene. | **BLEND MODE <sub>[2](#using-the-message-value)</sub>**: The blend mode state of the source. | *N/A* |
 | Take Source Screenshot | Takes a screenshot of the source. | *N/A* | *N/A* |
+| Custom Source Settings | Changes custom properties of a source. | *N/A* | *N/A* |
 
 ### Audio Sources
 
@@ -213,7 +216,9 @@ All Media Sources actions contain these list fields in addition to the fields li
 | Change Current Transition | Sets the current transition. | **TRANSITION**: The name of the transition to use. | **DURATION <sub>[7](#using-the-message-value)</sub>**: The duration of the transition selected. If a value of 0 is used, the plugin will use the current transition duration. |
 | Set Source Show Transition | Sets the transition that will be used when a source becomes shown. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[6](#using-the-message-value)</sub>**: The duration of the transition selected. |
 | Set Source Hide Transition | Sets the transition that will be used when a source becomes hidden. | **SCENE**: The name of the scene containing the video source.<br>**SOURCE**: The name of the source to set the transition to.<br>**TRANSITION**: The name of the transition to use. | **DURATION <sub>[6](#using-the-message-value)</sub>**: The duration of the transition selected. |
-| Set Transition Bar (Studio Mode) | Sets the transition bar position.<br>Fails if not in Studio Mode. | *N/A* | **POSITION <sub>[5](#using-the-message-value)</sub>**: The percent transitioned by the transition bar. |
+| Set Transition Bar Position (Studio Mode) | Sets the transition bar position. This will automatically release the transition bar after 1 second of inactivity.<br>Fails if not in Studio Mode. | *N/A* | **POSITION <sub>[5](#using-the-message-value)</sub>**: The amount transitioned by the transition bar. |
+| Release Transition Bar (Studio Mode) | Releases the transition bar manually.<br>Fails if not in Studio Mode. | *N/A* | *N/A* |
+| Custom Transition Settings | Changes custom properties of a transition. | *N/A* | *N/A* |
 
 ### Filters
 
@@ -258,22 +263,26 @@ All Filters actions contain these list fields in addition to the fields listed i
 
 ### Internal
 
-| Subcategory | Description | List Fields | Number Fields |
-|---|---|---|---|
-| Do 1 Action | Executes one other action in the current device. | **ACTION 1**: The name of the binding containing the action to execute. | *N/A* |
-| Do 2 Actions | Executes two other actions in the current device. | **ACTION 1**: The name of the binding containing the first action to execute.<br>**ACTION 2**: The name of the binding containing the second action to execute. | *N/A* |
-| Do 3 Actions | Executes three other actions in the current device. | **ACTION 1**: The name of the binding containing the first action to execute.<br>**ACTION 2**: The name of the binding containing the second action to execute.<br>**ACTION 3**: The name of the binding containing the third action to execute. | *N/A* |
+An unlimited number of actions can now be executed using the *Internal* action. Add actions using the *Add Action* button, and switch between actions by incrementing the *Action #* indicator. Actions cannot be moved around once they are placed, so ensure that the actions are placed in the correct order - Action #1 being first. To remove any action, use the *Remove Action* button.
 
-Note 1: Actions can only be executed once. Any action that is executed more than once will be skipped.<br>
-Note 2: Actions executed in this manner bypass disabled bindings, meaning that an action in a disabled binding can be executed.<br>
-Note 3: If a selected action is using the message for any of its values, that action will use the message sent to the *Internal* action.
+Actions can be configured to execute certain time intervals after a previous action. The *Timing* option has three choices:
+
+- **Execute as soon as possible** -> The action will execute as soon as either the *Internal* action begins executing or when the previous action finishes executing if it is not Action #1.
+- **Wait (ms) before executing** -> The action will execute after some amount of milliseconds have passed. This can be chained, meaning Action #5 may take a while to execute if all the actions have this choice selected.
+- **Wait (s) before executing** -> The action will execute after some amount of seconds have passed. This can be chained, meaning Action #5 may take a *long* while to execute if all the actions have this choice selected.
+
+The timing range is set between 1 and 999 of the specified units.
+
+**Note 1**: Actions can now be executed without limits. This changes the policy from when an action could only be executed once.<br>
+**Note 2**: Actions executed in this manner bypass disabled bindings, meaning that an action in a disabled binding can be executed.<br>
+**Note 3**: If a selected action is using the message for any of its values, that action will use the message sent to the *Internal* action.<br>
+**Note 4**: Other *Internal* actions cannot be executed in an *Internal* action. (Just make another binding if this behavior is desired.)<br>
+**Note 5**: Only up to 64 *Internal* actions can be running at any one time. Further attempts to run an *Internal* action will fail until one of the 64 running actions finishes.<br>
+**Note 6**: Try not to have 64 *Internal* actions running at once, if possible. Your computer will thank you later.
 
 ### Timeout
 
-| Subcategory | Description | List Fields | Number Fields |
-|---|---|---|---|
-| Wait in Milliseconds | Waits the specified amount of time in milliseconds. | *N/A* | **TIME <sub>[7](#using-the-message-value)</sub>**: The number of milliseconds to wait. |
-| Wait in Seconds | Waits the specified amount of time in seconds. | *N/A* | **TIME <sub>[7](#using-the-message-value)</sub>**: The number of seconds to wait. |
+This category is discontinued as it has moved inside of the *Internal* action.
 
 ----------------------------------------------------
 
@@ -308,6 +317,12 @@ If any fields are marked with a subscript listed below, they are eligible to be 
 ### Device Interaction
 
 If this option is toggled off, it will turn off all communication between the plugin and the active device.
+
+### MIDI Throughput
+
+When this option is enabled, all messages received by the active device will automatically be routed to the output device specified.
+
+This may cause a feedback loop if the output device is configured to send messages to the *Active Device*. Feedback loops lead to undesired behavior, and occasionally cause crashes, so be careful when using this feature.
 
 ### Binding Transfer
 

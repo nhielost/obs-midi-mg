@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,23 +26,19 @@ class MMGActionProfiles : public MMGAction {
   enum Actions { PROFILE_PROFILE };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
+  void execute(const MMGMessage *midi) const override;
   void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_PROFILE; }
-
-  MMGUtils::MMGString &str1() override { return profile; };
-  const MMGUtils::MMGString &str1() const override { return profile; };
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
+  Category category() const override { return Category::MMGACTION_PROFILE; }
 
   static const QStringList enumerate();
 
   private:
   MMGUtils::MMGString profile;
+
+  void setSubConfig() override;
 };

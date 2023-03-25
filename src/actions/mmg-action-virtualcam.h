@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,15 +26,8 @@ class MMGActionVirtualCam : public MMGAction {
   enum Actions { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
-  void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void execute(const MMGMessage *midi) const override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_VIRCAM; }
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
+  Category category() const override { return Category::MMGACTION_VIRCAM; }
 };

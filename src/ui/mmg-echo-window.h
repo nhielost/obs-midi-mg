@@ -15,10 +15,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "ui_mmg-echo-window.h"
 #include "../mmg-utils.h"
+#include "mmg-number-display.h"
 #include "mmg-fields.h"
 #include "../mmg-device.h"
-
-#define IF_ACTION_ENABLED if (!action_display_params.initializing)
 
 class MMGEchoWindow : public QDialog {
   Q_OBJECT
@@ -30,21 +29,19 @@ class MMGEchoWindow : public QDialog {
   private:
   Ui::MMGEchoWindow *ui;
 
-  MMGUtils::LCDData lcd_channel;
-  MMGUtils::LCDData lcd_note;
-  MMGUtils::LCDData lcd_value;
-  MMGUtils::LCDData lcd_double1;
-  MMGUtils::LCDData lcd_double2;
-  MMGUtils::LCDData lcd_double3;
-  MMGUtils::LCDData lcd_double4;
-
-  QList<MMGFields *> field_groups;
-  MMGUtils::MMGActionDisplayParams action_display_params;
+  MMGNumberDisplay *channel_display;
+  MMGNumberDisplay *note_display;
+  MMGNumberDisplay *value_display;
 
   MMGDevice *current_device = nullptr;
   MMGBinding *current_binding = nullptr;
   MMGMessage *current_message = nullptr;
   MMGAction *current_action = nullptr;
+
+  QList<MMGOBSFields *> custom_fields;
+  MMGOBSFields *current_fields = nullptr;
+
+  short listening_mode = 0;
 
   void reject() override;
   void connect_ui_signals();
@@ -53,24 +50,6 @@ class MMGEchoWindow : public QDialog {
   void set_action_view();
   void set_preferences_view();
   void change_sub_options();
-  void set_channel(double value) { current_message->channel() = value; }
-  void set_note(double value)
-  {
-    (ui->lcd_value->isVisible() ? current_message->note() : current_message->value()) = value;
-  };
-  void set_value(double value) { current_message->value() = value; };
-  void set_str1(const QString &value) { IF_ACTION_ENABLED current_action->str1() = value; };
-  void set_str2(const QString &value) { IF_ACTION_ENABLED current_action->str2() = value; };
-  void set_str3(const QString &value) { IF_ACTION_ENABLED current_action->str3() = value; };
-  void set_double1(double value) { IF_ACTION_ENABLED current_action->num1() = value; };
-  void set_double2(double value) { IF_ACTION_ENABLED current_action->num2() = value; };
-  void set_double3(double value) { IF_ACTION_ENABLED current_action->num3() = value; };
-  void set_double4(double value) { IF_ACTION_ENABLED current_action->num4() = value; };
-  void display_action_fields();
-  void change_str1_options(const QString &value);
-  void change_str2_options(const QString &value);
-  void change_str3_options(const QString &value);
-  void change_action_secondary();
   void add_widget_item(const MMGBinding *binding) const;
   void export_bindings();
   void import_bindings();
@@ -79,19 +58,24 @@ class MMGEchoWindow : public QDialog {
 
   public slots:
   void show_window();
+  void listen_update(const MMGSharedMessage &);
+  void custom_field_request(void *, MMGUtils::MMGString *);
+
   private slots:
   void on_device_change(const QString &name);
   void on_message_type_change(const QString &type);
   void on_message_listen_continuous(bool toggled);
   void on_message_listen_once(bool toggled);
-  void on_message_value_button_change(int index);
+  void on_message_type_toggle(bool toggled);
+  void on_message_value_toggle(bool toggled);
   void on_action_cat_change(int index);
   void on_action_sub_change(int index);
   void on_active_change(bool toggle);
+  void on_midi_thru_change(bool toggle);
+  void on_midi_thru_device_change(const QString &device);
   void on_preferences_click(bool toggle);
   void on_transfer_mode_change(short index);
   void on_transfer_bindings_click();
-  void on_interface_style_change(short index);
   void on_update_check();
   void on_add_click();
   void on_copy_click();

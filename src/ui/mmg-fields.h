@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include "../mmg-utils.h"
-#include "../actions/mmg-action.h"
+#include "mmg-number-display.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -27,22 +27,31 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QScrollArea>
 #include <QLayout>
 #include <QToolButton>
+#include <QFont>
+#include <QTextEdit>
+#include <QScopedPointer>
+#include <QFileDialog>
 
-class MMGFields;
+class MMGOBSFields;
 
-struct MMGFieldInit {
-  MMGFields *group;
-  QWidget *parent;
+struct MMGOBSFieldInit {
+  MMGOBSFields *fields;
   obs_property_t *prop;
   QJsonObject current_json;
   QJsonObject default_json;
-  QJsonObject action_json;
 };
 
-struct MMGField {
+struct MMGOBSField : public QWidget {
+  Q_OBJECT
+
+  public:
+  virtual ~MMGOBSField() = default;
+
   const QString &get_name() const { return name; };
   void set_name(const QString &val) { name = val; };
-  virtual void json(QJsonObject &json_obj) const = 0;
+  virtual void obs_json(QJsonObject &json_obj) const = 0;
+  virtual void mmg_json(QJsonObject &json_obj) const = 0;
+  virtual void apply(const QJsonObject &json_obj) = 0;
   virtual void update(obs_property_t *prop) = 0;
 
   protected:
@@ -50,113 +59,185 @@ struct MMGField {
 
   QLabel *label;
 
-  MMGFields *parent;
+  MMGOBSFields *parent;
+
+  MMGOBSField(MMGOBSFields *fields, QWidget *widget = nullptr) : QWidget(widget)
+  {
+    parent = fields;
+    setFixedSize(270, 70);
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  };
 };
+using MMGOBSFieldList = QList<MMGOBSField *>;
 
-struct MMGNumberField : public MMGField {
-  MMGNumberField(const MMGFieldInit &init);
+struct MMGOBSNumberField : public MMGOBSField {
+  MMGOBSNumberField(QWidget *parent, const MMGOBSFieldInit &init);
 
-  void json(QJsonObject &json_obj) const override { number.json(json_obj, name, true); };
+  void obs_json(QJsonObject &json_obj) const override { json_obj[name] = number.num(); };
+  void mmg_json(QJsonObject &json_obj) const override { number.json(json_obj, name); };
+  void apply(const QJsonObject &json_obj) override;
   void update(obs_property_t *prop) override;
 
   MMGUtils::MMGNumber number;
 
-  QLCDNumber *lcd;
-  QToolButton *down_major_button;
-  QToolButton *down_minor_button;
-  QToolButton *up_minor_button;
-  QToolButton *up_major_button;
-  QComboBox *combo;
-  MMGUtils::LCDData lcd_data;
+  MMGNumberDisplay *num_display;
 };
 
-struct MMGStringField : public MMGField {
-  MMGStringField(const MMGFieldInit &init);
+struct MMGOBSStringField : public MMGOBSField {
+  MMGOBSStringField(QWidget *parent, const MMGOBSFieldInit &init);
 
-  virtual void callback(const QString &val);
-  void json(QJsonObject &json_obj) const override { value.json(json_obj, name, true); };
-  void update(obs_property_t *prop) override;
-
-  MMGUtils::MMGString value;
-
-  QComboBox *combo;
-};
-
-struct MMGBooleanField : public MMGStringField {
-  MMGBooleanField(const MMGFieldInit &init);
-
-  void callback(const QString &val) override;
-  void json(QJsonObject &json_obj) const override
+  virtual void callback(const QVariant &val);
+  void obs_json(QJsonObject &json_obj) const override { json_obj[name] = value; };
+  void mmg_json(QJsonObject &json_obj) const override
   {
-    json_obj[name] = bool_value;
-    json_obj[name + "_state"] = value.state();
+    QJsonObject value_obj;
+    value_obj["value"] = value;
+    value_obj["state"] = state;
+    json_obj[name] = value_obj;
   };
+  virtual void apply(const QJsonObject &json_obj) override;
   void update(obs_property_t *prop) override;
 
-  bool bool_value;
+  QJsonValue value;
+  MMGUtils::MMGString::State state = MMGUtils::MMGString::STRINGSTATE_FIXED;
+
+  QList<MMGUtils::MMGPair> options;
+
+  QComboBox *combo;
 };
 
-struct MMGButtonField : public MMGField {
-  MMGButtonField(const MMGFieldInit &init);
+struct MMGOBSBooleanField : public MMGOBSStringField {
+  MMGOBSBooleanField(QWidget *parent, const MMGOBSFieldInit &init);
+
+  void callback(const QVariant &val) override;
+  void apply(const QJsonObject &json_obj) override;
+  void update(obs_property_t *prop) override;
+};
+
+struct MMGOBSButtonField : public MMGOBSField {
+  MMGOBSButtonField(QWidget *parent, const MMGOBSFieldInit &init);
 
   virtual void callback();
-  void json(QJsonObject &json_obj) const override{};
+  void obs_json(QJsonObject &json_obj) const override { Q_UNUSED(json_obj); };
+  void mmg_json(QJsonObject &json_obj) const override { Q_UNUSED(json_obj); };
+  virtual void apply(const QJsonObject &json_obj) override { Q_UNUSED(json_obj); };
   void update(obs_property_t *prop) override;
 
   QPushButton *button;
+
+  static const QString style_sheet;
 };
 
-struct MMGColorField : public MMGButtonField {
-  MMGColorField(const MMGFieldInit &init, bool use_alpha);
+struct MMGOBSColorField : public MMGOBSButtonField {
+  MMGOBSColorField(QWidget *parent, const MMGOBSFieldInit &init, bool use_alpha);
 
   void callback() override;
-  void json(QJsonObject &json_obj) const override { json_obj[name] = (double)(uint)color.rgba(); };
+  void obs_json(QJsonObject &json_obj) const override;
+  void mmg_json(QJsonObject &json_obj) const override;
+  void apply(const QJsonObject &json_obj) override;
   void update(obs_property_t *prop) override;
 
   QColor color;
   bool alpha;
 
   QFrame *frame;
-
-  private:
-  static QString style_sheet;
 };
 
-class MMGFields {
+struct MMGOBSFontField : public MMGOBSButtonField {
+  MMGOBSFontField(QWidget *parent, const MMGOBSFieldInit &init);
+
+  void callback() override;
+  void obs_json(QJsonObject &json_obj) const override;
+  void mmg_json(QJsonObject &json_obj) const override { obs_json(json_obj); };
+  void apply(const QJsonObject &json_obj) override;
+  void update(obs_property_t *prop) override;
+
+  QFont font;
+
+  QLabel *inner_label;
+};
+
+struct MMGOBSGroupField : public MMGOBSField {
+  MMGOBSGroupField(QWidget *parent, const MMGOBSFieldInit &init);
+
+  void obs_json(QJsonObject &json_obj) const override;
+  void mmg_json(QJsonObject &json_obj) const override;
+  void apply(const QJsonObject &json_obj) override { Q_UNUSED(json_obj); };
+  void update(obs_property_t *prop) override;
+
+  MMGOBSBooleanField *boolean_field = nullptr;
+  bool boolean_field_state;
+
+  ~MMGOBSGroupField()
+  {
+    if (boolean_field) delete boolean_field;
+  }
+};
+
+struct MMGOBSPathField : public MMGOBSButtonField {
+  MMGOBSPathField(QWidget *parent, const MMGOBSFieldInit &init);
+
+  void callback() override;
+  void obs_json(QJsonObject &json_obj) const override { json_obj[name] = path.str(); };
+  void mmg_json(QJsonObject &json_obj) const override { path.json(json_obj, name); };
+  void apply(const QJsonObject &json_obj) override;
+  void update(obs_property_t *prop) override;
+
+  MMGUtils::MMGString path;
+
+  short dialog_type;
+  QString filters;
+  QString default_path;
+
+  QLabel *path_display;
+};
+
+struct MMGOBSTextField : public MMGOBSField {
+  MMGOBSTextField(QWidget *parent, const MMGOBSFieldInit &init);
+
+  virtual void callback(const QString &str);
+  void obs_json(QJsonObject &json_obj) const override { json_obj[name] = text.str(); };
+  void mmg_json(QJsonObject &json_obj) const override { text.json(json_obj, name); };
+  void apply(const QJsonObject &json_obj) override;
+  void update(obs_property_t *prop) override;
+
+  bool checkMIDI() const;
+
+  MMGUtils::MMGString text;
+
+  QTextEdit *text_edit;
+  QLineEdit *line_edit;
+};
+
+class MMGOBSFields : public QWidget {
+  Q_OBJECT
+
   public:
-  enum Kind { MMGFIELDS_FILTER, MMGFIELDS_TRANSITION, MMGFIELDS_SOURCE };
+  MMGOBSFields(QWidget *parent, obs_source_t *source);
 
-  MMGFields(Kind kind, QStackedWidget *parent, MMGAction *action);
+  bool match(obs_source_t *source) const { return _source == source; };
+  MMGUtils::MMGString *jsonDestination() const { return json_des; };
+  void setJsonDestination(MMGUtils::MMGString *json, bool force);
 
-  int get_index() const { return index; };
-  obs_property_t *get_property(const QString &name)
+  obs_property_t *property(const QString &name) { return obs_properties_get(props, name.qtocs()); };
+  void create(QWidget *parent, obs_properties_t *props, const MMGOBSFieldInit &json_init);
+  void add(QWidget *parent, MMGOBSField *field);
+
+  ~MMGOBSFields()
   {
-    return obs_properties_get(props, name.qtocs());
-  };
-  MMGAction *get_action() const { return action; };
-  bool ensure_validity(MMGAction *test) const
-  {
-    return action == test && action->str1() == source && action->str2() == filter;
-  };
-
-  const QString json();
-  void update(MMGField *from_field);
-
-  ~MMGFields()
-  {
-    qDeleteAll(fields);
+    obs_source_release(_source);
     obs_properties_destroy(props);
   }
 
+  public slots:
+  void obs_json();
+  void mmg_json();
+
   private:
-  QString source;
-  QString filter;
-
-  QWidget *widget;
-  int index;
-  MMGAction *action;
+  obs_source_t *_source;
+  MMGUtils::MMGString *json_des = nullptr;
   obs_properties_t *props = nullptr;
-  QList<MMGField *> fields;
+  MMGOBSFieldList fields;
 
-  void create_filter_fields();
+  void apply();
 };

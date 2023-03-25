@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,10 +21,36 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+#define ALIGN_ACTION(value)                            \
+  if ((value) <= 2) align |= OBS_ALIGN_TOP;            \
+  if ((value) >= 6) align |= OBS_ALIGN_BOTTOM;         \
+  if ((uint)(value) % 3 == 0) align |= OBS_ALIGN_LEFT; \
+  if ((uint)(value) % 3 == 2) align |= OBS_ALIGN_RIGHT
+
+const QStringList MMGActionVideoSources::alignment_options{
+  "Top Left",     "Top Center",  "Top Right",     "Middle Left",  "Middle Center",
+  "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right", "Use Message Value"};
+
+const QStringList MMGActionVideoSources::boundingbox_options{"No Bounds",
+							     "Stretch to Bounds",
+							     "Scale to Inner Bounds",
+							     "Scale to Outer Bounds",
+							     "Scale to Width of Bounds",
+							     "Scale to Height of Bounds",
+							     "Maximum Size",
+							     "Use Message Value"};
+
+const QStringList MMGActionVideoSources::scalefilter_options{
+  "Disable", "Point", "Bicubic", "Bilinear", "Lanczos", "Area", "Use Message Value"};
+
+const QStringList MMGActionVideoSources::blendmode_options{
+  "Normal", "Additive", "Subtract", "Screen", "Multiply", "Lighten", "Darken", "Use Message Value"};
+
 MMGActionVideoSources::MMGActionVideoSources(const QJsonObject &json_obj)
   : parent_scene(json_obj, "scene", 1),
     source(json_obj, "source", 2),
     action(json_obj, "action", 3),
+    json_str(json_obj, "json_str", 0),
     nums{{json_obj, "num1", 1}, {json_obj, "num2", 2}, {json_obj, "num3", 3}, {json_obj, "num4", 4}}
 {
   subcategory = json_obj["sub"].toInt();
@@ -39,17 +65,18 @@ void MMGActionVideoSources::blog(int log_status, const QString &message) const
 
 void MMGActionVideoSources::json(QJsonObject &json_obj) const
 {
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
+  MMGAction::json(json_obj);
+
   parent_scene.json(json_obj, "scene", false);
   source.json(json_obj, "source", false);
-  action.json(json_obj, "action", true);
+  action.json(json_obj, "action");
+  json_str.json(json_obj, "json_str", false);
   for (int i = 0; i < 4; ++i) {
-    nums[i].json(json_obj, num_to_str(i + 1, "num"), true);
+    nums[i].json(json_obj, num_to_str(i + 1, "num"));
   }
 }
 
-void MMGActionVideoSources::do_action(const MMGMessage *midi)
+void MMGActionVideoSources::execute(const MMGMessage *midi) const
 {
   OBSSourceAutoRelease obs_scene_source = obs_get_source_by_name(parent_scene.mmgtocs());
   OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
@@ -68,11 +95,11 @@ void MMGActionVideoSources::do_action(const MMGMessage *midi)
   obs_sceneitem_crop crop;
   uint32_t align = 0;
 
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionVideoSources::SOURCE_VIDEO_POSITION:
       obs_sceneitem_get_pos(obs_sceneitem, &get_vec2);
-      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x / num3(), get_obs_dimensions().x) * num3(),
-	       num2().choose(midi, get_vec2.y / num3(), get_obs_dimensions().y) * num3());
+      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x / num3()) * num3(),
+	       num2().choose(midi, get_vec2.y / num3()) * num3());
       obs_sceneitem_set_pos(obs_sceneitem, &set_vec2);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_DISPLAY:
@@ -91,30 +118,30 @@ void MMGActionVideoSources::do_action(const MMGMessage *midi)
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_CROP:
       obs_sceneitem_get_crop(obs_sceneitem, &crop);
-      set_vec2 = get_obs_source_dimensions(source);
-      crop.top = num1().choose(midi, crop.top, set_vec2.y);
-      crop.right = num2().choose(midi, crop.right, set_vec2.x);
-      crop.bottom = num3().choose(midi, crop.bottom, set_vec2.y);
-      crop.left = num4().choose(midi, crop.left, set_vec2.x);
+      crop.top = num1().choose(midi, crop.top);
+      crop.right = num2().choose(midi, crop.right);
+      crop.bottom = num3().choose(midi, crop.bottom);
+      crop.left = num4().choose(midi, crop.left);
       obs_sceneitem_set_crop(obs_sceneitem, &crop);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_ALIGNMENT:
-      if (MIDI_NUMBER_IS_NOT_IN_RANGE(num1(), 9)) {
-	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
-	return;
+      if (action.state() != 0) {
+	if (midi->value() > 8) {
+	  blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
+	  return;
+	}
+	ALIGN_ACTION(midi->value());
+      } else {
+	ALIGN_ACTION(alignment_options.indexOf(action));
       }
-      if (num1().choose(midi) <= 2) align |= OBS_ALIGN_TOP;
-      if (num1().choose(midi) >= 6) align |= OBS_ALIGN_BOTTOM;
-      if ((uint)num1().choose(midi) % 3 == 0) align |= OBS_ALIGN_LEFT;
-      if ((uint)num1().choose(midi) % 3 == 2) align |= OBS_ALIGN_RIGHT;
       obs_sceneitem_set_alignment(obs_sceneitem, align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_SCALE:
       // Multiplier
       align = 100 / num3();
       obs_sceneitem_get_scale(obs_sceneitem, &get_vec2);
-      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x * align, 100, true) / align,
-	       num2().choose(midi, get_vec2.y * align, 100, true) / align);
+      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x * align) / align,
+	       num2().choose(midi, get_vec2.y * align) / align);
       obs_sceneitem_set_scale(obs_sceneitem, &set_vec2);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_SCALEFILTER:
@@ -122,34 +149,35 @@ void MMGActionVideoSources::do_action(const MMGMessage *midi)
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      align = num1().choose(midi);
+      align = !action.state() ? midi->value() : scalefilter_options.indexOf(action);
       obs_sceneitem_set_scale_filter(obs_sceneitem, (obs_scale_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_ROTATION:
-      obs_sceneitem_set_rot(obs_sceneitem, num1().choose(midi, 0, 360.0));
+      obs_sceneitem_set_rot(obs_sceneitem, num1().choose(midi));
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_BOUNDING_BOX_TYPE:
       if (MIDI_NUMBER_IS_NOT_IN_RANGE(num1(), 7)) {
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      obs_sceneitem_set_bounds_type(obs_sceneitem, (obs_bounds_type)num1().choose(midi));
+      align = !action.state() ? midi->value() : boundingbox_options.indexOf(action);
+      obs_sceneitem_set_bounds_type(obs_sceneitem, (obs_bounds_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:
       obs_sceneitem_get_bounds(obs_sceneitem, &get_vec2);
-      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x, get_obs_dimensions().x),
-	       num2().choose(midi, get_vec2.y, get_obs_dimensions().y));
+      vec2_set(&set_vec2, num1().choose(midi, get_vec2.x), num2().choose(midi, get_vec2.y));
       obs_sceneitem_set_bounds(obs_sceneitem, &set_vec2);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
-      if (MIDI_NUMBER_IS_NOT_IN_RANGE(num1(), 9)) {
-	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
-	return;
+      if (action.state() != 0) {
+	if (midi->value() > 8) {
+	  blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
+	  return;
+	}
+	ALIGN_ACTION(midi->value());
+      } else {
+	ALIGN_ACTION(alignment_options.indexOf(action));
       }
-      if (num1().choose(midi) <= 2) align |= OBS_ALIGN_TOP;
-      if (num1().choose(midi) >= 6) align |= OBS_ALIGN_BOTTOM;
-      if ((uint)num1().choose(midi) % 3 == 0) align |= OBS_ALIGN_LEFT;
-      if ((uint)num1().choose(midi) % 3 == 2) align |= OBS_ALIGN_RIGHT;
       obs_sceneitem_set_bounds_alignment(obs_sceneitem, align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_BLEND_MODE:
@@ -157,31 +185,51 @@ void MMGActionVideoSources::do_action(const MMGMessage *midi)
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      obs_sceneitem_set_blending_mode(obs_sceneitem, (obs_blending_type)num1().choose(midi));
+      align = !action.state() ? midi->value() : blendmode_options.indexOf(action);
+      obs_sceneitem_set_blending_mode(obs_sceneitem, (obs_blending_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_SCREENSHOT:
       obs_frontend_take_source_screenshot(obs_source);
+      break;
+    case MMGActionVideoSources::SOURCE_VIDEO_CUSTOM:
+      obs_source_custom_update(obs_source, json_from_str(json_str.mmgtocs()), midi);
       break;
     default:
       break;
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionVideoSources::deep_copy(MMGAction *dest) const
+void MMGActionVideoSources::copy(MMGAction *dest) const
 {
-  dest->set_sub(subcategory);
-  parent_scene.copy(&dest->str1());
-  source.copy(&dest->str2());
-  action.copy(&dest->str3());
-  num1().copy(&dest->num1());
-  num2().copy(&dest->num2());
-  num3().copy(&dest->num3());
-  num4().copy(&dest->num4());
+  MMGAction::copy(dest);
+
+  auto casted = dynamic_cast<MMGActionVideoSources *>(dest);
+  if (!casted) return;
+
+  casted->parent_scene = parent_scene.copy();
+  casted->source = source.copy();
+  casted->action = action.copy();
+  casted->json_str = json_str.copy();
+  casted->nums[0] = num1().copy();
+  casted->nums[1] = num2().copy();
+  casted->nums[2] = num3().copy();
+  casted->nums[3] = num4().copy();
 }
 
-const QStringList MMGActionVideoSources::enumerate(const QString &restriction)
+void MMGActionVideoSources::setEditable(bool edit)
+{
+  parent_scene.set_edit(edit);
+  source.set_edit(edit);
+  action.set_edit(edit);
+  json_str.set_edit(edit);
+  nums[0].set_edit(edit);
+  nums[1].set_edit(edit);
+  nums[2].set_edit(edit);
+  nums[3].set_edit(edit);
+}
+
+const QStringList MMGActionVideoSources::enumerate()
 {
   QStringList list;
   obs_enum_all_sources(
@@ -198,222 +246,254 @@ const QStringList MMGActionVideoSources::enumerate(const QString &restriction)
   return list;
 }
 
-void MMGActionVideoSources::change_options_sub(MMGActionDisplayParams &val)
+void MMGActionVideoSources::createDisplay(QWidget *parent)
 {
-  val.list = {"Move Source",
-	      "Display Source",
-	      "Source Locking",
-	      "Source Crop",
-	      "Align Source",
-	      "Source Scale",
-	      "Source Scale Filtering",
-	      "Rotate Source",
-	      "Source Bounding Box Type",
-	      "Resize Source Bounding Box",
-	      "Align Source Bounding Box",
-	      "Source Blending Mode",
-	      "Take Source Screenshot"};
+  MMGAction::createDisplay(parent);
+
+  _display->setStr1Storage(&parent_scene);
+  _display->setStr2Storage(&source);
+  _display->setStr3Storage(&action);
+
+  MMGNumberDisplay *num1_display = new MMGNumberDisplay(_display->numberDisplays());
+  num1_display->setStorage(&nums[0], true);
+  _display->numberDisplays()->add(num1_display);
+  MMGNumberDisplay *num2_display = new MMGNumberDisplay(_display->numberDisplays());
+  num2_display->setStorage(&nums[1], true);
+  _display->numberDisplays()->add(num2_display);
+  MMGNumberDisplay *num3_display = new MMGNumberDisplay(_display->numberDisplays());
+  num3_display->setStorage(&nums[2], true);
+  _display->numberDisplays()->add(num3_display);
+  MMGNumberDisplay *num4_display = new MMGNumberDisplay(_display->numberDisplays());
+  num4_display->setStorage(&nums[3], true);
+  _display->numberDisplays()->add(num4_display);
+
+  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
+  _display->connect(_display, &MMGActionDisplay::str2Changed, [&]() { setList2Config(); });
 }
-void MMGActionVideoSources::change_options_str1(MMGActionDisplayParams &val)
+
+void MMGActionVideoSources::setSubOptions(QComboBox *sub)
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR1;
-  val.label_text = "Scene";
-  val.list = MMGActionScenes::enumerate();
+  sub->addItems({"Move Source", "Display Source", "Source Locking", "Source Crop", "Align Source",
+		 "Source Scale", "Source Scale Filtering", "Rotate Source",
+		 "Source Bounding Box Type", "Resize Source Bounding Box",
+		 "Align Source Bounding Box", "Source Blending Mode", "Take Source Screenshot",
+		 "Custom Source Settings"});
 }
-void MMGActionVideoSources::change_options_str2(MMGActionDisplayParams &val)
+
+void MMGActionVideoSources::setSubConfig()
 {
-  val.display = MMGActionDisplayParams::DISPLAY_STR2;
-  val.label_text = "Source";
-  val.list = MMGActionScenes::enumerate_items(parent_scene);
+  _display->setVisible(true);
+  _display->setStr1Visible(false);
+  _display->setStr2Visible(false);
+  _display->setStr3Visible(false);
+
+  _display->setStr1Visible(true);
+  _display->setStr1Description("Scene");
+  _display->setStr1Options(MMGActionScenes::enumerate());
 }
-void MMGActionVideoSources::change_options_str3(MMGActionDisplayParams &val)
+
+void MMGActionVideoSources::setList1Config()
 {
+  _display->setStr2Visible(true);
+  _display->setStr2Description("Source");
+  _display->setStr2Options(MMGActionScenes::enumerate_items(parent_scene));
+}
+
+void MMGActionVideoSources::setList2Config()
+{
+  _display->resetScrollWidget();
+
+  MMGNumberDisplay *num1_display = _display->numberDisplays()->fieldAt(0);
+  MMGNumberDisplay *num2_display = _display->numberDisplays()->fieldAt(1);
+  MMGNumberDisplay *num3_display = _display->numberDisplays()->fieldAt(2);
+  MMGNumberDisplay *num4_display = _display->numberDisplays()->fieldAt(3);
+
+  num1_display->setVisible(false);
+  num2_display->setVisible(false);
+  num3_display->setVisible(false);
+  num4_display->setVisible(false);
+
+  bool source_exists = !source.str().isEmpty();
+
   switch ((Actions)subcategory) {
     case SOURCE_VIDEO_POSITION:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM3;
+      num1_display->setVisible(source_exists);
+      num1_display->setDescription("Position X");
+      num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num1_display->setBounds(0.0, obsResolution().x, true);
+      num1_display->setStep(0.5);
+      num1_display->setDefaultValue(0.0);
 
-      val.label_lcds[0] = "Position X";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[0]->set_range(0.0, get_obs_dimensions().x);
-      val.lcds[0]->set_step(0.5, 5.0);
-      val.lcds[0]->set_default_value(0.0);
+      num2_display->setVisible(source_exists);
+      num2_display->setDescription("Position Y");
+      num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num2_display->setBounds(0.0, obsResolution().y, true);
+      num2_display->setStep(0.5);
+      num2_display->setDefaultValue(0.0);
 
-      val.label_lcds[1] = "Position Y";
-      val.combo_display[1] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[1]->set_range(0.0, get_obs_dimensions().y);
-      val.lcds[1]->set_step(0.5, 5.0);
-      val.lcds[1]->set_default_value(0.0);
-
-      val.label_lcds[2] = "Magnitude";
-      val.combo_display[2] = MMGActionDisplayParams::COMBODISPLAY_FIXED;
-      val.lcds[2]->set_range(0.5, 100.0);
-      val.lcds[2]->set_step(0.5, 5.0);
-      val.lcds[2]->set_default_value(1.0);
+      num3_display->setVisible(source_exists);
+      num3_display->setDescription("Magnitude");
+      num3_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
+      num3_display->setBounds(0.01, 100.0);
+      num3_display->setStep(0.01);
+      num3_display->setDefaultValue(1.0);
 
       break;
+
     case SOURCE_VIDEO_DISPLAY:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "State";
-      val.list = {"Show", "Hide", "Toggle"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("State");
+      _display->setStr3Options({"Show", "Hide", "Toggle"});
       break;
+
     case SOURCE_VIDEO_LOCKED:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "State";
-      val.list = {"Locked", "Unlocked", "Toggle"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("State");
+      _display->setStr3Options({"Locked", "Unlocked", "Toggle"});
       break;
+
     case SOURCE_VIDEO_CROP:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM4;
+      num1_display->setVisible(source_exists);
+      num1_display->setDescription("Top");
+      num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num1_display->setBounds(0.0, sourceResolution().y);
+      num1_display->setStep(0.5);
+      num1_display->setDefaultValue(0.0);
 
-      val.label_lcds[0] = "Top";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[0]->set_range(0.0, get_obs_source_dimensions(source).y);
-      val.lcds[0]->set_step(0.5, 5.0);
-      val.lcds[0]->set_default_value(0.0);
+      num2_display->setVisible(source_exists);
+      num2_display->setDescription("Right");
+      num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num2_display->setBounds(0.0, sourceResolution().x);
+      num2_display->setStep(0.5);
+      num2_display->setDefaultValue(0.0);
 
-      val.label_lcds[1] = "Right";
-      val.combo_display[1] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[1]->set_range(0.0, get_obs_source_dimensions(source).x);
-      val.lcds[1]->set_step(0.5, 5.0);
-      val.lcds[1]->set_default_value(0.0);
+      num3_display->setVisible(source_exists);
+      num3_display->setDescription("Bottom");
+      num3_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num3_display->setBounds(0.0, sourceResolution().y);
+      num3_display->setStep(0.5);
+      num3_display->setDefaultValue(0.0);
 
-      val.label_lcds[2] = "Bottom";
-      val.combo_display[2] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[2]->set_range(0.0, get_obs_source_dimensions(source).y);
-      val.lcds[2]->set_step(0.5, 5.0);
-      val.lcds[2]->set_default_value(0.0);
-
-      val.label_lcds[3] = "Left";
-      val.combo_display[3] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[3]->set_range(0.0, get_obs_source_dimensions(source).x);
-      val.lcds[3]->set_step(0.5, 5.0);
-      val.lcds[3]->set_default_value(0.0);
+      num4_display->setVisible(source_exists);
+      num4_display->setDescription("Left");
+      num4_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num4_display->setBounds(0.0, sourceResolution().x);
+      num4_display->setStep(0.5);
+      num4_display->setDefaultValue(0.0);
 
       break;
+
     case SOURCE_VIDEO_ALIGNMENT:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "Alignment";
-      val.list = {"Top Left",      "Top Center",       "Top Right",   "Middle Left",
-		  "Middle Center", "Middle Right",     "Bottom Left", "Bottom Center",
-		  "Bottom Right",  "Use Message Value"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("Alignment");
+      _display->setStr3Options(alignment_options);
       break;
+
     case SOURCE_VIDEO_SCALE:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM3;
+      num1_display->setVisible(source_exists);
+      num1_display->setDescription("Scale X");
+      num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num1_display->setBounds(0.0, 100.0);
+      num1_display->setStep(0.5);
+      num1_display->setDefaultValue(0.0);
 
-      val.label_lcds[0] = "Scale X";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[0]->set_range(0.0, 100.0);
-      val.lcds[0]->set_step(0.5, 5.0);
-      val.lcds[0]->set_default_value(0.0);
+      num2_display->setVisible(source_exists);
+      num2_display->setDescription("Scale Y");
+      num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num2_display->setBounds(0.0, 100.0);
+      num2_display->setStep(0.5);
+      num2_display->setDefaultValue(0.0);
 
-      val.label_lcds[1] = "Scale Y";
-      val.combo_display[1] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[1]->set_range(0.0, 100.0);
-      val.lcds[1]->set_step(0.5, 5.0);
-      val.lcds[1]->set_default_value(0.0);
-
-      val.label_lcds[2] = "Magnitude";
-      val.combo_display[2] = MMGActionDisplayParams::COMBODISPLAY_FIXED;
-      val.lcds[2]->set_range(0.5, 100.0);
-      val.lcds[2]->set_step(0.5, 5.0);
-      val.lcds[2]->set_default_value(1.0);
+      num3_display->setVisible(source_exists);
+      num3_display->setDescription("Magnitude");
+      num3_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
+      num3_display->setBounds(0.01, 100.0);
+      num3_display->setStep(0.01);
+      num3_display->setDefaultValue(1.0);
 
       break;
+
     case SOURCE_VIDEO_SCALEFILTER:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "Scale Filtering";
-      val.list = {"Disable", "Point", "Bicubic",          "Bilinear",
-		  "Lanczos", "Area",  "Use Message Value"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("Scale Filtering");
+      _display->setStr3Options(scalefilter_options);
       break;
+
     case SOURCE_VIDEO_ROTATION:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM1;
-
-      val.label_lcds[0] = "Rotation";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_MIDI |
-			     MMGActionDisplayParams::COMBODISPLAY_MIDI_INVERT;
-      val.lcds[0]->set_range(0.0, 360.0);
-      val.lcds[0]->set_step(0.5, 5.0);
-      val.lcds[0]->set_default_value(0.0);
+      num1_display->setVisible(source_exists);
+      num1_display->setDescription("Rotation");
+      num1_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
+      num1_display->setBounds(0.0, 360.0);
+      num1_display->setStep(0.1);
 
       break;
+
     case SOURCE_VIDEO_BOUNDING_BOX_TYPE:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "Bounding Box Type";
-      val.list = {"No Bounds",
-		  "Stretch to Bounds",
-		  "Scale to Inner Bounds",
-		  "Scale to Outer Bounds",
-		  "Scale to Width of Bounds",
-		  "Scale to Height of Bounds",
-		  "Maximum Size",
-		  "Use Message Value"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("Bounding Box Type");
+      _display->setStr3Options(boundingbox_options);
       break;
+
     case SOURCE_VIDEO_BOUNDING_BOX_SIZE:
-      val.display |= MMGActionDisplayParams::DISPLAY_NUM2;
+      num1_display->setVisible(source_exists);
+      num1_display->setDescription("Bounding Box X");
+      num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num1_display->setBounds(0.0, obsResolution().x, true);
+      num1_display->setStep(0.5);
+      num1_display->setDefaultValue(0.0);
 
-      val.label_lcds[0] = "Bounding Box X";
-      val.combo_display[0] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[0]->set_range(0.0, get_obs_source_dimensions(parent_scene).x);
-      val.lcds[0]->set_step(0.5, 5.0);
-      val.lcds[0]->set_default_value(0.0);
-
-      val.label_lcds[1] = "Bounding Box Y";
-      val.combo_display[1] = MMGActionDisplayParams::COMBODISPLAY_ALL;
-      val.lcds[1]->set_range(0.0, get_obs_source_dimensions(parent_scene).y);
-      val.lcds[1]->set_step(0.5, 5.0);
-      val.lcds[1]->set_default_value(0.0);
+      num2_display->setVisible(source_exists);
+      num2_display->setDescription("Bounding Box Y");
+      num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
+      num2_display->setBounds(0.0, obsResolution().y, true);
+      num2_display->setStep(0.5);
+      num2_display->setDefaultValue(0.0);
 
       break;
+
     case SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "Bounding Box Alignment";
-      val.list = {"Top Left",      "Top Center",       "Top Right",   "Middle Left",
-		  "Middle Center", "Middle Right",     "Bottom Left", "Bottom Center",
-		  "Bottom Right",  "Use Message Value"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("Bounding Box Alignment");
+      _display->setStr3Options(alignment_options);
       break;
+
     case SOURCE_VIDEO_BLEND_MODE:
-      val.display = MMGActionDisplayParams::DISPLAY_STR3;
-
-      val.label_text = "Blend Mode";
-      val.list = {"Normal",   "Additive", "Subtract", "Screen",
-		  "Multiply", "Lighten",  "Darken",   "Use Message Value"};
-
+      _display->setStr3Visible(true);
+      _display->setStr3Description("Blend Mode");
+      _display->setStr3Options(blendmode_options);
       break;
+
     case SOURCE_VIDEO_SCREENSHOT:
+      break;
+
     case SOURCE_VIDEO_CUSTOM:
-    default:
+      emit _display->customFieldRequest(
+	OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs())), &json_str);
       break;
+
+    default:
+      return;
   }
+
+  num1_display->reset();
+  num2_display->reset();
+  num3_display->reset();
+  num4_display->reset();
 }
-void MMGActionVideoSources::change_options_final(MMGActionDisplayParams &val)
+
+const vec2 MMGActionVideoSources::obsResolution()
 {
-  switch ((Actions)subcategory) {
-    case SOURCE_VIDEO_DISPLAY:
-    case SOURCE_VIDEO_LOCKED:
-      action.set_state(action == "Toggle" ? MMGString::STRINGSTATE_TOGGLE
-					  : MMGString::STRINGSTATE_FIXED);
-      break;
-    case SOURCE_VIDEO_ALIGNMENT:
-    case SOURCE_VIDEO_BOUNDING_BOX_TYPE:
-    case SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
-    case SOURCE_VIDEO_SCALEFILTER:
-    case SOURCE_VIDEO_BLEND_MODE:
-      num1() = val.list.indexOf(action);
-      num1().set_state(action == "Use Message Value" ? MMGNumber::NUMBERSTATE_MIDI
-						     : MMGNumber::NUMBERSTATE_FIXED);
-      break;
-    default:
-      break;
-  }
+  obs_video_info video_info;
+  obs_get_video_info(&video_info);
+  vec2 xy;
+  vec2_set(&xy, video_info.base_width, video_info.base_height);
+  return xy;
+}
+
+const vec2 MMGActionVideoSources::sourceResolution() const
+{
+  OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+  vec2 xy;
+  vec2_set(&xy, obs_source_get_width(obs_source), obs_source_get_height(obs_source));
+  return xy;
 }

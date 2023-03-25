@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ MMGMessage::MMGMessage() : _channel(), _type(), _note(), _value()
   _channel = 1;
   _type = "Note On";
   _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
+  _value.set_max(127);
   blog(LOG_DEBUG, "Empty message created.");
 }
 
@@ -37,17 +38,18 @@ MMGMessage::MMGMessage(const libremidi::message &message)
 }
 
 MMGMessage::MMGMessage(const QJsonObject &obj)
-  : _type(obj, "type", 0),
-    _channel(obj, "channel", 0),
+  : _channel(obj, "channel", 0),
+    _type(obj, "type", 0),
     _note(obj, "note", 0),
     _value(obj, "value", 0)
 {
   if (_channel == 0) _channel = 1;
 
-  if ((obj["value_require"].isBool() && !obj["value_require"].toBool()) || obj["value"].toInt() < 0)
+  if ((obj["value_require"].isBool() && !(obj["value_require"].toBool())) || _value < 0)
     _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
 
-  if (obj["value_toggle"].isBool() && obj["value_toggle"].toBool())
+  if ((obj["value_toggle"].isBool() && obj["value_toggle"].toBool()) ||
+      obj["value_state"].toInt() == 2)
     _value.set_state(MMGNumber::NUMBERSTATE_IGNORE);
 
   if (obj["type_toggle"].isBool() && obj["type_toggle"].toBool())
@@ -59,9 +61,9 @@ MMGMessage::MMGMessage(const QJsonObject &obj)
 void MMGMessage::json(QJsonObject &message_obj) const
 {
   _channel.json(message_obj, "channel", false);
-  _type.json(message_obj, "type", true);
+  _type.json(message_obj, "type");
   _note.json(message_obj, "note", false);
-  _value.json(message_obj, "value", true);
+  _value.json(message_obj, "value");
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
@@ -162,7 +164,7 @@ void MMGMessage::toggle()
       _type = "Note On";
     }
   }
-  if (_value.state() == MMGNumber::NUMBERSTATE_MIDI_INVERT) {
+  if (_value.state() == MMGNumber::NUMBERSTATE_IGNORE) { // TOGGLE SETTING
     if (_value == 127) {
       _value = 0;
     } else if (_value == 0) {
@@ -171,20 +173,35 @@ void MMGMessage::toggle()
   }
 }
 
-bool MMGMessage::is_acceptable(const MMGMessage *test) const
+bool MMGMessage::acceptable(const MMGMessage *test) const
 {
   bool is_true = true;
   is_true &= (_channel == test->channel());
   is_true &= (_type == test->type().str());
-  if (_type != "Program Change" && _type != "Pitch Bend") is_true &= (_note == test->note().num());
-  if (_value.state() != MMGNumber::NUMBERSTATE_MIDI) is_true &= (_value == test->value().num());
-  return is_true;
+  if (_type != "Program Change" && _type != "Pitch Bend") is_true &= (_note == test->note());
+  if (_value.state() == 1) return is_true;
+  if (_value.state() == 2) {
+    if (_value.min() <= _value.max()) {
+      return is_true && (test->value() >= _value.min() && test->value() <= _value.max());
+    } else {
+      return is_true && (test->value() < _value.min() && test->value() > _value.max());
+    }
+  }
+  return is_true && (_value == test->value());
 }
 
-void MMGMessage::deep_copy(MMGMessage *dest)
+void MMGMessage::copy(MMGMessage *dest) const
 {
-  _channel.copy(&dest->channel());
-  _type.copy(&dest->type());
-  _note.copy(&dest->note());
-  _value.copy(&dest->value());
+  dest->_channel = _channel.copy();
+  dest->_type = _type.copy();
+  dest->_note = _note.copy();
+  dest->_value = _value.copy();
+}
+
+void MMGMessage::setEditable(bool edit)
+{
+  _channel.set_edit(edit);
+  _type.set_edit(edit);
+  _note.set_edit(edit);
+  _value.set_edit(edit);
 }

@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,4 +35,3 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "actions/mmg-action-collections.h"
 #include "actions/mmg-action-midi.h"
 #include "actions/mmg-action-internal.h"
-#include "actions/mmg-action-timeout.h"

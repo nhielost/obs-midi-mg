@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,28 +26,16 @@ class MMGActionMIDI : public MMGAction {
   enum Actions { MIDI_SENDONE };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
+  void execute(const MMGMessage *midi) const override;
   void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_MIDI; }
+  void setLabels();
 
-  MMGUtils::MMGString &str1() override { return device; };
-  const MMGUtils::MMGString &str1() const override { return device; };
-  MMGUtils::MMGString &str2() override { return type; };
-  const MMGUtils::MMGString &str2() const override { return type; };
-  MMGUtils::MMGNumber &num1() override { return channel; };
-  const MMGUtils::MMGNumber &num1() const override { return channel; };
-  MMGUtils::MMGNumber &num2() override { return note; };
-  const MMGUtils::MMGNumber &num2() const override { return note; };
-  MMGUtils::MMGNumber &num3() override { return value; };
-  const MMGUtils::MMGNumber &num3() const override { return value; };
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
+  Category category() const override { return Category::MMGACTION_MIDI; }
 
   private:
   MMGUtils::MMGString device;
@@ -55,4 +43,8 @@ class MMGActionMIDI : public MMGAction {
   MMGUtils::MMGNumber channel;
   MMGUtils::MMGNumber note;
   MMGUtils::MMGNumber value;
+
+  void setSubConfig() override;
+  void setList1Config() override;
+  void setList2Config() override;
 };

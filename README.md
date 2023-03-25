@@ -23,6 +23,8 @@ Go to the [Releases page](https://github.com/nhielost/obs-midi-mg/releases) and 
 
 If help is needed, click the *Help* button in the plugin, or click [here](HELP.md). 
 
+Some users may find that they want to have multiple programs monitor the same MIDI device (for example, OBS Studio and Ableton). To do this, install a MIDI routing software such as [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) or [BOME MIDI Translator](https://www.bome.com/products/mtclassic). This will allow for virtual devices to be created, and, when configured, multiple programs can connect to these seamlessly.
+
 I would love to hear honestly from you about this plugin. Feel free to share some ideas and don't be afraid to [report an issue](https://github.com/nhielost/obs-midi-mg/issues) or [post on the OBS forum discussion](https://obsproject.com/forum/threads/obs-midi-mg.158407/)!
 
 ## Credits

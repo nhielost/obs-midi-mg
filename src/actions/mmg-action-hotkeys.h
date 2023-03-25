@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,22 +26,14 @@ class MMGActionHotkeys : public MMGAction {
   enum Actions { HOTKEY_PREDEF };
 
   void blog(int log_status, const QString &message) const override;
-  void do_action(const MMGMessage *midi) override;
+  void execute(const MMGMessage *midi) const override;
   void json(QJsonObject &json_obj) const override;
-  void deep_copy(MMGAction *dest) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category get_category() const override { return Category::MMGACTION_HOTKEY; }
-
-  MMGUtils::MMGString &str1() override { return hotkey_group; };
-  const MMGUtils::MMGString &str1() const override { return hotkey_group; };
-  MMGUtils::MMGString &str2() override { return hotkey; };
-  const MMGUtils::MMGString &str2() const override { return hotkey; };
-
-  void change_options_sub(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str1(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str2(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_str3(MMGUtils::MMGActionDisplayParams &val) override;
-  void change_options_final(MMGUtils::MMGActionDisplayParams &val) override;
+  Category category() const override { return Category::MMGACTION_HOTKEY; }
 
   static const QStringList enumerate_names(const QString &category);
   static const QStringList enumerate_descriptions(const QString &category);
@@ -49,6 +41,8 @@ class MMGActionHotkeys : public MMGAction {
 
   private:
   MMGUtils::MMGString hotkey_group;
-  MMGUtils::MMGString hotkey_desc;
   MMGUtils::MMGString hotkey;
+
+  void setSubConfig() override;
+  void setList1Config() override;
 };

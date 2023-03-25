@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "ui/mmg-echo-window.h"
 #include "mmg-config.h"
+#include "mmg-midiin.h"
+#include "mmg-midiout.h"
 
 #include <QAction>
 #include <QMainWindow>
@@ -35,8 +37,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
 static MMGEchoWindow *echo_window;
 Configuration global_config;
-MMGMIDIInputDevice input;
-MMGMIDIOutputDevice output;
+MMGMIDIInDevice input;
+MMGMIDIOutDevice output;
 
 void _blog(int log_status, const QString &message)
 {
@@ -54,15 +56,15 @@ bool obs_module_load(void)
   if (!QDir(config_path).exists()) QDir().mkdir(config_path);
   bfree(config_path);
 
+  // Load the libremidi device objects
+  input.reset(new MMGMIDIIn);
+  output.reset(new MMGMIDIOut);
+
   // Load the configuration
   global_config.reset(new MMGConfig());
 
-  // Load the libremidi device objects
-  input.reset(new libremidi::midi_in());
-  output.reset(new libremidi::midi_out());
-
   // Load any new devices and open the input port
-  global_config->load_new_devices();
+  global_config->refresh();
 
   // Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
   const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
@@ -90,12 +92,12 @@ Configuration global()
   return global_config;
 }
 
-MMGMIDIInputDevice input_device()
+MMGMIDIInDevice input_device()
 {
   return input;
 }
 
-MMGMIDIOutputDevice output_device()
+MMGMIDIOutDevice output_device()
 {
   return output;
 }

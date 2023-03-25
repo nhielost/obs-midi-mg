@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -27,16 +27,19 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "plugin-macros.generated.h"
 
+class MMGMIDIIn;
+class MMGMIDIOut;
 class MMGConfig;
 class MMGEchoWindow;
 
 using Configuration = QSharedPointer<MMGConfig>;
 Configuration global();
 
-using MMGMIDIInputDevice = QSharedPointer<libremidi::midi_in>;
-using MMGMIDIOutputDevice = QSharedPointer<libremidi::midi_out>;
-MMGMIDIInputDevice input_device();
-MMGMIDIOutputDevice output_device();
+using MMGMIDIInDevice = QSharedPointer<MMGMIDIIn>;
+using MMGMIDIOutDevice = QSharedPointer<MMGMIDIOut>;
+
+MMGMIDIInDevice input_device();
+MMGMIDIOutDevice output_device();
 
 #define OBS_MIDIMG_VERSION "v" PLUGIN_VERSION
 #define qtocs() toUtf8().constData()

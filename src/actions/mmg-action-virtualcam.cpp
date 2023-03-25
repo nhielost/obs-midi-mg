@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,16 +32,10 @@ void MMGActionVirtualCam::blog(int log_status, const QString &message) const
   global_blog(log_status, "<Virtual Camera> Action -> " + message);
 }
 
-void MMGActionVirtualCam::json(QJsonObject &json_obj) const
-{
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-}
-
-void MMGActionVirtualCam::do_action(const MMGMessage *midi)
+void MMGActionVirtualCam::execute(const MMGMessage *midi) const
 {
   Q_UNUSED(midi);
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionVirtualCam::VIRCAM_ON:
       if (!obs_frontend_virtualcam_active()) obs_frontend_start_virtualcam();
       break;
@@ -59,19 +53,9 @@ void MMGActionVirtualCam::do_action(const MMGMessage *midi)
       break;
   }
   blog(LOG_DEBUG, "Successfully executed.");
-  executed = true;
 }
 
-void MMGActionVirtualCam::deep_copy(MMGAction *dest) const
+void MMGActionVirtualCam::setSubOptions(QComboBox *sub)
 {
-  dest->set_sub(subcategory);
+  sub->addItems({"Start Virtual Camera", "Stop Virtual Camera", "Toggle Virtual Camera"});
 }
-
-void MMGActionVirtualCam::change_options_sub(MMGActionDisplayParams &val)
-{
-  val.list = {"Start Virtual Camera", "Stop Virtual Camera", "Toggle Virtual Camera"};
-}
-void MMGActionVirtualCam::change_options_str1(MMGActionDisplayParams &val) {}
-void MMGActionVirtualCam::change_options_str2(MMGActionDisplayParams &val) {}
-void MMGActionVirtualCam::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionVirtualCam::change_options_final(MMGActionDisplayParams &val) {}

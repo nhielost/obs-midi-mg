@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,49 +16,60 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#pragma once
+#ifndef MMG_BINDING_H
+#define MMG_BINDING_H
+
 #include "mmg-message.h"
 #include "actions/mmg-action.h"
+#include "mmg-midiin.h"
+#include "mmg-midiout.h"
 
-class MMGBinding {
+class MMGBinding : public QObject {
+  Q_OBJECT
+
   public:
   explicit MMGBinding();
   explicit MMGBinding(const QJsonObject &obj);
   ~MMGBinding()
   {
-    delete message;
-    delete action;
+    delete _message;
+    delete _action;
   };
 
   void json(QJsonObject &binding_obj) const;
   void blog(int log_status, const QString &message) const;
 
-  const QString &get_name() const { return name; };
-  bool get_enabled() const { return enabled; };
+  const QString &name() const { return _name; };
+  bool enabled() const { return _enabled; };
 
-  void set_name(const QString &val) { name = val; };
-  void set_enabled(bool val) { enabled = val; };
+  void setName(const QString &val) { _name = val; };
+  void setEnabled(bool val);
 
-  MMGMessage *const get_message() const { return message; };
-  MMGAction *const get_action() const { return action; };
+  MMGMessage *message() { return _message; };
+  const MMGMessage *message() const { return _message; };
+  MMGAction *action() { return _action; };
+  const MMGAction *action() const { return _action; };
 
-  void set_action_type(int index);
-  void set_action_type(const QJsonObject &json_obj);
-  void deep_copy(MMGBinding *dest);
-  void do_action(const MMGSharedMessage &el);
-  void reset_execution() { action->reset_execution(); };
+  void setCategory(int index);
+  void setCategory(const QJsonObject &json_obj);
+  void copy(MMGBinding *dest);
 
   static qulonglong get_next_default() { return next_default; };
   static void set_next_default(qulonglong num) { next_default = num; };
   static QString get_next_default_name();
 
+  public slots:
+  void execute(const MMGSharedMessage &);
+
   private:
-  QString name;
-  bool enabled;
-  MMGMessage *message;
-  MMGAction *action;
+  QString _name;
+  bool _enabled;
+  MMGMessage *_message;
+  MMGAction *_action;
 
   static qulonglong next_default;
 };
 
 using MMGBindingList = QList<MMGBinding *>;
+
+#endif // MMG_BINDING_H

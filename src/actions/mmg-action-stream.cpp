@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,16 +32,10 @@ void MMGActionStream::blog(int log_status, const QString &message) const
   global_blog(log_status, "<Stream> Action -> " + message);
 }
 
-void MMGActionStream::json(QJsonObject &json_obj) const
-{
-  json_obj["category"] = (int)get_category();
-  json_obj["sub"] = (int)get_sub();
-}
-
-void MMGActionStream::do_action(const MMGMessage *midi)
+void MMGActionStream::execute(const MMGMessage *midi) const
 {
   Q_UNUSED(midi);
-  switch (get_sub()) {
+  switch (sub()) {
     case MMGActionStream::STREAM_ON:
       if (!obs_frontend_streaming_active()) obs_frontend_streaming_start();
       break;
@@ -59,19 +53,9 @@ void MMGActionStream::do_action(const MMGMessage *midi)
       break;
   }
   blog(LOG_DEBUG, "Executed successfully.");
-  executed = true;
 }
 
-void MMGActionStream::deep_copy(MMGAction *dest) const
+void MMGActionStream::setSubOptions(QComboBox *sub)
 {
-  dest->set_sub(subcategory);
+  sub->addItems({"Start Streaming", "Stop Streaming", "Toggle Streaming"});
 }
-
-void MMGActionStream::change_options_sub(MMGActionDisplayParams &val)
-{
-  val.list = {"Start Streaming", "Stop Streaming", "Toggle Streaming"};
-}
-void MMGActionStream::change_options_str1(MMGActionDisplayParams &val) {}
-void MMGActionStream::change_options_str2(MMGActionDisplayParams &val) {}
-void MMGActionStream::change_options_str3(MMGActionDisplayParams &val) {}
-void MMGActionStream::change_options_final(MMGActionDisplayParams &val) {}
