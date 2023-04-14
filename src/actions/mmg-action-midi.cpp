@@ -31,12 +31,12 @@ MMGActionMIDI::MMGActionMIDI(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<MIDI> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionMIDI::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<MIDI> Action -> " + message);
+  MMGAction::blog(log_status, "[MIDI] " + message);
 }
 
 void MMGActionMIDI::json(QJsonObject &json_obj) const
@@ -118,7 +118,7 @@ void MMGActionMIDI::createDisplay(QWidget *parent)
 
 void MMGActionMIDI::setSubOptions(QComboBox *sub)
 {
-  sub->addItem("Send Single Message");
+  sub->addItem(mmgtr("Actions.MIDI.Sub.SendSingle"));
 }
 
 void MMGActionMIDI::setSubConfig()
@@ -128,16 +128,16 @@ void MMGActionMIDI::setSubConfig()
   _display->setStr3Visible(false);
 
   _display->setStr1Visible(true);
-  _display->setStr1Description("Output Device");
+  _display->setStr1Description(mmgtr("Actions.MIDI.Output"));
   _display->setStr1Options(output_device()->outputDeviceNames());
 }
 
 void MMGActionMIDI::setList1Config()
 {
   _display->setStr2Visible(true);
-  _display->setStr2Description("Message Type");
-  _display->setStr2Options(
-    {"Note On", "Note Off", "Control Change", "Program Change", "Pitch Bend", "Use Message Type"});
+  _display->setStr2Description(mmgtr("Message.Type.Text"));
+  _display->setStr2Options(mmgtr_all(
+    "Message.Type", {"NoteOn", "NoteOff", "ControlChange", "ProgramChange", "PitchBend"}, true));
 }
 
 void MMGActionMIDI::setList2Config()
@@ -146,7 +146,7 @@ void MMGActionMIDI::setList2Config()
   MMGNumberDisplay *note_display = _display->numberDisplays()->fieldAt(1);
   MMGNumberDisplay *value_display = _display->numberDisplays()->fieldAt(2);
 
-  channel_display->setDescription("Channel");
+  channel_display->setDescription(mmgtr("Message.Channel"));
   channel_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
   channel_display->setBounds(1.0, 16.0);
   channel_display->setStep(1.0);
@@ -162,7 +162,7 @@ void MMGActionMIDI::setList2Config()
   value_display->setStep(1.0);
   value_display->setDefaultValue(0.0);
 
-  type.set_state(type == "Use Message Type");
+  type.set_state(type == mmgtr("Fields.UseMessageValue"));
 
   setLabels();
 }

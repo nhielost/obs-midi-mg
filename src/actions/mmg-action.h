@@ -45,12 +45,15 @@ class MMGAction {
     MMGACTION_PROFILE,
     MMGACTION_COLLECTION,
     MMGACTION_MIDI,
-    MMGACTION_INTERNAL
+    MMGACTION_INTERNAL,
+    MMGACTION_PREFERENCE
   };
 
+  virtual void blog(int log_status, const QString &message) const;
   virtual void json(QJsonObject &action_obj) const;
   virtual void execute(const MMGMessage *midi) const = 0;
   virtual void copy(MMGAction *dest) const;
+  virtual void setEditable(bool edit) { Q_UNUSED(edit); };
   virtual Category category() const = 0;
 
   virtual void createDisplay(QWidget *parent) { _display = new MMGActionDisplay(parent); };
@@ -58,12 +61,8 @@ class MMGAction {
 
   short sub() const { return subcategory; };
   void setSub(short val) { subcategory = val; };
+
   virtual void setSubOptions(QComboBox *sub) = 0;
-
-  virtual void blog(int log_status, const QString &message) const;
-
-  virtual void setEditable(bool edit) { Q_UNUSED(edit); };
-
   virtual void setSubConfig(){};
 
   protected:

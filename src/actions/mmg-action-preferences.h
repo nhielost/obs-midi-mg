@@ -19,15 +19,29 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionNone : public MMGAction {
+class MMGActionPreferences : public MMGAction {
   public:
-  explicit MMGActionNone() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionNone(const QJsonObject &json_obj) { Q_UNUSED(json_obj); };
-  enum Actions { NONE_NONE };
+  explicit MMGActionPreferences();
+  explicit MMGActionPreferences(const QJsonObject &json_obj);
+  enum Actions { PREFERENCE_ACTIVITY, PREFERENCE_THROUGHPUT, PREFERENCE_INTERNALBEHAVIOR };
 
   void blog(int log_status, const QString &message) const override;
   void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override { sub->addItem(mmgtr("Actions.Title.None")); };
+  void json(QJsonObject &json_obj) const override;
+  void copy(MMGAction *dest) const override;
+  void setEditable(bool edit) override;
+  void createDisplay(QWidget *parent) override;
+  void setSubOptions(QComboBox *sub) override;
 
-  Category category() const override { return Category::MMGACTION_NONE; }
+  Category category() const override { return Category::MMGACTION_PREFERENCE; }
+
+  static const QStringList throughputOptions();
+  static const QStringList internalBehaviorOptions();
+
+  private:
+  MMGUtils::MMGString option;
+
+  void setSubConfig() override;
 };
+
+#undef MMG_ENABLED

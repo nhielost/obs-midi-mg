@@ -33,7 +33,7 @@ static std::mutex custom_update;
 
 void global_blog(int log_status, const QString &message)
 {
-  blog(log_status, "[obs-midi-mg] %s", qPrintable(message));
+  blog(log_status, "[obs-midi-mg] %s", message.qtocs());
 }
 
 namespace MMGUtils {
@@ -119,9 +119,9 @@ MMGString::MMGString(const QJsonObject &json_obj, const QString &preferred, int 
   } else {
     // pre v2.1.0
     set_str(json_obj[num_to_str(fallback_num, "str")].toString());
-    if (string == "Use Message Value") {
+    if (string == mmgtr("Fields.UseMessageValue")) {
       str_state = STRINGSTATE_MIDI;
-    } else if (string == "Toggle") {
+    } else if (string == mmgtr("Fields.Toggle")) {
       str_state = STRINGSTATE_TOGGLE;
     }
   }
@@ -164,29 +164,44 @@ const QJsonObject json_from_str(const QByteArray &str)
   return QJsonDocument::fromJson(str).object();
 }
 
+const QStringList mmgtr_all(const QString &header, const QStringList &list, bool message_value)
+{
+  QStringList tr_list;
+  for (const QString &str : list) {
+    tr_list += mmgtr((header + "." + str).qtocs());
+  }
+  if (message_value) tr_list += mmgtr("Fields.UseMessageValue");
+  return tr_list;
+}
+
+const QStringList obstr_all(const QString &header, const QStringList &list, bool message_value)
+{
+  QStringList tr_list;
+  for (const QString &str : list) {
+    tr_list += obstr((header + "." + str).qtocs());
+  }
+  if (message_value) tr_list += mmgtr("Fields.UseMessageValue");
+  return tr_list;
+}
+
 void set_message_labels(const QString &type, MMGNumberDisplay *note_display,
 			MMGNumberDisplay *value_display)
 {
-  if (type.contains("Note")) {
+  if (type == mmgtr("Message.Type.NoteOn") || type == mmgtr("Message.Type.NoteOff")) {
     note_display->setVisible(true);
-    note_display->setDescription("Note #");
-    value_display->setDescription("Velocity");
-  } else if (type == "Control Change") {
+    note_display->setDescription(mmgtr("Message.Note"));
+    value_display->setDescription(mmgtr("Message.Velocity"));
+  } else if (type == mmgtr("Message.Type.ControlChange")) {
     note_display->setVisible(true);
-    note_display->setDescription("Control #");
-    value_display->setDescription("Value");
-  } else if (type == "Program Change") {
+    note_display->setDescription(mmgtr("Message.Control"));
+    value_display->setDescription(mmgtr("Message.Value"));
+  } else if (type == mmgtr("Message.Type.ProgramChange")) {
     note_display->setVisible(false);
-    value_display->setDescription("Program #");
-  } else if (type == "Pitch Bend") {
+    value_display->setDescription(mmgtr("Message.Program"));
+  } else if (type == mmgtr("Message.Type.PitchBend")) {
     note_display->setVisible(false);
-    value_display->setDescription("Pitch Adjust");
+    value_display->setDescription(mmgtr("Message.PitchAdjust"));
   }
-}
-
-bool bool_from_str(const QString &str)
-{
-  return str == "True" || str == "Yes" || str == "Show" || str == "Locked";
 }
 
 double num_from_str(const QString &str)
@@ -212,33 +227,34 @@ void open_message_box(const QString &title, const QString &text)
     &c, true);
 }
 
-void transfer_bindings(short mode, const QString &dest, const QString &source)
+bool transfer_bindings(short mode, const QString &dest, const QString &source)
 {
-  if (mode < 0 || mode > 2) return;
+  if (mode < 0 || mode > 2) return false;
 
   if (source == dest) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Cannot transfer bindings to the same device.");
-    return;
+    open_message_box(mmgtr("UI.MessageBox.TransferError.Title"),
+		     mmgtr("UI.MessageBox.TransferError.SameDevice"));
+    return false;
   }
 
   MMGDevice *dest_device = global()->find(dest);
   if (!dest_device) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Destination device is invalid.");
-    return;
+    open_message_box(mmgtr("UI.MessageBox.TransferError.Title"),
+		     mmgtr("UI.MessageBox.TransferError.BadDestination"));
+    return false;
   }
 
   MMGDevice *source_device = global()->find(source);
   if (!source_device) {
-    open_message_box("Transfer Error", "Failed to transfer bindings: Source device is invalid.");
-    return;
+    open_message_box(mmgtr("UI.MessageBox.TransferError.Title"),
+		     mmgtr("UI.MessageBox.TransferError.BadSource"));
+    return false;
   }
 
   if (source_device == dest_device) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Cannot transfer bindings to the same device.");
-    return;
+    open_message_box(mmgtr("UI.MessageBox.TransferError.Title"),
+		     mmgtr("UI.MessageBox.TransferError.SameDevice"));
+    return false;
   }
 
   MMGDevice *source_copy = new MMGDevice;
@@ -261,7 +277,9 @@ void transfer_bindings(short mode, const QString &dest, const QString &source)
   source_copy->clear();
   delete source_copy;
 
-  open_message_box("Transfer Success", "Bindings successfully transferred.");
+  open_message_box(mmgtr("UI.MessageBox.TransferSuccess.Title"),
+		   mmgtr("UI.MessageBox.TransferSuccess.Message"));
+  return true;
 }
 
 const vec3 get_obs_property_bounds(obs_property_t *prop)

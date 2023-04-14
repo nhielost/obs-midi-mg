@@ -44,12 +44,12 @@ MMGActionTransitions::MMGActionTransitions(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<Transitions> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionTransitions::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<Transitions> Action -> " + message);
+  MMGAction::blog(log_status, "[Transitions] " + message);
 }
 
 void MMGActionTransitions::json(QJsonObject &json_obj) const
@@ -177,9 +177,8 @@ void MMGActionTransitions::createDisplay(QWidget *parent)
 
 void MMGActionTransitions::setSubOptions(QComboBox *sub)
 {
-  sub->addItems({"Change Current Transition", "Set Source Show Transition",
-		 "Set Source Hide Transition", "Set Transition Bar Position (Studio Mode)",
-		 "Release Transition Bar (Studio Mode)", "Custom Transition Settings"});
+  sub->addItems(mmgtr_all("Actions.Transitions.Sub", {"ChangeCurrent", "SourceShow", "SourceHide",
+						      "SetTBar", "ReleaseTBar", "Custom"}));
 }
 
 void MMGActionTransitions::setSubConfig()
@@ -195,7 +194,7 @@ void MMGActionTransitions::setSubConfig()
       _display->resetScrollWidget();
 
       num_display->setVisible(true);
-      num_display->setDescription("Position");
+      num_display->setDescription(obstr("Basic.TransformWindow.Position"));
       num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
       num_display->setBounds(0.0, 1024.0);
       num_display->setStep(1.0);
@@ -204,6 +203,8 @@ void MMGActionTransitions::setSubConfig()
       return;
 
     case TRANSITION_TBAR_RELEASE:
+      _display->resetScrollWidget();
+      num_display->setVisible(false);
       return;
 
     default:
@@ -211,7 +212,7 @@ void MMGActionTransitions::setSubConfig()
   }
 
   _display->setStr1Visible(true);
-  _display->setStr1Description("Transition");
+  _display->setStr1Description(obstr("Transition"));
   _display->setStr1Options(enumerate());
 }
 
@@ -227,7 +228,7 @@ void MMGActionTransitions::setList1Config()
   switch ((Actions)subcategory) {
     case TRANSITION_CURRENT:
       num_display->setVisible(!transitionFixed());
-      num_display->setDescription("Duration");
+      num_display->setDescription(obstr("Basic.TransitionDuration"));
       num_display->setOptions(MMGNumberDisplay::OPTIONS_IGNORE);
       num_display->setBounds(25.0, 20000.0);
       num_display->setStep(25.0);
@@ -238,7 +239,7 @@ void MMGActionTransitions::setList1Config()
     case TRANSITION_SOURCE_SHOW:
     case TRANSITION_SOURCE_HIDE:
       _display->setStr2Visible(true);
-      _display->setStr2Description("Scene");
+      _display->setStr2Description(obstr("Basic.Scene"));
       _display->setStr2Options(MMGActionScenes::enumerate());
       break;
 
@@ -259,7 +260,7 @@ void MMGActionTransitions::setList2Config()
     case TRANSITION_SOURCE_SHOW:
     case TRANSITION_SOURCE_HIDE:
       _display->setStr3Visible(true);
-      _display->setStr3Description("Source");
+      _display->setStr3Description(obstr("Basic.Main.Source"));
       _display->setStr3Options(MMGActionScenes::enumerate_items(parent_scene));
       break;
 
@@ -276,7 +277,7 @@ void MMGActionTransitions::setList3Config()
     case TRANSITION_SOURCE_SHOW:
     case TRANSITION_SOURCE_HIDE:
       num_display->setVisible(!transitionFixed() && !source.str().isEmpty());
-      num_display->setDescription("Duration");
+      num_display->setDescription(obstr("Basic.TransitionDuration"));
       num_display->setOptions(MMGNumberDisplay::OPTIONS_IGNORE);
       num_display->setBounds(25.0, 20000.0);
       num_display->setStep(25.0);

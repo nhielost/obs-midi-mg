@@ -217,6 +217,11 @@ width: 10px;
         <string>Internal</string>
        </property>
       </item>
+      <item>
+       <property name="text">
+        <string>Preferences</string>
+       </property>
+      </item>
      </widget>
      <widget class="QComboBox" name="editor_sub">
       <property name="geometry">
@@ -604,7 +609,7 @@ width: 10px;
       <string notr="true"/>
      </property>
      <property name="text">
-      <string>Enable MIDI Activity</string>
+      <string>MIDI Activity</string>
      </property>
      <property name="checked">
       <bool>true</bool>
@@ -626,7 +631,7 @@ width: 10px;
       </font>
      </property>
      <property name="text">
-      <string>Turning this off will disable the plugin.</string>
+      <string>Plugin State: %s</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -635,7 +640,7 @@ width: 10px;
     <widget class="QLabel" name="label_version">
      <property name="geometry">
       <rect>
-       <x>260</x>
+       <x>480</x>
        <y>690</y>
        <width>51</width>
        <height>31</height>
@@ -731,10 +736,10 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
     <widget class="QFrame" name="binding_transfer_frame">
      <property name="geometry">
       <rect>
-       <x>130</x>
-       <y>200</y>
-       <width>271</width>
-       <height>321</height>
+       <x>100</x>
+       <y>310</y>
+       <width>331</width>
+       <height>281</height>
       </rect>
      </property>
      <property name="styleSheet">
@@ -753,8 +758,8 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>280</y>
-        <width>251</width>
+        <y>240</y>
+        <width>311</width>
         <height>31</height>
        </rect>
       </property>
@@ -783,9 +788,9 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
      <widget class="QComboBox" name="editor_transfer_source">
       <property name="geometry">
        <rect>
-        <x>50</x>
-        <y>240</y>
-        <width>211</width>
+        <x>100</x>
+        <y>160</y>
+        <width>221</width>
         <height>31</height>
        </rect>
       </property>
@@ -807,7 +812,7 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
        <rect>
         <x>10</x>
         <y>200</y>
-        <width>31</width>
+        <width>81</width>
         <height>31</height>
        </rect>
       </property>
@@ -818,10 +823,10 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
        </font>
       </property>
       <property name="text">
-       <string>to</string>
+       <string>Destination</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -830,9 +835,9 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
      <widget class="QComboBox" name="editor_transfer_mode">
       <property name="geometry">
        <rect>
-        <x>50</x>
-        <y>160</y>
-        <width>211</width>
+        <x>100</x>
+        <y>120</y>
+        <width>221</width>
         <height>31</height>
        </rect>
       </property>
@@ -869,8 +874,8 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>251</width>
-        <height>121</height>
+        <width>301</width>
+        <height>71</height>
        </rect>
       </property>
       <property name="font">
@@ -889,9 +894,9 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
      <widget class="QComboBox" name="editor_transfer_dest">
       <property name="geometry">
        <rect>
-        <x>50</x>
+        <x>100</x>
         <y>200</y>
-        <width>211</width>
+        <width>221</width>
         <height>31</height>
        </rect>
       </property>
@@ -935,8 +940,8 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>240</y>
-        <width>31</width>
+        <y>160</y>
+        <width>81</width>
         <height>31</height>
        </rect>
       </property>
@@ -947,10 +952,10 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
        </font>
       </property>
       <property name="text">
-       <string>from</string>
+       <string>Source</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -960,9 +965,9 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
     <widget class="QPushButton" name="button_update_check">
      <property name="geometry">
       <rect>
-       <x>330</x>
+       <x>290</x>
        <y>690</y>
-       <width>191</width>
+       <width>181</width>
        <height>31</height>
       </rect>
      </property>
@@ -988,28 +993,113 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
       <bool>false</bool>
      </property>
     </widget>
-    <widget class="QCheckBox" name="editor_midi_thru_toggle">
+    <widget class="QComboBox" name="editor_internal_behavior">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>80</y>
+       <y>230</y>
        <width>201</width>
-       <height>31</height>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <item>
+      <property name="text">
+       <string>Reset on new message</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Don't reset on new message</string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QLabel" name="text_internal_behavior">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>200</y>
+       <width>291</width>
+       <height>71</height>
       </rect>
      </property>
      <property name="font">
       <font>
        <family>Tahoma</family>
-       <pointsize>10</pointsize>
+       <pointsize>9</pointsize>
       </font>
      </property>
-     <property name="styleSheet">
-      <string notr="true"/>
+     <property name="text">
+      <string>If an internal action is still executing, it will start over when another message is received.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_internal_behavior">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>200</y>
+       <width>201</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
      </property>
      <property name="text">
-      <string>Enable MIDI Throughput</string>
+      <string>Internal Action Behavior</string>
      </property>
-     <property name="checked">
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_midi_thru_device">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>201</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Tahoma</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>MIDI Throughput</string>
+     </property>
+     <property name="wordWrap">
       <bool>true</bool>
      </property>
     </widget>
@@ -1044,7 +1134,7 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
      <rect>
       <x>10</x>
       <y>10</y>
-      <width>111</width>
+      <width>131</width>
       <height>41</height>
      </rect>
     </property>
@@ -1061,9 +1151,9 @@ NOTE: Enabling this feature may lead to a feedback loop or other undesired behav
    <widget class="QComboBox" name="editor_devices">
     <property name="geometry">
      <rect>
-      <x>130</x>
+      <x>150</x>
       <y>10</y>
-      <width>301</width>
+      <width>281</width>
       <height>41</height>
      </rect>
     </property>

@@ -53,20 +53,20 @@ void MMGDevice::json(QJsonObject &device_obj) const
 
 void MMGDevice::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Device {" + _name + "} -> " + message);
+  global_blog(log_status, QString::asprintf("[Devices] <%s> ", _name.qtocs()) + message);
 }
 
 QString MMGDevice::get_next_default_name()
 {
-  return QVariant(++MMGDevice::next_default).toString().prepend("Untitled Device ");
+  return QVariant(++MMGDevice::next_default).toString().prepend(mmgtr("Device.Untitled"));
 }
 
 void MMGDevice::check_binding_default_names()
 {
   for (const MMGBinding *binding : _bindings) {
-    if (binding->name().contains("Untitled Binding ")) {
+    if (binding->name().contains(mmgtr("Binding.Untitled"))) {
       QString name = binding->name();
-      qulonglong num = QVariant(name.split("Untitled Binding ").last()).toULongLong();
+      qulonglong num = QVariant(name.split(mmgtr("Binding.Untitled")).last()).toULongLong();
       if (num > MMGBinding::get_next_default()) MMGBinding::set_next_default(num);
     }
   }
@@ -84,14 +84,17 @@ MMGBinding *MMGDevice::copy(MMGBinding *const el)
   MMGBinding *new_binding = add();
   QString old_name = new_binding->name();
   el->copy(new_binding);
-  new_binding->setName("(Copy of " + el->name() + ") " + old_name);
+  new_binding->setName(QString::asprintf(mmgtr("Binding.Copy"), el->name().qtocs()) + old_name);
   return new_binding;
 }
 
 void MMGDevice::move(int from, int to)
 {
   if (from >= size()) return;
+
+  setConnected(false);
   to == size() ? _bindings.append(_bindings.takeAt(from)) : _bindings.move(from, to);
+  setConnected(true);
 }
 
 void MMGDevice::remove(MMGBinding *const el)
@@ -120,6 +123,12 @@ MMGBinding *MMGDevice::find(const QString &name)
     if (el->name() == name) return el;
   }
   return nullptr;
+}
+
+void MMGDevice::setConnected(bool connected)
+{
+  for (MMGBinding *binding : _bindings)
+    binding->setConnected(connected);
 }
 
 void MMGDevice::copy(MMGDevice *dest)

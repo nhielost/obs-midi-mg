@@ -23,7 +23,7 @@ using namespace MMGUtils;
 MMGMessage::MMGMessage() : _channel(), _type(), _note(), _value()
 {
   _channel = 1;
-  _type = "Note On";
+  _type = mmgtr("Message.Type.NoteOn");
   _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
   _value.set_max(127);
   blog(LOG_DEBUG, "Empty message created.");
@@ -68,7 +68,7 @@ void MMGMessage::json(QJsonObject &message_obj) const
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Messages -> " + message);
+  global_blog(log_status, "[Messages] " + message);
 }
 
 int MMGMessage::get_midi_note(const libremidi::message &mess)
@@ -103,19 +103,19 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
   switch (mess.get_message_type()) {
     // Standard Messages
     case libremidi::message_type::NOTE_OFF:
-      return "Note Off";
+      return mmgtr("Message.Type.NoteOff");
     case libremidi::message_type::NOTE_ON:
-      return "Note On";
+      return mmgtr("Message.Type.NoteOn");
     case libremidi::message_type::POLY_PRESSURE:
       return "Polyphonic Pressure";
     case libremidi::message_type::CONTROL_CHANGE:
-      return "Control Change";
+      return mmgtr("Message.Type.ControlChange");
     case libremidi::message_type::PROGRAM_CHANGE:
-      return "Program Change";
+      return mmgtr("Message.Type.ProgramChange");
     case libremidi::message_type::AFTERTOUCH:
       return "Channel Aftertouch";
     case libremidi::message_type::PITCH_BEND:
-      return "Pitch Bend";
+      return mmgtr("Message.Type.PitchBend");
     // System Common Messages
     case libremidi::message_type::SYSTEM_EXCLUSIVE:
       return "System Exclusive";
@@ -158,10 +158,10 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 void MMGMessage::toggle()
 {
   if (_type.state() == MMGString::STRINGSTATE_TOGGLE) {
-    if (_type == "Note On") {
-      _type = "Note Off";
-    } else if (_type == "Note Off") {
-      _type = "Note On";
+    if (_type == mmgtr("Message.Type.NoteOn")) {
+      _type = mmgtr("Message.Type.NoteOff");
+    } else if (_type == mmgtr("Message.Type.NoteOff")) {
+      _type = mmgtr("Message.Type.NoteOn");
     }
   }
   if (_value.state() == MMGNumber::NUMBERSTATE_IGNORE) { // TOGGLE SETTING
@@ -178,7 +178,8 @@ bool MMGMessage::acceptable(const MMGMessage *test) const
   bool is_true = true;
   is_true &= (_channel == test->channel());
   is_true &= (_type == test->type().str());
-  if (_type != "Program Change" && _type != "Pitch Bend") is_true &= (_note == test->note());
+  if (_type != mmgtr("Message.Type.ProgramChange") && _type != mmgtr("Message.Type.PitchBend"))
+    is_true &= (_note == test->note());
   if (_value.state() == 1) return is_true;
   if (_value.state() == 2) {
     if (_value.min() <= _value.max()) {

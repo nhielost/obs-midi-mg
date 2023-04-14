@@ -25,12 +25,12 @@ MMGActionCollections::MMGActionCollections(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<Collections> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionCollections::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<Collections> Action -> " + message);
+  MMGAction::blog(log_status, "[Collections] " + message);
 }
 
 void MMGActionCollections::json(QJsonObject &json_obj) const
@@ -113,14 +113,14 @@ void MMGActionCollections::createDisplay(QWidget *parent)
 
 void MMGActionCollections::setSubOptions(QComboBox *sub)
 {
-  sub->addItem("Switch Scene Collections");
+  sub->addItem(mmgtr("Actions.Collections.Sub.Switch"));
 }
 
 void MMGActionCollections::setSubConfig()
 {
   _display->setStr1Visible(true);
-  _display->setStr1Description("Scene Collection");
+  _display->setStr1Description(obstr("Importer.Collection"));
   QStringList options = enumerate();
-  options.append("Use Message Value");
+  options.append(mmgtr("Fields.UseMessageValue"));
   _display->setStr1Options(options);
 }

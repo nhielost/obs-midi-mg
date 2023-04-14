@@ -18,8 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-midiout.h"
 #include "mmg-midiin.h"
-
-#include "mmg-device.h"
+#include "mmg-config.h"
 
 using namespace MMGUtils;
 
@@ -33,17 +32,18 @@ MMGMIDIOut::MMGMIDIOut()
 
 void MMGMIDIOut::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "MIDI Out -> " + message);
+  global_blog(log_status, "[MIDI Out] " + message);
 }
 
 void MMGMIDIOut::openOutputPort(MMGDevice *device)
 {
   if (isOutputPortOpen()) closeOutputPort();
 
-  blog(LOG_INFO, "Opening output port for device <" + device->name() + ">...");
+  blog(LOG_INFO,
+       QString::asprintf("Opening output port for device <%s>...", device->name().qtocs()));
 
   if (outputPort(device) == (uint)-1) {
-    blog(LOG_INFO, "Port opening failed: Device is disconnected or does not exist.");
+    blog(LOG_INFO, "Output port opening failed: Device is disconnected or does not exist.");
     return;
   }
 
@@ -78,15 +78,15 @@ void MMGMIDIOut::sendMessage(const MMGMessage *midi)
   int note = midi->note();
   int value = midi->value();
 
-  if (midi->type() == "Note On") {
+  if (midi->type() == mmgtr("Message.Type.NoteOn")) {
     message = libremidi::message::note_on(channel, note, value);
-  } else if (midi->type() == "Note Off") {
+  } else if (midi->type() == mmgtr("Message.Type.NoteOff")) {
     message = libremidi::message::note_off(channel, note, value);
-  } else if (midi->type() == "Control Change") {
+  } else if (midi->type() == mmgtr("Message.Type.ControlChange")) {
     message = libremidi::message::control_change(channel, note, value);
-  } else if (midi->type() == "Program Change") {
+  } else if (midi->type() == mmgtr("Message.Type.ProgramChange")) {
     message = libremidi::message::program_change(channel, value);
-  } else if (midi->type() == "Pitch Bend") {
+  } else if (midi->type() == mmgtr("Message.Type.PitchBend")) {
     message = libremidi::message::pitch_bend(channel, (value <= 64 ? 0 : value - 64) * 2, value);
   }
 
@@ -97,12 +97,15 @@ void MMGMIDIOut::sendMessage(const MMGMessage *midi)
   }
 }
 
-void MMGMIDIOut::sendThru(MMGDevice *device)
+void MMGMIDIOut::sendThru(const MMGMessage &message)
 {
+  MMGDevice *device = global()->find(global()->preferences()->thruDevice());
+  if (!device) return;
+
   if (!output_device()->isOutputPortOpen()) output_device()->openOutputPort(device);
 
   thru_timer->reset(1000);
-  sendMessage(input_device()->message.get());
+  sendMessage(&message);
 }
 
 const QStringList MMGMIDIOut::outputDeviceNames()
@@ -116,5 +119,6 @@ const QStringList MMGMIDIOut::outputDeviceNames()
 
 uint MMGMIDIOut::outputPort(MMGDevice *device)
 {
+  if (!device) return -1;
   return outputDeviceNames().indexOf(device->name());
 }

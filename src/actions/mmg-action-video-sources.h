@@ -51,6 +51,10 @@ class MMGActionVideoSources : public MMGAction {
   Category category() const override { return Category::MMGACTION_SOURCE_VIDEO; }
 
   static const QStringList enumerate();
+  static const QStringList alignmentOptions();
+  static const QStringList boundingBoxOptions();
+  static const QStringList scaleFilterOptions();
+  static const QStringList blendModeOptions();
   static const vec2 obsResolution();
   const vec2 sourceResolution() const;
 
@@ -69,9 +73,4 @@ class MMGActionVideoSources : public MMGAction {
   const MMGUtils::MMGNumber &num2() const { return nums[1]; };
   const MMGUtils::MMGNumber &num3() const { return nums[2]; };
   const MMGUtils::MMGNumber &num4() const { return nums[3]; };
-
-  static const QStringList alignment_options;
-  static const QStringList boundingbox_options;
-  static const QStringList scalefilter_options;
-  static const QStringList blendmode_options;
 };

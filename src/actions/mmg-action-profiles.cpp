@@ -24,12 +24,12 @@ MMGActionProfiles::MMGActionProfiles(const QJsonObject &json_obj) : profile(json
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<Profiles> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionProfiles::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<Profiles> Action -> " + message);
+  MMGAction::blog(log_status, "[Profiles] " + message);
 }
 
 void MMGActionProfiles::json(QJsonObject &json_obj) const
@@ -114,14 +114,14 @@ void MMGActionProfiles::createDisplay(QWidget *parent)
 
 void MMGActionProfiles::setSubOptions(QComboBox *sub)
 {
-  sub->addItem("Switch Profiles");
+  sub->addItem(mmgtr("Actions.Profiles.Sub.Switch"));
 }
 
 void MMGActionProfiles::setSubConfig()
 {
   _display->setStr1Visible(true);
-  _display->setStr1Description("Profile");
+  _display->setStr1Description(obstr("TitleBar.Profile"));
   QStringList options = enumerate();
-  options.append("Use Message Value");
+  options.append(mmgtr("Fields.UseMessageValue"));
   _display->setStr1Options(options);
 }

@@ -33,7 +33,6 @@ class MMGEchoWindow : public QDialog {
   MMGNumberDisplay *note_display;
   MMGNumberDisplay *value_display;
 
-  MMGDevice *current_device = nullptr;
   MMGBinding *current_binding = nullptr;
   MMGMessage *current_message = nullptr;
   MMGAction *current_action = nullptr;
@@ -45,6 +44,7 @@ class MMGEchoWindow : public QDialog {
 
   void reject() override;
   void connect_ui_signals();
+  void translate();
   void switch_structure_pane(int page);
   void set_message_view();
   void set_action_view();
@@ -70,10 +70,10 @@ class MMGEchoWindow : public QDialog {
   void on_message_value_toggle(bool toggled);
   void on_action_cat_change(int index);
   void on_action_sub_change(int index);
-  void on_active_change(bool toggle);
-  void on_midi_thru_change(bool toggle);
-  void on_midi_thru_device_change(const QString &device);
   void on_preferences_click(bool toggle);
+  void on_active_change(bool toggle);
+  void on_midi_thru_device_change(const QString &device);
+  void on_internal_behavior_change(int index);
   void on_transfer_mode_change(short index);
   void on_transfer_bindings_click();
   void on_update_check();

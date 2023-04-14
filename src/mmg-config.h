@@ -21,20 +21,36 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-device.h"
 
-struct MMGSettings {
+class MMGSettings : public QObject {
+  Q_OBJECT
+
   public:
   MMGSettings() = default;
-  explicit MMGSettings(const QJsonObject &settings_obj);
-  void json(QJsonObject &settings_obj) const;
+  explicit MMGSettings(const QJsonObject &json_obj);
+  void json(QJsonObject &json_obj) const;
 
+  bool isEditable() const { return editable; };
   bool active() const { return _active; };
   const QString &thruDevice() const { return thru_device; };
+  short internalBehavior() const { return internal_behavior_state; };
+
+  signals:
+  void activeChanged(bool);
+  void thruDeviceChanged(const QString &);
+  void internalBehaviorChanged(short);
+
+  public slots:
+  void setEditable(bool edit) { editable = edit; };
   void setActive(bool is_active);
-  void setThruDevice(const QString &name) { thru_device = name; };
+  void setThruDevice(const QString &name);
+  void setInternalBehavior(short state);
 
   private:
   bool _active = true;
   QString thru_device;
+  short internal_behavior_state = 0;
+
+  bool editable = true;
 };
 
 class MMGConfig : public QObject {
@@ -49,18 +65,17 @@ class MMGConfig : public QObject {
   void save(const QString &path_str = QString()) const;
   void clear();
   void refresh();
-  const QString &activeDeviceName() { return active_device_name; };
-  void setActiveDeviceName(const QString &name);
+  void setActiveDevice(const QString &name);
   MMGDevice *find(const QString &name);
-  MMGDevice *currentDevice() { return find(active_device_name); };
+  MMGDevice *currentDevice() { return active_device; };
   const QStringList allDeviceNames() const;
-  MMGSettings *preferences() { return &settings; };
+  MMGSettings *preferences() { return settings; };
   static QString filepath();
 
   private:
   MMGDevices devices;
-  MMGSettings settings;
-  QString active_device_name = "";
+  MMGSettings *settings;
+  MMGDevice *active_device = nullptr;
 
   void check_device_default_names();
 };

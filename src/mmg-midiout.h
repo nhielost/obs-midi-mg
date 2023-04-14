@@ -42,7 +42,7 @@ class MMGMIDIOut : public QObject {
   void sendMessage(const MMGMessage *midi);
 
   private slots:
-  void sendThru(MMGDevice *);
+  void sendThru(const MMGMessage &);
 
   private:
   libremidi::midi_out midi_out;

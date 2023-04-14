@@ -25,12 +25,12 @@ MMGActionReplayBuffer::MMGActionReplayBuffer(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<Replay Buffer> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionReplayBuffer::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<Replay Buffer> Action -> " + message);
+  MMGAction::blog(log_status, "[Replay Buffer] " + message);
 }
 
 void MMGActionReplayBuffer::execute(const MMGMessage *midi) const
@@ -40,7 +40,7 @@ void MMGActionReplayBuffer::execute(const MMGMessage *midi) const
        !config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
       (QString(config_get_string(obs_config, "Output", "Mode")) == "Advanced" &&
        !config_get_bool(obs_config, "AdvOut", "RecRB"))) {
-    blog(LOG_INFO, "<Replay Buffer> action failed - Replay Buffers are not enabled.");
+    blog(LOG_INFO, "FAILED: Replay buffers are not enabled.");
     return;
   }
 
@@ -70,6 +70,8 @@ void MMGActionReplayBuffer::execute(const MMGMessage *midi) const
 
 void MMGActionReplayBuffer::setSubOptions(QComboBox *sub)
 {
-  sub->addItems(
-    {"Start Replay Buffer", "Stop Replay Buffer", "Toggle Replay Buffer", "Save Replay Buffer"});
+  QStringList opts = obstr_all("Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"});
+  opts.append(mmgtr("Actions.ReplayBuffer.Sub.ToggleReplayBuffer"));
+  opts.append(mmgtr("Actions.ReplayBuffer.Sub.SaveReplayBuffer"));
+  sub->addItems(opts);
 }

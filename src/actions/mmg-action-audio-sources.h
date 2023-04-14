@@ -44,6 +44,7 @@ class MMGActionAudioSources : public MMGAction {
   Category category() const override { return Category::MMGACTION_SOURCE_AUDIO; }
 
   static const QStringList enumerate();
+  static const QStringList audioMonitorOptions();
 
   private:
   MMGUtils::MMGString source;
@@ -53,6 +54,4 @@ class MMGActionAudioSources : public MMGAction {
   void setSubConfig() override;
   void setList1Config() override;
   void setList2Config() override;
-
-  static const QStringList audio_monitor_options;
 };

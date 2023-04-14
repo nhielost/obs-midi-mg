@@ -21,10 +21,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QStackedWidget>
 #include <QPushButton>
+#include <QThread>
+#include <mutex>
 
 #define MMG_ENABLED if (editable)
 
-class MMGActionManager {
+struct MMGActionManager {
   public:
   MMGActionManager();
   MMGActionManager(const QJsonObject &json_obj);
@@ -44,8 +46,6 @@ class MMGActionManager {
     _time.set_edit(edit);
   };
 
-  void execute(const MMGMessage *incoming) const;
-
   private:
   QString binding_name;
   short before_action = 0;
@@ -54,13 +54,76 @@ class MMGActionManager {
   bool editable = true;
 };
 
-class MMGActionInternalDisplay;
+class MMGInternalThread : public QThread {
+  Q_OBJECT
+
+  public:
+  MMGInternalThread(){};
+  MMGInternalThread(const QJsonObject &);
+  ~MMGInternalThread()
+  {
+    if (locked) mutex.unlock();
+    qDeleteAll(actions);
+  }
+
+  void json(QJsonObject &) const;
+  void copy(MMGInternalThread *) const;
+  void setEditable(bool edit);
+
+  void run() override;
+  void restart(const MMGMessage *msg);
+  void createNew(const MMGMessage *msg);
+
+  static short thread_count;
+
+  private:
+  std::timed_mutex mutex;
+  bool locked = false;
+
+  QList<MMGActionManager *> actions;
+  MMGMessage message;
+
+  friend class MMGActionInternalDisplay;
+};
+
+class MMGActionInternalDisplay : public QWidget {
+  Q_OBJECT
+
+  public:
+  MMGActionInternalDisplay(QWidget *parent, MMGInternalThread *storage);
+
+  void setOptions(const QStringList &options);
+
+  public slots:
+  void addPage();
+
+  private slots:
+  void setPageIndex();
+  void setMode(int);
+  void setString(const QString &str);
+  void deletePage();
+
+  private:
+  MMGInternalThread *thread;
+  MMGActionManager *currentManager() const { return thread->actions[num_display_storage - 1]; };
+
+  QWidget *action_options_widget;
+  QComboBox *action_options;
+  MMGNumberDisplay *time;
+  QWidget *binding_options_widget;
+  QComboBox *binding_options;
+
+  MMGNumberDisplay *num_display;
+  MMGUtils::MMGNumber num_display_storage;
+  QPushButton *add_action;
+  QPushButton *remove_action;
+};
 
 class MMGActionInternal : public MMGAction {
   public:
   explicit MMGActionInternal();
   explicit MMGActionInternal(const QJsonObject &json_obj);
-  ~MMGActionInternal() { qDeleteAll(actions); };
+  ~MMGActionInternal() { delete thread; };
   enum Actions { INTERNAL_DOACTIONS };
 
   void blog(int log_status, const QString &message) const override;
@@ -76,47 +139,10 @@ class MMGActionInternal : public MMGAction {
   static const QStringList enumerateActions();
 
   private:
-  QList<MMGActionManager *> actions;
+  MMGInternalThread *thread;
   MMGActionInternalDisplay *internal_display;
 
   void setSubConfig() override;
-
-  static short thread_count;
-
-  friend class MMGActionInternalDisplay;
-};
-
-class MMGActionInternalDisplay : public QWidget {
-  Q_OBJECT
-
-  public:
-  MMGActionInternalDisplay(QWidget *parent, MMGActionInternal *storage);
-
-  void setOptions(const QStringList &options);
-
-  public slots:
-  void addPage();
-
-  private slots:
-  void setPageIndex();
-  void setMode(int);
-  void setString(const QString &str);
-  void deletePage();
-
-  private:
-  MMGActionInternal *action;
-  MMGActionManager *currentManager() const { return action->actions[num_display_storage - 1]; };
-
-  QWidget *action_options_widget;
-  QComboBox *action_options;
-  MMGNumberDisplay *time;
-  QWidget *binding_options_widget;
-  QComboBox *binding_options;
-
-  MMGNumberDisplay *num_display;
-  MMGUtils::MMGNumber num_display_storage;
-  QPushButton *add_action;
-  QPushButton *remove_action;
 };
 
 #undef MMG_ENABLED

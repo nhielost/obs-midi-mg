@@ -24,12 +24,12 @@ MMGActionRecord::MMGActionRecord(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "<Record> action created.");
+  blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionRecord::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<Record> Action -> " + message);
+  MMGAction::blog(log_status, "[Recording] " + message);
 }
 
 void MMGActionRecord::execute(const MMGMessage *midi) const
@@ -66,6 +66,9 @@ void MMGActionRecord::execute(const MMGMessage *midi) const
 
 void MMGActionRecord::setSubOptions(QComboBox *sub)
 {
-  sub->addItems({"Start Recording", "Stop Recording", "Toggle Recording", "Pause Recording",
-		 "Resume Recording", "Toggle Pause Recording"});
+  QStringList opts = obstr_all("Basic.Main", {"StartRecording", "StopRecording", "PauseRecording",
+					      "UnpauseRecording"});
+  opts.insert(2, mmgtr("Actions.Recording.Sub.ToggleRecording"));
+  opts.append(mmgtr("Actions.Recording.Sub.TogglePauseRecording"));
+  sub->addItems(opts);
 }

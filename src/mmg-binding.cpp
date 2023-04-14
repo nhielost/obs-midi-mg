@@ -17,8 +17,27 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-binding.h"
-#include "mmg-action-include.h"
 #include "mmg-config.h"
+
+#include "actions/mmg-action.h"
+#include "actions/mmg-action-none.h"
+#include "actions/mmg-action-stream.h"
+#include "actions/mmg-action-record.h"
+#include "actions/mmg-action-virtualcam.h"
+#include "actions/mmg-action-replaybuffer.h"
+#include "actions/mmg-action-studiomode.h"
+#include "actions/mmg-action-scenes.h"
+#include "actions/mmg-action-video-sources.h"
+#include "actions/mmg-action-audio-sources.h"
+#include "actions/mmg-action-media-sources.h"
+#include "actions/mmg-action-transitions.h"
+#include "actions/mmg-action-filters.h"
+#include "actions/mmg-action-hotkeys.h"
+#include "actions/mmg-action-profiles.h"
+#include "actions/mmg-action-collections.h"
+#include "actions/mmg-action-midi.h"
+#include "actions/mmg-action-internal.h"
+#include "actions/mmg-action-preferences.h"
 
 qulonglong MMGBinding::next_default = 0;
 
@@ -54,12 +73,12 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Binding {" + _name + "} -> " + message);
+  global_blog(log_status, QString::asprintf("[Bindings] <%s> ", _name.qtocs()) + message);
 }
 
 QString MMGBinding::get_next_default_name()
 {
-  return QVariant(++MMGBinding::next_default).toString().prepend("Untitled Binding ");
+  return QVariant(++MMGBinding::next_default).toString().prepend(mmgtr("Binding.Untitled"));
 }
 
 void MMGBinding::execute(const MMGSharedMessage &incoming)
@@ -74,21 +93,16 @@ void MMGBinding::execute(const MMGSharedMessage &incoming)
 
 void MMGBinding::copy(MMGBinding *dest)
 {
-  if (!_name.contains("Untitled Binding")) dest->setName(_name);
+  if (!_name.startsWith(mmgtr("Binding.Untitled"))) dest->setName(_name);
   _message->copy(dest->message());
   dest->setCategory((int)_action->category());
   _action->copy(dest->action());
 }
 
-void MMGBinding::setEnabled(bool enabled)
+void MMGBinding::setEnabled(bool val)
 {
-  _enabled = enabled;
-
-  if (enabled) {
-    connect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
-  } else {
-    disconnect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
-  }
+  _enabled = val;
+  setConnected(val);
 }
 
 void MMGBinding::setCategory(int index)
@@ -142,6 +156,9 @@ void MMGBinding::setCategory(int index)
       break;
     case MMGAction::MMGACTION_INTERNAL:
       _action = new MMGActionInternal();
+      break;
+    case MMGAction::MMGACTION_PREFERENCE:
+      _action = new MMGActionPreferences();
       break;
     default:
       _action = new MMGActionNone();
@@ -200,8 +217,21 @@ void MMGBinding::setCategory(const QJsonObject &json_obj)
     case MMGAction::MMGACTION_INTERNAL:
       _action = new MMGActionInternal(json_obj);
       break;
+    case MMGAction::MMGACTION_PREFERENCE:
+      _action = new MMGActionPreferences(json_obj);
+      break;
     default:
       _action = new MMGActionNone();
       break;
+  }
+}
+
+void MMGBinding::setConnected(bool connected)
+{
+  if (connected) {
+    if (_enabled)
+      connect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
+  } else {
+    disconnect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
   }
 }

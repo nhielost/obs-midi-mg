@@ -60,9 +60,9 @@ void MMGActionDisplay::setStr1(const QString &str)
 {
   if (str1) {
     *str1 = str;
-    if (str == "Toggle")
+    if (str == mmgtr("Fields.Toggle"))
       str1->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
+    else if (str == mmgtr("Fields.UseMessageValue"))
       str1->set_state(MMGString::STRINGSTATE_MIDI);
     else
       str1->set_state(MMGString::STRINGSTATE_FIXED);
@@ -74,9 +74,9 @@ void MMGActionDisplay::setStr2(const QString &str)
 {
   if (str2) {
     *str2 = str;
-    if (str == "Toggle")
+    if (str == mmgtr("Fields.Toggle"))
       str2->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
+    else if (str == mmgtr("Fields.UseMessageValue"))
       str2->set_state(MMGString::STRINGSTATE_MIDI);
     else
       str2->set_state(MMGString::STRINGSTATE_FIXED);
@@ -88,9 +88,9 @@ void MMGActionDisplay::setStr3(const QString &str)
 {
   if (str3) {
     *str3 = str;
-    if (str == "Toggle")
+    if (str == mmgtr("Fields.Toggle"))
       str3->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
+    else if (str == mmgtr("Fields.UseMessageValue"))
       str3->set_state(MMGString::STRINGSTATE_MIDI);
     else
       str3->set_state(MMGString::STRINGSTATE_FIXED);

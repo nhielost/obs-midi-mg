@@ -24,7 +24,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-short MMGActionInternal::thread_count = 0;
+short MMGInternalThread::thread_count = 0;
 
 // MMGActionManager
 MMGActionManager::MMGActionManager()
@@ -54,43 +54,10 @@ void MMGActionManager::copy(MMGActionManager *other) const
   other->binding_name = binding_name;
   other->_time = _time.copy();
 }
-
-void MMGActionManager::execute(const MMGMessage *incoming) const
-{
-  MMGDevice *device = global()->currentDevice();
-  if (!device) return;
-
-  MMGBinding *binding = device->find(binding_name);
-  if (!binding) return;
-
-  if (binding->action()->category() == MMGAction::MMGACTION_INTERNAL) {
-    binding->action()->blog(LOG_INFO, "FAILED: Cannot execute another <Internal> action.");
-    return;
-  }
-
-  switch (before_action) {
-    case 1: // Milliseconds
-      std::this_thread::sleep_for((std::chrono::milliseconds)_time);
-      break;
-    case 2: // Seconds
-      std::this_thread::sleep_for((std::chrono::seconds)_time);
-      break;
-    case 0: // As soon as possible
-      break;
-    default:
-      return;
-  }
-
-  binding->action()->execute(incoming);
-}
 // End MMGActionManager
 
-MMGActionInternal::MMGActionInternal()
-{
-  blog(LOG_DEBUG, "Empty action created.");
-};
-
-MMGActionInternal::MMGActionInternal(const QJsonObject &json_obj)
+// MMGInternalThread
+MMGInternalThread::MMGInternalThread(const QJsonObject &json_obj)
 {
   if (json_obj.contains("str1")) {
     for (int i = 0; i < 3; ++i) {
@@ -110,51 +77,144 @@ MMGActionInternal::MMGActionInternal(const QJsonObject &json_obj)
     for (const QJsonValue &manager : json_obj["actions"].toArray())
       actions.append(new MMGActionManager(manager.toObject()));
   }
-  subcategory = 0;
-
-  blog(LOG_DEBUG, "<Internal> action created.");
 }
 
-void MMGActionInternal::blog(int log_status, const QString &message) const
+void MMGInternalThread::json(QJsonObject &json_obj) const
 {
-  global_blog(log_status, "<Internal> Action -> " + message);
-}
-
-void MMGActionInternal::json(QJsonObject &json_obj) const
-{
-  MMGAction::json(json_obj);
-
   QJsonArray json_array;
   for (MMGActionManager *manager : actions) {
     QJsonObject json_obj;
     manager->json(json_obj);
     json_array += json_obj;
   }
-
   json_obj["actions"] = json_array;
 }
 
-void MMGActionInternal::execute(const MMGMessage *midi) const
+void MMGInternalThread::copy(MMGInternalThread *other) const
 {
-  if (sub() != 0) return;
+  other->actions.clear();
+  for (MMGActionManager *manager : actions) {
+    other->actions.append(new MMGActionManager);
+    manager->copy(other->actions.last());
+  }
+}
 
+void MMGInternalThread::setEditable(bool edit)
+{
+  for (MMGActionManager *manager : actions)
+    manager->setEditable(edit);
+}
+
+void MMGInternalThread::run()
+{
+  thread_count++;
+  locked = true;
+  mutex.lock();
+
+  MMGDevice *device = global()->currentDevice();
+  if (!device) goto cleanup;
+
+  for (MMGActionManager *manager : actions) {
+    const MMGBinding *binding = device->find(manager->binding());
+    if (!binding) continue;
+
+    if (binding->action()->category() == MMGAction::MMGACTION_INTERNAL) {
+      binding->action()->blog(LOG_INFO, "FAILED: Cannot execute another [Internal] action.");
+      continue;
+    }
+
+    switch (manager->timing()) {
+      case 1: // Milliseconds
+	if (mutex.try_lock_for((std::chrono::milliseconds)(int)*manager->time())) goto cleanup;
+	break;
+      case 2: // Seconds
+	if (mutex.try_lock_for((std::chrono::seconds)(int)*manager->time())) goto cleanup;
+	break;
+      case 0: // As soon as possible
+	break;
+      default:
+	continue;
+    }
+
+    binding->action()->execute(&message);
+  }
+
+cleanup:
+  mutex.unlock();
+  locked = false;
+  thread_count--;
+}
+
+void MMGInternalThread::restart(const MMGMessage *msg)
+{
+  if (locked) {
+    mutex.unlock();
+    wait();
+  }
+  message = *msg;
+  start();
+}
+
+void MMGInternalThread::createNew(const MMGMessage *msg)
+{
   if (thread_count >= 64) {
     global_blog(LOG_INFO, "Thread count exceeded - the provided function will not execute.");
     return;
   }
 
-  QThread *thread = QThread::create(
-    [&](const MMGMessage &message) {
-      for (MMGActionManager *manager : actions)
-	manager->execute(&message);
-      thread_count--;
-    },
-    *midi);
-  thread->connect(thread, &QThread::finished, &QObject::deleteLater);
-  thread_count++;
-  thread->start();
+  auto *custom_thread = new MMGInternalThread;
+  copy(custom_thread);
+  custom_thread->connect(custom_thread, &QThread::finished, &QObject::deleteLater);
+  custom_thread->restart(msg);
+}
+// End MMGInternalThread
 
-  blog(LOG_DEBUG, "Successfully deployed.");
+MMGActionInternal::MMGActionInternal()
+{
+  thread = new MMGInternalThread;
+  blog(LOG_DEBUG, "Empty action created.");
+};
+
+MMGActionInternal::MMGActionInternal(const QJsonObject &json_obj)
+{
+  subcategory = 0;
+  thread = new MMGInternalThread(json_obj);
+
+  blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionInternal::blog(int log_status, const QString &message) const
+{
+  MMGAction::blog(log_status, "[Internal] " + message);
+}
+
+void MMGActionInternal::json(QJsonObject &json_obj) const
+{
+  MMGAction::json(json_obj);
+
+  thread->json(json_obj);
+}
+
+void MMGActionInternal::execute(const MMGMessage *midi) const
+{
+  switch (sub()) {
+    case INTERNAL_DOACTIONS:
+      switch (global()->preferences()->internalBehavior()) {
+	case 0: // RESET
+	  thread->restart(midi);
+	  break;
+	case 1: // DON'T RESET
+	  thread->createNew(midi);
+	  break;
+	default:
+	  break;
+      }
+      break;
+
+    default:
+      blog(LOG_DEBUG, "Successfully executed.");
+      break;
+  }
 }
 
 void MMGActionInternal::copy(MMGAction *dest) const
@@ -164,17 +224,12 @@ void MMGActionInternal::copy(MMGAction *dest) const
   auto casted = dynamic_cast<MMGActionInternal *>(dest);
   if (!casted) return;
 
-  casted->actions.clear();
-  for (MMGActionManager *manager : actions) {
-    casted->actions.append(new MMGActionManager);
-    manager->copy(casted->actions.last());
-  }
+  thread->copy(casted->thread);
 }
 
 void MMGActionInternal::setEditable(bool edit)
 {
-  for (MMGActionManager *manager : actions)
-    manager->setEditable(edit);
+  thread->setEditable(edit);
 }
 
 const QStringList MMGActionInternal::enumerateActions()
@@ -190,29 +245,30 @@ void MMGActionInternal::createDisplay(QWidget *parent)
 {
   MMGAction::createDisplay(parent);
 
-  if (actions.size() < 1) actions.append(new MMGActionManager);
-
-  internal_display = new MMGActionInternalDisplay(_display, this);
+  internal_display = new MMGActionInternalDisplay(_display, thread);
   internal_display->resize(290, 350);
   _display->setScrollWidget(internal_display);
 }
 
 void MMGActionInternal::setSubOptions(QComboBox *sub)
 {
-  sub->addItem("Execute Other Actions");
+  sub->addItem(mmgtr("Actions.Internal.Sub.ExecuteOther"));
 }
 
 void MMGActionInternal::setSubConfig()
 {
+  internal_display->setVisible(sub() == 0);
   internal_display->setOptions(enumerateActions());
 }
 
 // MMGActionInternalDisplay
-MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGActionInternal *storage)
+MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGInternalThread *storage)
   : QWidget(parent)
 {
-  action = storage;
+  thread = storage;
   num_display_storage = 1;
+
+  if (thread->actions.size() < 1) thread->actions.append(new MMGActionManager);
 
   QWidget *widget = new QWidget(this);
   widget->setGeometry(0, 0, 290, 250);
@@ -229,7 +285,7 @@ MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGActionInt
 
   QLabel *binding_options_label = new QLabel(binding_options_widget);
   binding_options_label->setGeometry(0, 0, 270, 25);
-  binding_options_label->setText("Action from Binding");
+  binding_options_label->setText(mmgtr("Actions.Internal.Binding"));
 
   binding_options = new QComboBox(binding_options_widget);
   binding_options->setGeometry(0, 25, 270, 40);
@@ -243,12 +299,11 @@ MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGActionInt
 
   QLabel *action_options_label = new QLabel(action_options_widget);
   action_options_label->setGeometry(0, 0, 270, 25);
-  action_options_label->setText("Execution Timing");
+  action_options_label->setText(mmgtr("Actions.Internal.Timing.Text"));
 
   action_options = new QComboBox(action_options_widget);
   action_options->setGeometry(0, 25, 270, 40);
-  action_options->addItems(
-    {"Execute as soon as possible", "Wait (ms) before executing", "Wait (s) before executing"});
+  action_options->addItems(mmgtr_all("Actions.Internal.Timing", {"ASAP", "WaitMS", "WaitS"}));
   connect(action_options, &QComboBox::currentIndexChanged, this,
 	  &MMGActionInternalDisplay::setMode);
 
@@ -272,19 +327,19 @@ MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGActionInt
   num_display = new MMGNumberDisplay(this);
   num_display->setDisplayMode(MMGNumberDisplay::MODE_THIN);
   num_display->move(10, 260);
-  num_display->setDescription("Action #");
+  num_display->setDescription(mmgtr("Actions.Internal.Number"));
   num_display->setStorage(&num_display_storage);
-  num_display->setBounds(1, action->actions.size());
+  num_display->setBounds(1, thread->actions.size());
   connect(num_display, &MMGNumberDisplay::numberChanged, this,
 	  &MMGActionInternalDisplay::setPageIndex);
 
   add_action = new QPushButton(this);
-  add_action->setText("Add Action...");
+  add_action->setText(mmgtr("Actions.Internal.AddAction"));
   add_action->setGeometry(10, 300, 130, 40);
   connect(add_action, &QPushButton::clicked, this, &MMGActionInternalDisplay::addPage);
 
   remove_action = new QPushButton(this);
-  remove_action->setText("Remove Action...");
+  remove_action->setText(mmgtr("Actions.Internal.RemoveAction"));
   remove_action->setGeometry(150, 300, 130, 40);
   connect(remove_action, &QPushButton::clicked, this, &MMGActionInternalDisplay::deletePage);
 
@@ -293,12 +348,12 @@ MMGActionInternalDisplay::MMGActionInternalDisplay(QWidget *parent, MMGActionInt
 
 void MMGActionInternalDisplay::setPageIndex()
 {
-  if (action->actions.size() < num_display_storage) return;
+  if (thread->actions.size() < num_display_storage) return;
   MMGActionManager *current = currentManager();
   action_options->setCurrentIndex(current->timing());
   time->setStorage(current->time(), true);
   binding_options->setCurrentText(current->binding());
-  remove_action->setEnabled(action->actions.size() != 1);
+  remove_action->setEnabled(thread->actions.size() != 1);
 }
 
 void MMGActionInternalDisplay::setMode(int index)
@@ -306,7 +361,9 @@ void MMGActionInternalDisplay::setMode(int index)
   if (index > 2) return;
   currentManager()->setTiming(index);
   time->setVisible(index != 0);
-  time->setDescription(index < 2 ? "Milliseconds" : "Seconds");
+  QString desc = "Actions.Internal.Timing.";
+  desc += (index < 2 ? "Milliseconds" : "Seconds");
+  time->setDescription(mmgtr(desc.qtocs()));
 }
 
 void MMGActionInternalDisplay::setOptions(const QStringList &options)
@@ -324,10 +381,10 @@ void MMGActionInternalDisplay::addPage()
 {
   MMGActionManager *manager = new MMGActionManager;
   manager->setBinding(binding_options->itemText(0));
-  action->actions.insert(num_display_storage, manager);
+  thread->actions.insert(num_display_storage, manager);
 
   num_display_storage = num_display_storage + 1;
-  num_display->setBounds(1, action->actions.size());
+  num_display->setBounds(1, thread->actions.size());
   emit num_display->numberChanged();
 }
 
@@ -339,10 +396,10 @@ void MMGActionInternalDisplay::setString(const QString &str)
 void MMGActionInternalDisplay::deletePage()
 {
   MMGActionManager *manager = currentManager();
-  action->actions.removeAt(num_display_storage - 1);
+  thread->actions.removeAt(num_display_storage - 1);
   delete manager;
 
-  num_display->setBounds(1, action->actions.size());
+  num_display->setBounds(1, thread->actions.size());
   emit num_display->numberChanged();
 }
 // End MMGActionInternalDisplay

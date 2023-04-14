@@ -41,6 +41,7 @@ class MMGDevice : public QObject {
   void move(int from, int to);
   void remove(MMGBinding *el);
   MMGBinding *find(const QString &name);
+  void setConnected(bool connected);
   int indexOf(MMGBinding *el);
   qint64 size() const;
   void clear() { _bindings.clear(); };

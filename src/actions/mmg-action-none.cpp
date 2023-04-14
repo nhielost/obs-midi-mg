@@ -22,7 +22,7 @@ using namespace MMGUtils;
 
 void MMGActionNone::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "<None> Action -> " + message);
+  MMGAction::blog(log_status, "[None] " + message);
 }
 
 void MMGActionNone::execute(const MMGMessage *midi) const

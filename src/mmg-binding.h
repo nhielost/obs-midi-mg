@@ -52,6 +52,7 @@ class MMGBinding : public QObject {
 
   void setCategory(int index);
   void setCategory(const QJsonObject &json_obj);
+  void setConnected(bool connected);
   void copy(MMGBinding *dest);
 
   static qulonglong get_next_default() { return next_default; };
