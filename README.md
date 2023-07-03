@@ -1,3 +1,8 @@
+## Announcement
+**Version 2.3.1 of this plugin contained various errors for different users that cannot be removed due to a design flaw. It has been taken down, so please use version 2.3.0 instead. I'm sorry for any inconvenience.**
+
+(However, a new version of the plugin with some *big* changes is arriving in the near future!)<br><br><br>
+
 # obs-midi-mg
 
 Allows MIDI devices to interact with OBS Studio.
