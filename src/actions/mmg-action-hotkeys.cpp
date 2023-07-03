@@ -43,12 +43,12 @@ MMGActionHotkeys::MMGActionHotkeys(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Hotkeys> action created.");
 }
 
 void MMGActionHotkeys::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Hotkeys] " + message);
+  global_blog(log_status, "<Hotkeys> Action -> " + message);
 }
 
 void MMGActionHotkeys::json(QJsonObject &json_obj) const
@@ -160,7 +160,7 @@ const QStringList MMGActionHotkeys::enumerate_names(const QString &category)
 
       switch (obs_hotkey_get_registerer_type(hotkey)) {
 	case OBS_HOTKEY_REGISTERER_FRONTEND:
-	  if (helper->str != mmgtr("Actions.Hotkeys.Frontend")) return true;
+	  if (helper->str != "Frontend") return true;
 	  break;
 	case OBS_HOTKEY_REGISTERER_SOURCE:
 	  HOTKEY_REGISTERER_GETTER_NORMAL(source);
@@ -199,7 +199,7 @@ const QStringList MMGActionHotkeys::enumerate_descriptions(const QString &catego
 
       switch (obs_hotkey_get_registerer_type(hotkey)) {
 	case OBS_HOTKEY_REGISTERER_FRONTEND:
-	  if (helper->str != mmgtr("Actions.Hotkeys.Frontend")) return true;
+	  if (helper->str != "Frontend") return true;
 	  break;
 	case OBS_HOTKEY_REGISTERER_SOURCE:
 	  HOTKEY_REGISTERER_GETTER_NORMAL(source);
@@ -241,8 +241,8 @@ const QStringList MMGActionHotkeys::enumerate_eligible()
 
       switch (obs_hotkey_get_registerer_type(hotkey)) {
 	case OBS_HOTKEY_REGISTERER_FRONTEND:
-	  if (_list->contains(mmgtr("Actions.Hotkeys.Frontend"))) return true;
-	  append = mmgtr("Actions.Hotkeys.Frontend");
+	  if (_list->contains("Frontend")) return true;
+	  append = "Frontend";
 	  break;
 	case OBS_HOTKEY_REGISTERER_SOURCE:
 	  HOTKEY_REGISTERER_GETTER_ELIGIBLE(source);
@@ -278,7 +278,7 @@ void MMGActionHotkeys::createDisplay(QWidget *parent)
 
 void MMGActionHotkeys::setSubOptions(QComboBox *sub)
 {
-  sub->addItem(mmgtr("Actions.Hotkeys.Sub.Activate"));
+  sub->addItem("Activate Predefined Hotkey");
 }
 
 void MMGActionHotkeys::setSubConfig()
@@ -288,13 +288,13 @@ void MMGActionHotkeys::setSubConfig()
   _display->setStr3Visible(false);
 
   _display->setStr1Visible(true);
-  _display->setStr1Description(mmgtr("Actions.Hotkeys.Group"));
+  _display->setStr1Description("Group");
   _display->setStr1Options(enumerate_eligible());
 }
 
 void MMGActionHotkeys::setList1Config()
 {
   _display->setStr2Visible(true);
-  _display->setStr2Description(mmgtr("Actions.Hotkeys.Hotkey"));
+  _display->setStr2Description("Hotkey");
   _display->setStr2Options(enumerate_descriptions(hotkey_group));
 }

@@ -1,18 +1,14 @@
-cmake_minimum_required(VERSION 3.23...3.26)
+cmake_minimum_required(VERSION 3.16...3.21)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
 # (e.g.: obs-myawesomeplugin) and set
-project(obs-midi-mg VERSION 2.3.1)
+project(obs-midi-mg VERSION 2.3.0)
 add_library(obs-midi-mg MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
 # to see as the author of the plugin (in the plugin's metadata itself and in the
 # installers)
 set(PLUGIN_AUTHOR "nhielost <nhielost@gmail.com>")
-
-# Replace 'https://www.example.com` with a link to the website of your plugin or
-# repository
-set(PLUGIN_WEBSITE "https://www.github.com/nhielost/obs-midi-mg")
 
 # Replace `com.example.obs-plugin-template` with a unique Bundle ID for macOS
 # releases (used both in the installer and when submitting the installer for
@@ -53,7 +49,6 @@ target_sources(
           ./src/actions/mmg-action-collections.cpp
           ./src/actions/mmg-action-midi.cpp
           ./src/actions/mmg-action-internal.cpp
-          ./src/actions/mmg-action-preferences.cpp
           ./src/mmg-binding.cpp
           ./src/mmg-config.cpp
           ./src/mmg-device.cpp
@@ -88,7 +83,7 @@ target_sources(
           ./src/actions/mmg-action-collections.h
           ./src/actions/mmg-action-midi.h
           ./src/actions/mmg-action-internal.h
-          ./src/actions/mmg-action-preferences.h
+          ./src/mmg-action-include.h
           ./src/mmg-binding.h
           ./src/mmg-config.h
           ./src/mmg-device.h
@@ -158,7 +153,7 @@ elseif(OS_MACOS)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
   set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.3.1")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "2.3.0")
 
   target_compile_options(obs-midi-mg PRIVATE -Wall)
   # --- End of section ---

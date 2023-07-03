@@ -23,7 +23,7 @@ using namespace MMGUtils;
 MMGMessage::MMGMessage() : _channel(), _type(), _note(), _value()
 {
   _channel = 1;
-  _type = mmgtr("Message.Type.NoteOn");
+  _type = "Note On";
   _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
   _value.set_max(127);
   blog(LOG_DEBUG, "Empty message created.");
@@ -68,7 +68,7 @@ void MMGMessage::json(QJsonObject &message_obj) const
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "[Messages] " + message);
+  global_blog(log_status, "Messages -> " + message);
 }
 
 int MMGMessage::get_midi_note(const libremidi::message &mess)
@@ -103,19 +103,19 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
   switch (mess.get_message_type()) {
     // Standard Messages
     case libremidi::message_type::NOTE_OFF:
-      return mmgtr("Message.Type.NoteOff");
+      return "Note Off";
     case libremidi::message_type::NOTE_ON:
-      return mmgtr("Message.Type.NoteOn");
+      return "Note On";
     case libremidi::message_type::POLY_PRESSURE:
       return "Polyphonic Pressure";
     case libremidi::message_type::CONTROL_CHANGE:
-      return mmgtr("Message.Type.ControlChange");
+      return "Control Change";
     case libremidi::message_type::PROGRAM_CHANGE:
-      return mmgtr("Message.Type.ProgramChange");
+      return "Program Change";
     case libremidi::message_type::AFTERTOUCH:
       return "Channel Aftertouch";
     case libremidi::message_type::PITCH_BEND:
-      return mmgtr("Message.Type.PitchBend");
+      return "Pitch Bend";
     // System Common Messages
     case libremidi::message_type::SYSTEM_EXCLUSIVE:
       return "System Exclusive";
@@ -158,10 +158,10 @@ QString MMGMessage::get_midi_type(const libremidi::message &mess)
 void MMGMessage::toggle()
 {
   if (_type.state() == MMGString::STRINGSTATE_TOGGLE) {
-    if (_type == mmgtr("Message.Type.NoteOn")) {
-      _type = mmgtr("Message.Type.NoteOff");
-    } else if (_type == mmgtr("Message.Type.NoteOff")) {
-      _type = mmgtr("Message.Type.NoteOn");
+    if (_type == "Note On") {
+      _type = "Note Off";
+    } else if (_type == "Note Off") {
+      _type = "Note On";
     }
   }
   if (_value.state() == MMGNumber::NUMBERSTATE_IGNORE) { // TOGGLE SETTING
@@ -178,8 +178,7 @@ bool MMGMessage::acceptable(const MMGMessage *test) const
   bool is_true = true;
   is_true &= (_channel == test->channel());
   is_true &= (_type == test->type().str());
-  if (_type != mmgtr("Message.Type.ProgramChange") && _type != mmgtr("Message.Type.PitchBend"))
-    is_true &= (_note == test->note());
+  if (_type != "Program Change" && _type != "Pitch Bend") is_true &= (_note == test->note());
   if (_value.state() == 1) return is_true;
   if (_value.state() == 2) {
     if (_value.min() <= _value.max()) {

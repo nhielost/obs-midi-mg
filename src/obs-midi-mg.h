@@ -22,7 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QObject>
 
 #include <obs.hpp>
-#include <obs-module.h>
 
 #include <libremidi/libremidi.hpp>
 
@@ -43,8 +42,5 @@ MMGMIDIInDevice input_device();
 MMGMIDIOutDevice output_device();
 
 #define OBS_MIDIMG_VERSION "v" PLUGIN_VERSION
-
 #define qtocs() toUtf8().constData()
 #define mmgtocs() str().qtocs()
-#define mmgtr(str) obs_module_text(str)
-#define obstr(str) obs_frontend_get_locale_string(str)

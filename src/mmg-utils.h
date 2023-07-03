@@ -131,11 +131,6 @@ class MMGTimer : public QTimer {
   void reset(int time);
 };
 
-const QStringList mmgtr_all(const QString &header, const QStringList &list,
-			    bool message_value = false);
-const QStringList obstr_all(const QString &header, const QStringList &list,
-			    bool message_value = false);
-
 void set_message_labels(const QString &type, MMGNumberDisplay *note_display,
 			MMGNumberDisplay *value_display);
 
@@ -143,12 +138,13 @@ const QByteArray json_to_str(const QJsonObject &json_obj);
 const QJsonObject json_from_str(const QByteArray &str);
 void debug_json(const QJsonValue &val);
 
+bool bool_from_str(const QString &str);
 double num_from_str(const QString &str);
 QString num_to_str(int num, const QString &prefix = "");
 
 void open_message_box(const QString &title, const QString &text);
 
-bool transfer_bindings(short mode, const QString &source, const QString &dest);
+void transfer_bindings(short mode, const QString &source, const QString &dest);
 
 const vec3 get_obs_property_bounds(obs_property_t *prop);
 const vec3 get_obs_property_bounds(obs_source_t *source, const QString &field);

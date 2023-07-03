@@ -24,12 +24,12 @@ MMGActionVirtualCam::MMGActionVirtualCam(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Virtual Camera> action created.");
 }
 
 void MMGActionVirtualCam::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Virtual Camera] " + message);
+  global_blog(log_status, "<Virtual Camera> Action -> " + message);
 }
 
 void MMGActionVirtualCam::execute(const MMGMessage *midi) const
@@ -57,7 +57,5 @@ void MMGActionVirtualCam::execute(const MMGMessage *midi) const
 
 void MMGActionVirtualCam::setSubOptions(QComboBox *sub)
 {
-  QStringList opts = obstr_all("Basic.Main", {"StartVirtualCam", "StopVirtualCam"});
-  opts.append(mmgtr("Actions.VirtualCamera.Sub.ToggleVirtualCamera"));
-  sub->addItems(opts);
+  sub->addItems({"Start Virtual Camera", "Stop Virtual Camera", "Toggle Virtual Camera"});
 }

@@ -131,7 +131,7 @@ void MMGOBSStringField::update(obs_property_t *prop)
     for (const MMGPair &key : prop_options) {
       combo->addItem(key.key, key.val);
     }
-    if (!prop_options.isEmpty()) combo->addItem(mmgtr("Fields.UseMessageValue"), "msg_val");
+    if (!prop_options.isEmpty()) combo->addItem("Use Message Value", "msg_val");
     int index = combo->findData(value.toVariant());
     combo->setCurrentIndex(index == -1 ? 0 : index);
   }
@@ -146,7 +146,7 @@ MMGOBSBooleanField::MMGOBSBooleanField(QWidget *p, const MMGOBSFieldInit &init)
 
   combo->blockSignals(true);
   combo->clear();
-  combo->addItems(mmgtr_all("Fields", {"True", "False", "Toggle", "Ignore"}));
+  combo->addItems({"True", "False", "Toggle", "Ignore"});
   combo->setItemData(0, true);
   combo->setItemData(1, false);
   combo->blockSignals(false);
@@ -236,7 +236,7 @@ MMGOBSColorField::MMGOBSColorField(QWidget *p, const MMGOBSFieldInit &init, bool
   label->setGeometry(0, 0, 130, 20);
 
   button->setGeometry(0, 30, 130, 40);
-  button->setText(mmgtr("Fields.ColorSelect"));
+  button->setText("Select Color...");
 
   frame = new QFrame(this);
   frame->setVisible(true);
@@ -297,7 +297,7 @@ MMGOBSFontField::MMGOBSFontField(QWidget *p, const MMGOBSFieldInit &init)
   label->setGeometry(0, 0, 130, 20);
 
   button->setGeometry(0, 30, 130, 40);
-  button->setText(mmgtr("Fields.FontSelect"));
+  button->setText("Select Font...");
 
   QFrame *frame = new QFrame(this);
   frame->setVisible(true);
@@ -354,7 +354,7 @@ void MMGOBSFontField::update(obs_property_t *prop)
 void MMGOBSFontField::callback()
 {
   bool accept;
-  QFont _font = QFontDialog::getFont(&accept, font, nullptr, mmgtr("Fields.FontSelect"),
+  QFont _font = QFontDialog::getFont(&accept, font, nullptr, "Select Font...",
 				     QFontDialog::DontUseNativeDialog);
   if (accept) font = _font;
   inner_label->setText(font.family() + "\n" + QString::number(font.pointSize()) + "pt");
@@ -530,7 +530,7 @@ void MMGOBSPathField::update(obs_property_t *prop)
   filters = obs_property_path_filter(prop);
 
   path_display->setText(path);
-  button->setText(dialog_type < 2 ? mmgtr("Fields.FileSelect") : mmgtr("Fields.FolderSelect"));
+  button->setText(dialog_type < 2 ? "Select File..." : "Select Folder...");
 }
 
 void MMGOBSPathField::callback()
@@ -538,17 +538,14 @@ void MMGOBSPathField::callback()
   QString new_path;
   switch (dialog_type) {
     case 0: // FILE READING
-      new_path = QFileDialog::getOpenFileName(nullptr, mmgtr("Fields.FileSelect"), default_path,
-					      filters, nullptr,
-					      QFileDialog::Option::HideNameFilterDetails);
+      new_path = QFileDialog::getOpenFileName(nullptr, "Select File...", default_path, filters,
+					      nullptr, QFileDialog::Option::HideNameFilterDetails);
       break;
     case 1: // FILE WRITING
-      new_path =
-	QFileDialog::getSaveFileName(nullptr, mmgtr("Fields.FileSelect"), default_path, filters);
+      new_path = QFileDialog::getSaveFileName(nullptr, "Select File...", default_path, filters);
       break;
     case 2: // DIRECTORY
-      new_path =
-	QFileDialog::getExistingDirectory(nullptr, mmgtr("Fields.FolderSelect"), default_path);
+      new_path = QFileDialog::getExistingDirectory(nullptr, "Select Folder...", default_path);
       break;
     default:
       break;
@@ -574,8 +571,9 @@ MMGOBSFields::MMGOBSFields(QWidget *parent, obs_source_t *source) : QWidget(pare
 
   // The Good Stuff
   if (!source) {
-    open_message_box(mmgtr("UI.MessageBox.FieldsError.Title"),
-		     mmgtr("UI.MessageBox.FieldsError.BadSource"));
+    open_message_box(
+      "Custom Setup Error",
+      "The custom fields menu could not be displayed.\n\nThe source is invalid or does not exist.");
     return;
   };
 

@@ -30,12 +30,9 @@ Tips in using the plugin as well as how it works can be found here.
    - [MIDI](#midi)
    - [Internal](#internal)
    - [Timeout](#timeout)
-   - [Preferences](#preferences)
 4. [Using the Message Value](#using-the-message-value)
 5. [Preferences Guide](#preferences-guide)
-   - [MIDI Activity](#midi-activity)
-   - [MIDI Throughput](#midi-throughput)
-   - [Internal Action Behavior](#internal-action-behavior)
+   - [Device Interaction](#device-interaction)
    - [Binding Transfer](#binding-transfer)
 6. [Additional Help](#additional-help)
 
@@ -66,8 +63,6 @@ To access the preferences menu, click the *Preferences* button in the bottom lef
 Bindings are composed of one message and one action. If the binding is enabled, the message will be listened to on the current device, and whenever the message is received with all the correct parameters, the action will execute. These parameters can be set in the binding editor when a binding is selected. 
 
 If a binding is disabled, the message will not be listened to. This can be changed by clicking the checkmark next to the binding's name. The action will never be executed whenever any message is received. *See the [Internal](#internal) action for an exception to this rule.*
-
-***New!*** Bindings placed higher up in the list will have higher priority when executing (i.e. the first binding in the list will be dealt with before the second one).
 
 ### Messages
 
@@ -289,12 +284,6 @@ The timing range is set between 1 and 999 of the specified units.
 
 This category is discontinued as it has moved inside of the *Internal* action.
 
-### Preferences
-
-This category implements [Preferences](#preferences-guide) as actions.
-
-**Note**: The *MIDI Activity* preference can only be turned off using this action, as actions cannot be executed when the *MIDI Activity* preference is turned off.
-
 ----------------------------------------------------
 
 ## Using the Message Value
@@ -325,7 +314,7 @@ If any fields are marked with a subscript listed below, they are eligible to be 
 
 ## Preferences Guide
 
-### MIDI Activity
+### Device Interaction
 
 If this option is toggled off, it will turn off all communication between the plugin and the active device.
 
@@ -334,14 +323,6 @@ If this option is toggled off, it will turn off all communication between the pl
 When this option is enabled, all messages received by the active device will automatically be routed to the output device specified.
 
 This may cause a feedback loop if the output device is configured to send messages to the *Active Device*. Feedback loops lead to undesired behavior, and occasionally cause crashes, so be careful when using this feature.
-
-### Internal Action Behavior
-
-This changes how *Internal* actions behave when they are executed.
-
-When the *Reset on new message* option is selected, all *Internal* actions will reset and start over if they receive another message. Because of this, each action can only be executing once at any moment. (Multiple *Internal* actions can still run at the same time, just not the same action over and over.)
-
-When the *Don't reset on new message* option is selected, any one *Internal* action can be executed up to 64 times at once, and they will all run to completion with no interruptions (aside from errors, of course).
 
 ### Binding Transfer
 

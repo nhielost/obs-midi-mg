@@ -20,17 +20,20 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+const QStringList MMGActionAudioSources::audio_monitor_options{
+  "Off", "Monitor Only", "Monitor & Output", "Use Message Value"};
+
 MMGActionAudioSources::MMGActionAudioSources(const QJsonObject &json_obj)
   : source(json_obj, "source", 1), action(json_obj, "action", 2), num(json_obj, "num", 1)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Audio Sources> action created.");
 }
 
 void MMGActionAudioSources::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Audio Sources] " + message);
+  global_blog(log_status, "<Audio Sources> Action -> " + message);
 }
 
 void MMGActionAudioSources::json(QJsonObject &json_obj) const
@@ -88,7 +91,7 @@ void MMGActionAudioSources::execute(const MMGMessage *midi) const
       }
       obs_source_set_monitoring_type(
 	obs_source, (obs_monitoring_type)(action.state() ? midi->value()
-							 : audioMonitorOptions().indexOf(action)));
+							 : audio_monitor_options.indexOf(action)));
       break;
     default:
       break;
@@ -132,11 +135,6 @@ const QStringList MMGActionAudioSources::enumerate()
   return list;
 }
 
-const QStringList MMGActionAudioSources::audioMonitorOptions()
-{
-  return obstr_all("Basic.AdvAudio.Monitoring", {"None", "MonitorOnly", "Both"}, true);
-}
-
 void MMGActionAudioSources::createDisplay(QWidget *parent)
 {
   MMGAction::createDisplay(parent);
@@ -154,9 +152,9 @@ void MMGActionAudioSources::createDisplay(QWidget *parent)
 
 void MMGActionAudioSources::setSubOptions(QComboBox *sub)
 {
-  sub->addItems(
-    mmgtr_all("Actions.AudioSources.Sub", {"ChangeVolumeTo", "ChangeVolumeBy", "Mute", "Unmute",
-					   "ToggleMute", "AudioOffset", "AudioMonitor"}));
+  sub->addItems({"Change Source Volume To", "Change Source Volume By", "Mute Source",
+		 "Unmute Source", "Toggle Source Mute", "Source Audio Offset",
+		 "Source Audio Monitor"});
 }
 
 void MMGActionAudioSources::setSubConfig()
@@ -166,7 +164,7 @@ void MMGActionAudioSources::setSubConfig()
   _display->setStr3Visible(false);
 
   _display->setStr1Visible(true);
-  _display->setStr1Description(mmgtr("Actions.AudioSources.AudioSource"));
+  _display->setStr1Description("Audio Source");
   _display->setStr1Options(enumerate());
 }
 
@@ -178,7 +176,7 @@ void MMGActionAudioSources::setList1Config()
   switch ((Actions)subcategory) {
     case SOURCE_AUDIO_VOLUME_CHANGETO:
       num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+      num_display->setDescription("Volume (%)");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
       num_display->setBounds(0.0, 100.0);
       num_display->setStep(0.5);
@@ -187,7 +185,7 @@ void MMGActionAudioSources::setList1Config()
 
     case SOURCE_AUDIO_VOLUME_CHANGEBY:
       num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+      num_display->setDescription("Volume (%)");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
       num_display->setBounds(-50.0, 50.0);
       num_display->setStep(0.5);
@@ -201,7 +199,7 @@ void MMGActionAudioSources::setList1Config()
 
     case SOURCE_AUDIO_OFFSET:
       num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription(obstr("Basic.AdvAudio.SyncOffset"));
+      num_display->setDescription("Offset");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
       num_display->setBounds(0.0, 20000.0);
       num_display->setStep(25.0);
@@ -210,8 +208,8 @@ void MMGActionAudioSources::setList1Config()
 
     case SOURCE_AUDIO_MONITOR:
       _display->setStr2Visible(true);
-      _display->setStr2Description(obstr("Basic.AdvAudio.Monitoring"));
-      _display->setStr2Options(audioMonitorOptions());
+      _display->setStr2Description("Audio Monitor");
+      _display->setStr2Options(audio_monitor_options);
       return;
 
     default:
@@ -223,7 +221,7 @@ void MMGActionAudioSources::setList1Config()
 void MMGActionAudioSources::setList2Config()
 {
   if (subcategory == SOURCE_AUDIO_MONITOR) {
-    num = audioMonitorOptions().indexOf(action);
+    num = audio_monitor_options.indexOf(action);
     num.set_state(action.state());
   }
 }

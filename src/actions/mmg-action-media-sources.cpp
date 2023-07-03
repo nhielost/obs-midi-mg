@@ -25,12 +25,12 @@ MMGActionMediaSources::MMGActionMediaSources(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Media Sources> action created.");
 }
 
 void MMGActionMediaSources::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Media Sources] " + message);
+  global_blog(log_status, "<Media Sources> Action -> " + message);
 }
 
 void MMGActionMediaSources::json(QJsonObject &json_obj) const
@@ -146,19 +146,14 @@ void MMGActionMediaSources::createDisplay(QWidget *parent)
 
 void MMGActionMediaSources::setSubOptions(QComboBox *sub)
 {
-  QStringList opts = obstr_all("ContextBar.MediaControls",
-			       {"RestartMedia", "StopMedia", "PlaylistNext", "PlaylistPrevious"});
-  opts.prepend(mmgtr("Actions.MediaSources.Sub.PlayPause"));
-  opts.insert(3, mmgtr("Actions.MediaSources.Sub.SetTime"));
-  opts.append(mmgtr("Actions.MediaSources.Sub.SkipForward"));
-  opts.append(mmgtr("Actions.MediaSources.Sub.SkipBackward"));
-  sub->addItems(opts);
+  sub->addItems({"Play or Pause", "Restart", "Stop", "Set Track Time", "Next Track",
+		 "Previous Track", "Skip Forward Time", "Skip Backward Time"});
 }
 
 void MMGActionMediaSources::setSubConfig()
 {
   _display->setStr1Visible(true);
-  _display->setStr1Description(mmgtr("Actions.MediaSources.MediaSource"));
+  _display->setStr1Description("Media Source");
   _display->setStr1Options(enumerate());
 }
 
@@ -170,7 +165,7 @@ void MMGActionMediaSources::setList1Config()
   switch ((Actions)subcategory) {
     case SOURCE_MEDIA_TIME:
       num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription(mmgtr("Actions.MediaSources.Time"));
+      num_display->setDescription("Time");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
       num_display->setTimeFormat(true);
       num_display->setBounds(0.0, sourceDuration());
@@ -181,7 +176,7 @@ void MMGActionMediaSources::setList1Config()
     case SOURCE_MEDIA_SKIP_FORWARD_TIME:
     case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
       num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription(mmgtr("Actions.MediaSources.TimeAdjust"));
+      num_display->setDescription("Time Adjust");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
       num_display->setTimeFormat(true);
       num_display->setBounds(0.0, sourceDuration());

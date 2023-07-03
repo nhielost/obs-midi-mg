@@ -29,12 +29,12 @@ MMGActionFilters::MMGActionFilters(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Filters> action created.");
 }
 
 void MMGActionFilters::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Filters] " + message);
+  global_blog(log_status, "<Filters> Action -> " + message);
 }
 
 void MMGActionFilters::json(QJsonObject &json_obj) const
@@ -164,8 +164,8 @@ void MMGActionFilters::createDisplay(QWidget *parent)
 
 void MMGActionFilters::setSubOptions(QComboBox *sub)
 {
-  sub->addItems(
-    mmgtr_all("Actions.Filters.Sub", {"Show", "Hide", "ToggleDisplay", "Reorder", "Custom"}));
+  sub->addItems({"Show Filter", "Hide Filter", "Toggle Filter Display", "Reorder Filter Appearance",
+		 "Custom Filter Settings"});
 }
 
 void MMGActionFilters::setSubConfig()
@@ -175,14 +175,14 @@ void MMGActionFilters::setSubConfig()
   _display->setStr3Visible(false);
 
   _display->setStr1Visible(true);
-  _display->setStr1Description(obstr("Basic.Main.Source"));
+  _display->setStr1Description("Source");
   _display->setStr1Options(enumerate_eligible());
 }
 
 void MMGActionFilters::setList1Config()
 {
   _display->setStr2Visible(true);
-  _display->setStr2Description(mmgtr("Actions.Filters.Filter"));
+  _display->setStr2Description("Filter");
   _display->setStr2Options(enumerate(source));
 }
 
@@ -204,7 +204,7 @@ void MMGActionFilters::setList2Config()
 
     case FILTER_REORDER:
       num_display->setVisible(!filter.str().isEmpty());
-      num_display->setDescription(obstr("Basic.TransformWindow.Position"));
+      num_display->setDescription("Position");
       num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
       num_display->setBounds(1.0, enumerate(source).size());
       num_display->setStep(1.0);

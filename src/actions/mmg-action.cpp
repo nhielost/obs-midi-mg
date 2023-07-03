@@ -20,7 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 void MMGAction::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "[Actions] " + message);
+  global_blog(log_status, "Actions -> " + message);
 }
 
 void MMGAction::json(QJsonObject &json_obj) const

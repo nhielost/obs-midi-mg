@@ -25,12 +25,12 @@ MMGActionStudioMode::MMGActionStudioMode(const QJsonObject &json_obj) : scene(js
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Studio Mode> action created.");
 }
 
 void MMGActionStudioMode::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Studio Mode] " + message);
+  global_blog(log_status, "<Studio Mode> Action -> " + message);
 }
 
 void MMGActionStudioMode::json(QJsonObject &json_obj) const
@@ -116,8 +116,8 @@ void MMGActionStudioMode::createDisplay(QWidget *parent)
 
 void MMGActionStudioMode::setSubOptions(QComboBox *sub)
 {
-  sub->addItems(mmgtr_all("Actions.StudioMode.Sub", {"Activate", "Deactivate", "ToggleActivate",
-						     "ChangePreview", "Transition"}));
+  sub->addItems({"Turn On Studio Mode", "Turn Off Studio Mode", "Toggle Studio Mode",
+		 "Change Preview Scene", "Preview to Program"});
 }
 
 void MMGActionStudioMode::setSubConfig()
@@ -125,9 +125,9 @@ void MMGActionStudioMode::setSubConfig()
   _display->setStr1Visible(false);
   if (subcategory == 3) {
     _display->setStr1Visible(true);
-    _display->setStr1Description(obstr("Basic.Scene"));
+    _display->setStr1Description("Scene");
     QStringList options = MMGActionScenes::enumerate();
-    options.append(mmgtr("Fields.UseMessageValue"));
+    options.append("Use Message Value");
     _display->setStr1Options(options);
   }
 }

@@ -27,7 +27,7 @@ class MMGActionNone : public MMGAction {
 
   void blog(int log_status, const QString &message) const override;
   void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override { sub->addItem(mmgtr("Actions.Title.None")); };
+  void setSubOptions(QComboBox *sub) override { sub->addItem("None"); };
 
   Category category() const override { return Category::MMGACTION_NONE; }
 };

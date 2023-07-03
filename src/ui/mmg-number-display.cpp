@@ -54,14 +54,14 @@ MMGNumberDisplay::MMGNumberDisplay(QWidget *parent) : QWidget(parent)
   label->setWordWrap(true);
   label->setGeometry(0, 0, 95, 30);
 
-  lcd_min->setToolTip(mmgtr("NumberDisplay.LowerBound"));
+  lcd_min->setToolTip("Lower Bound (corresponds to MIDI value of 0)");
   lcd_min->setGeometry(95, 0, 175, 30);
-  lcd_max->setToolTip(mmgtr("NumberDisplay.UpperBound"));
+  lcd_max->setToolTip("Upper Bound (corresponds to MIDI value of 127)");
   lcd_max->setGeometry(95, 40, 175, 30);
 
   combo = new QComboBox(this);
   combo->setGeometry(0, 30, 95, 40);
-  combo->addItems(mmgtr_all("NumberDisplay", {"Fixed", "MIDI", "Custom", "Ignore"}));
+  combo->addItems({"Fixed", "0-127", "Custom", "Ignore"});
   combo->connect(combo, &QComboBox::currentIndexChanged, this, &MMGNumberDisplay::setLCDMode);
 
   setDisplayMode(MODE_DEFAULT);

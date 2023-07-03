@@ -24,12 +24,12 @@ MMGActionStream::MMGActionStream(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Stream> action created.");
 }
 
 void MMGActionStream::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Streaming] " + message);
+  global_blog(log_status, "<Stream> Action -> " + message);
 }
 
 void MMGActionStream::execute(const MMGMessage *midi) const
@@ -52,12 +52,10 @@ void MMGActionStream::execute(const MMGMessage *midi) const
     default:
       break;
   }
-  blog(LOG_DEBUG, "Successfully executed.");
+  blog(LOG_DEBUG, "Executed successfully.");
 }
 
 void MMGActionStream::setSubOptions(QComboBox *sub)
 {
-  QStringList opts = obstr_all("Basic.Main", {"StartStreaming", "StopStreaming"});
-  opts.append(mmgtr("Actions.Streaming.Sub.ToggleStreaming"));
-  sub->addItems(opts);
+  sub->addItems({"Start Streaming", "Stop Streaming", "Toggle Streaming"});
 }

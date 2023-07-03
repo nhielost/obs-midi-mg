@@ -24,12 +24,12 @@ MMGActionScenes::MMGActionScenes(const QJsonObject &json_obj) : scene(json_obj, 
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Scenes> action created.");
 }
 
 void MMGActionScenes::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Scene Switching] " + message);
+  global_blog(log_status, "<Scenes> Action -> " + message);
 }
 
 void MMGActionScenes::json(QJsonObject &json_obj) const
@@ -127,8 +127,8 @@ void MMGActionScenes::setSubOptions(QComboBox *sub)
 void MMGActionScenes::setSubConfig()
 {
   _display->setStr1Visible(true);
-  _display->setStr1Description(obstr("Basic.Scene"));
+  _display->setStr1Description("Scene");
   QStringList options = enumerate();
-  options.append(mmgtr("Fields.UseMessageValue"));
+  options.append("Use Message Value");
   _display->setStr1Options(options);
 }

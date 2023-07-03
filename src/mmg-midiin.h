@@ -41,7 +41,7 @@ class MMGMIDIIn : public QObject {
   signals:
   void messageListened(const MMGSharedMessage &); // For listen buttons
   void messageReceived(const MMGSharedMessage &); // For action execution
-  void sendThru(const MMGMessage &);              // For MIDI throughput
+  void sendThru(MMGDevice *);                     // For MIDI throughput
 
   private:
   libremidi::midi_in midi_in;

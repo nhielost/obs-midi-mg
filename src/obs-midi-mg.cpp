@@ -27,6 +27,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMainWindow>
 #include <QDir>
 
+#include <obs-module.h>
 #include <obs-frontend-api.h>
 
 using namespace std;
@@ -34,24 +35,21 @@ using namespace std;
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
-const char *obs_module_name(void)
-{
-  return "obs-midi-mg";
-}
-
-const char *obs_module_description(void)
-{
-  return mmgtr("Plugin.Description");
-}
-
 static MMGEchoWindow *echo_window;
 Configuration global_config;
 MMGMIDIInDevice input;
 MMGMIDIOutDevice output;
 
+void _blog(int log_status, const QString &message)
+{
+  QString temp_msg = "Main -> ";
+  temp_msg.append(message);
+  global_blog(log_status, temp_msg);
+}
+
 bool obs_module_load(void)
 {
-  global_blog(LOG_INFO, "Loading plugin...");
+  _blog(LOG_INFO, "Loading plugin...");
 
   // Create the obs-midi-mg dir in plugin_config if it doesn't exist
   auto *config_path = obs_module_config_path("");
@@ -69,14 +67,15 @@ bool obs_module_load(void)
   global_config->refresh();
 
   // Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
-  auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(mmgtr("Plugin.ToolsButton"));
+  const char *menu_action_text = obs_module_text("obs-midi-mg Setup");
+  auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(menu_action_text);
   auto *mainWindow = (QMainWindow *)obs_frontend_get_main_window();
-  global_blog(LOG_INFO, "Loading plugin using the Echo style...");
+  _blog(LOG_INFO, "Loading plugin using the Echo style...");
   echo_window = new MMGEchoWindow(mainWindow);
   QObject::connect(menu_action, &QAction::triggered, echo_window, &MMGEchoWindow::show_window);
 
   // Done
-  global_blog(LOG_INFO, "Plugin loaded.");
+  _blog(LOG_INFO, "Plugin loaded.");
   return true;
 }
 
@@ -85,7 +84,7 @@ void obs_module_unload()
   global_config.reset();
   input.reset();
   output.reset();
-  global_blog(LOG_INFO, "Plugin unloaded.");
+  _blog(LOG_INFO, "Plugin unloaded.");
 }
 
 Configuration global()

@@ -27,6 +27,25 @@ using namespace MMGUtils;
   if ((uint)(value) % 3 == 0) align |= OBS_ALIGN_LEFT; \
   if ((uint)(value) % 3 == 2) align |= OBS_ALIGN_RIGHT
 
+const QStringList MMGActionVideoSources::alignment_options{
+  "Top Left",     "Top Center",  "Top Right",     "Middle Left",  "Middle Center",
+  "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right", "Use Message Value"};
+
+const QStringList MMGActionVideoSources::boundingbox_options{"No Bounds",
+							     "Stretch to Bounds",
+							     "Scale to Inner Bounds",
+							     "Scale to Outer Bounds",
+							     "Scale to Width of Bounds",
+							     "Scale to Height of Bounds",
+							     "Maximum Size",
+							     "Use Message Value"};
+
+const QStringList MMGActionVideoSources::scalefilter_options{
+  "Disable", "Point", "Bicubic", "Bilinear", "Lanczos", "Area", "Use Message Value"};
+
+const QStringList MMGActionVideoSources::blendmode_options{
+  "Normal", "Additive", "Subtract", "Screen", "Multiply", "Lighten", "Darken", "Use Message Value"};
+
 MMGActionVideoSources::MMGActionVideoSources(const QJsonObject &json_obj)
   : parent_scene(json_obj, "scene", 1),
     source(json_obj, "source", 2),
@@ -36,12 +55,12 @@ MMGActionVideoSources::MMGActionVideoSources(const QJsonObject &json_obj)
 {
   subcategory = json_obj["sub"].toInt();
 
-  blog(LOG_DEBUG, "Action created.");
+  blog(LOG_DEBUG, "<Video Sources> action created.");
 }
 
 void MMGActionVideoSources::blog(int log_status, const QString &message) const
 {
-  MMGAction::blog(log_status, "[Video Sources] " + message);
+  global_blog(log_status, "<Video Sources> Action -> " + message);
 }
 
 void MMGActionVideoSources::json(QJsonObject &json_obj) const
@@ -87,14 +106,14 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
       if (action.state() == MMGString::STRINGSTATE_TOGGLE) {
 	obs_sceneitem_set_visible(obs_sceneitem, !obs_sceneitem_visible(obs_sceneitem));
       } else {
-	obs_sceneitem_set_visible(obs_sceneitem, action == obstr("Show"));
+	obs_sceneitem_set_visible(obs_sceneitem, bool_from_str(action));
       }
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_LOCKED:
       if (action.state() == MMGString::STRINGSTATE_TOGGLE) {
 	obs_sceneitem_set_locked(obs_sceneitem, !obs_sceneitem_locked(obs_sceneitem));
       } else {
-	obs_sceneitem_set_locked(obs_sceneitem, action == mmgtr("Actions.VideoSources.Locked"));
+	obs_sceneitem_set_locked(obs_sceneitem, bool_from_str(action));
       }
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_CROP:
@@ -113,7 +132,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	}
 	ALIGN_ACTION(midi->value());
       } else {
-	ALIGN_ACTION(alignmentOptions().indexOf(action));
+	ALIGN_ACTION(alignment_options.indexOf(action));
       }
       obs_sceneitem_set_alignment(obs_sceneitem, align);
       break;
@@ -130,7 +149,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      align = !action.state() ? midi->value() : scaleFilterOptions().indexOf(action);
+      align = !action.state() ? midi->value() : scalefilter_options.indexOf(action);
       obs_sceneitem_set_scale_filter(obs_sceneitem, (obs_scale_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_ROTATION:
@@ -141,7 +160,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      align = !action.state() ? midi->value() : boundingBoxOptions().indexOf(action);
+      align = !action.state() ? midi->value() : boundingbox_options.indexOf(action);
       obs_sceneitem_set_bounds_type(obs_sceneitem, (obs_bounds_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_BOUNDING_BOX_SIZE:
@@ -157,7 +176,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	}
 	ALIGN_ACTION(midi->value());
       } else {
-	ALIGN_ACTION(alignmentOptions().indexOf(action));
+	ALIGN_ACTION(alignment_options.indexOf(action));
       }
       obs_sceneitem_set_bounds_alignment(obs_sceneitem, align);
       break;
@@ -166,7 +185,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	blog(LOG_INFO, "FAILED: MIDI value exceeded choice options.");
 	return;
       }
-      align = !action.state() ? midi->value() : blendModeOptions().indexOf(action);
+      align = !action.state() ? midi->value() : blendmode_options.indexOf(action);
       obs_sceneitem_set_blending_mode(obs_sceneitem, (obs_blending_type)align);
       break;
     case MMGActionVideoSources::SOURCE_VIDEO_SCREENSHOT:
@@ -227,37 +246,6 @@ const QStringList MMGActionVideoSources::enumerate()
   return list;
 }
 
-const QStringList MMGActionVideoSources::alignmentOptions()
-{
-  return obstr_all("Basic.TransformWindow.Alignment",
-		   {"TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight",
-		    "BottomLeft", "BottomCenter", "BottomRight"},
-		   true);
-}
-
-const QStringList MMGActionVideoSources::boundingBoxOptions()
-{
-  return obstr_all("Basic.TransformWindow.BoundsType",
-		   {"None", "Stretch", "ScaleInner", "ScaleOuter", "ScaleToWidth", "ScaleToHeight",
-		    "MaxOnly"},
-		   true);
-}
-
-const QStringList MMGActionVideoSources::scaleFilterOptions()
-{
-  QStringList opts =
-    obstr_all("ScaleFiltering", {"Point", "Bicubic", "Bilinear", "Lanczos", "Area"}, true);
-  opts.prepend(obstr("Disable"));
-  return opts;
-}
-
-const QStringList MMGActionVideoSources::blendModeOptions()
-{
-  return obstr_all("BlendingMode",
-		   {"Normal", "Additive", "Subtract", "Screen", "Multiply", "Lighten", "Darken"},
-		   true);
-}
-
 void MMGActionVideoSources::createDisplay(QWidget *parent)
 {
   MMGAction::createDisplay(parent);
@@ -285,10 +273,11 @@ void MMGActionVideoSources::createDisplay(QWidget *parent)
 
 void MMGActionVideoSources::setSubOptions(QComboBox *sub)
 {
-  sub->addItems(mmgtr_all("Actions.VideoSources.Sub",
-			  {"Move", "Display", "Locking", "Crop", "Align", "Scale", "ScaleFiltering",
-			   "Rotate", "BoundingBoxType", "BoundingBoxSize", "BoundingBoxAlign",
-			   "BlendingMode", "Screenshot", "Custom"}));
+  sub->addItems({"Move Source", "Display Source", "Source Locking", "Source Crop", "Align Source",
+		 "Source Scale", "Source Scale Filtering", "Rotate Source",
+		 "Source Bounding Box Type", "Resize Source Bounding Box",
+		 "Align Source Bounding Box", "Source Blending Mode", "Take Source Screenshot",
+		 "Custom Source Settings"});
 }
 
 void MMGActionVideoSources::setSubConfig()
@@ -299,14 +288,14 @@ void MMGActionVideoSources::setSubConfig()
   _display->setStr3Visible(false);
 
   _display->setStr1Visible(true);
-  _display->setStr1Description(obstr("Basic.Scene"));
+  _display->setStr1Description("Scene");
   _display->setStr1Options(MMGActionScenes::enumerate());
 }
 
 void MMGActionVideoSources::setList1Config()
 {
   _display->setStr2Visible(true);
-  _display->setStr2Description(obstr("Basic.Main.Source"));
+  _display->setStr2Description("Source");
   _display->setStr2Options(MMGActionScenes::enumerate_items(parent_scene));
 }
 
@@ -329,21 +318,21 @@ void MMGActionVideoSources::setList2Config()
   switch ((Actions)subcategory) {
     case SOURCE_VIDEO_POSITION:
       num1_display->setVisible(source_exists);
-      num1_display->setDescription(obstr("Basic.TransformWindow.PositionX"));
+      num1_display->setDescription("Position X");
       num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num1_display->setBounds(0.0, obsResolution().x, true);
       num1_display->setStep(0.5);
       num1_display->setDefaultValue(0.0);
 
       num2_display->setVisible(source_exists);
-      num2_display->setDescription(obstr("Basic.TransformWindow.PositionY"));
+      num2_display->setDescription("Position Y");
       num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num2_display->setBounds(0.0, obsResolution().y, true);
       num2_display->setStep(0.5);
       num2_display->setDefaultValue(0.0);
 
       num3_display->setVisible(source_exists);
-      num3_display->setDescription(mmgtr("Actions.VideoSources.Magnitude"));
+      num3_display->setDescription("Magnitude");
       num3_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
       num3_display->setBounds(0.01, 100.0);
       num3_display->setStep(0.01);
@@ -353,41 +342,40 @@ void MMGActionVideoSources::setList2Config()
 
     case SOURCE_VIDEO_DISPLAY:
       _display->setStr3Visible(true);
-      _display->setStr3Description(mmgtr("Actions.VideoSources.DisplayState"));
-      _display->setStr3Options({obstr("Show"), obstr("Hide"), mmgtr("Fields.Toggle")});
+      _display->setStr3Description("State");
+      _display->setStr3Options({"Show", "Hide", "Toggle"});
       break;
 
     case SOURCE_VIDEO_LOCKED:
       _display->setStr3Visible(true);
-      _display->setStr3Description(mmgtr("Actions.VideoSources.LockState"));
-      _display->setStr3Options({mmgtr("Actions.VideoSources.Locked"),
-				mmgtr("Actions.VideoSources.Unlocked"), mmgtr("Fields.Toggle")});
+      _display->setStr3Description("State");
+      _display->setStr3Options({"Locked", "Unlocked", "Toggle"});
       break;
 
     case SOURCE_VIDEO_CROP:
       num1_display->setVisible(source_exists);
-      num1_display->setDescription(obstr("Basic.TransformWindow.CropTop"));
+      num1_display->setDescription("Top");
       num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num1_display->setBounds(0.0, sourceResolution().y);
       num1_display->setStep(0.5);
       num1_display->setDefaultValue(0.0);
 
       num2_display->setVisible(source_exists);
-      num2_display->setDescription(obstr("Basic.TransformWindow.CropRight"));
+      num2_display->setDescription("Right");
       num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num2_display->setBounds(0.0, sourceResolution().x);
       num2_display->setStep(0.5);
       num2_display->setDefaultValue(0.0);
 
       num3_display->setVisible(source_exists);
-      num3_display->setDescription(obstr("Basic.TransformWindow.CropBottom"));
+      num3_display->setDescription("Bottom");
       num3_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num3_display->setBounds(0.0, sourceResolution().y);
       num3_display->setStep(0.5);
       num3_display->setDefaultValue(0.0);
 
       num4_display->setVisible(source_exists);
-      num4_display->setDescription(obstr("Basic.TransformWindow.CropLeft"));
+      num4_display->setDescription("Left");
       num4_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num4_display->setBounds(0.0, sourceResolution().x);
       num4_display->setStep(0.5);
@@ -397,27 +385,27 @@ void MMGActionVideoSources::setList2Config()
 
     case SOURCE_VIDEO_ALIGNMENT:
       _display->setStr3Visible(true);
-      _display->setStr3Description(obstr("Basic.TransformWindow.Alignment"));
-      _display->setStr3Options(alignmentOptions());
+      _display->setStr3Description("Alignment");
+      _display->setStr3Options(alignment_options);
       break;
 
     case SOURCE_VIDEO_SCALE:
       num1_display->setVisible(source_exists);
-      num1_display->setDescription(mmgtr("Actions.VideoSources.ScaleX"));
+      num1_display->setDescription("Scale X");
       num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num1_display->setBounds(0.0, 100.0);
       num1_display->setStep(0.5);
       num1_display->setDefaultValue(0.0);
 
       num2_display->setVisible(source_exists);
-      num2_display->setDescription(mmgtr("Actions.VideoSources.ScaleY"));
+      num2_display->setDescription("Scale Y");
       num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num2_display->setBounds(0.0, 100.0);
       num2_display->setStep(0.5);
       num2_display->setDefaultValue(0.0);
 
       num3_display->setVisible(source_exists);
-      num3_display->setDescription(mmgtr("Actions.VideoSources.Magnitude"));
+      num3_display->setDescription("Magnitude");
       num3_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
       num3_display->setBounds(0.01, 100.0);
       num3_display->setStep(0.01);
@@ -427,13 +415,13 @@ void MMGActionVideoSources::setList2Config()
 
     case SOURCE_VIDEO_SCALEFILTER:
       _display->setStr3Visible(true);
-      _display->setStr3Description(obstr("ScaleFiltering"));
-      _display->setStr3Options(scaleFilterOptions());
+      _display->setStr3Description("Scale Filtering");
+      _display->setStr3Options(scalefilter_options);
       break;
 
     case SOURCE_VIDEO_ROTATION:
       num1_display->setVisible(source_exists);
-      num1_display->setDescription(obstr("Basic.TransformWindow.Rotation"));
+      num1_display->setDescription("Rotation");
       num1_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
       num1_display->setBounds(0.0, 360.0);
       num1_display->setStep(0.1);
@@ -442,20 +430,20 @@ void MMGActionVideoSources::setList2Config()
 
     case SOURCE_VIDEO_BOUNDING_BOX_TYPE:
       _display->setStr3Visible(true);
-      _display->setStr3Description(obstr("Basic.TransformWindow.BoundsType"));
-      _display->setStr3Options(boundingBoxOptions());
+      _display->setStr3Description("Bounding Box Type");
+      _display->setStr3Options(boundingbox_options);
       break;
 
     case SOURCE_VIDEO_BOUNDING_BOX_SIZE:
       num1_display->setVisible(source_exists);
-      num1_display->setDescription(obstr("Basic.TransformWindow.BoundsWidth"));
+      num1_display->setDescription("Bounding Box X");
       num1_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num1_display->setBounds(0.0, obsResolution().x, true);
       num1_display->setStep(0.5);
       num1_display->setDefaultValue(0.0);
 
       num2_display->setVisible(source_exists);
-      num2_display->setDescription(obstr("Basic.TransformWindow.BoundsHeight"));
+      num2_display->setDescription("Bounding Box Y");
       num2_display->setOptions(MMGNumberDisplay::OPTIONS_ALL);
       num2_display->setBounds(0.0, obsResolution().y, true);
       num2_display->setStep(0.5);
@@ -465,14 +453,14 @@ void MMGActionVideoSources::setList2Config()
 
     case SOURCE_VIDEO_BOUNDING_BOX_ALIGN:
       _display->setStr3Visible(true);
-      _display->setStr3Description(obstr("Basic.TransformWindow.BoundsAlignment"));
-      _display->setStr3Options(alignmentOptions());
+      _display->setStr3Description("Bounding Box Alignment");
+      _display->setStr3Options(alignment_options);
       break;
 
     case SOURCE_VIDEO_BLEND_MODE:
       _display->setStr3Visible(true);
-      _display->setStr3Description(obstr("BlendingMode"));
-      _display->setStr3Options(blendModeOptions());
+      _display->setStr3Description("Blend Mode");
+      _display->setStr3Options(blendmode_options);
       break;
 
     case SOURCE_VIDEO_SCREENSHOT:

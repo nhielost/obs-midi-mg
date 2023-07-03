@@ -23,18 +23,17 @@ using namespace MMGUtils;
 
 void MMGMIDIIn::blog(int log_status, const QString &message)
 {
-  global_blog(log_status, "[MIDI In] " + message);
+  global_blog(log_status, "MIDI In -> " + message);
 }
 
 void MMGMIDIIn::openInputPort(MMGDevice *device)
 {
   if (isInputPortOpen()) closeInputPort();
 
-  blog(LOG_INFO,
-       QString::asprintf("Opening input port for device <%s>...", device->name().qtocs()));
+  blog(LOG_INFO, "Opening input port for device <" + device->name() + ">...");
 
   if (inputPort(device) == (uint)-1) {
-    blog(LOG_INFO, "Input port opening failed: Device is disconnected or does not exist.");
+    blog(LOG_INFO, "Port opening failed: Device is disconnected or does not exist.");
     return;
   }
 
@@ -75,7 +74,6 @@ const QStringList MMGMIDIIn::inputDeviceNames()
 
 uint MMGMIDIIn::inputPort(MMGDevice *device)
 {
-  if (!device) return -1;
   return inputDeviceNames().indexOf(device->name());
 }
 
@@ -88,7 +86,10 @@ void MMGMIDIIn::callback(const libremidi::message &msg)
   } else {
     emit messageReceived(message);
 
-    if (global()->preferences()->thruDevice() != mmgtr("Plugin.Disabled"))
-      emit sendThru(*message.get());
+    if (!global()->preferences()->thruDevice().isEmpty()) {
+      MMGDevice *device = global()->find(global()->preferences()->thruDevice());
+      if (!device) return;
+      emit sendThru(device);
+    }
   }
 }
