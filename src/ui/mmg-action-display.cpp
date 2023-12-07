@@ -19,136 +19,86 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action-display.h"
 #include "mmg-fields.h"
 
+#include <QScrollBar>
+
 using namespace MMGUtils;
+
+MMGOBSFieldsList MMGActionDisplay::mmg_custom_fields;
 
 MMGActionDisplay::MMGActionDisplay(QWidget *parent) : QWidget(parent)
 {
-  label_str1 = new QLabel(this);
-  label_str2 = new QLabel(this);
-  label_str3 = new QLabel(this);
-  editor_str1 = new QComboBox(this);
-  editor_str2 = new QComboBox(this);
-  editor_str3 = new QComboBox(this);
-  scroll_area = new QScrollArea(this);
+	scroll_area = new QScrollArea(this);
+	scroll_widget = new QWidget(scroll_area);
 
-  label_str1->setGeometry(10, 10, 220, 20);
-  label_str2->setGeometry(10, 80, 220, 20);
-  label_str3->setGeometry(10, 150, 220, 20);
-  editor_str1->setGeometry(10, 30, 220, 40);
-  editor_str2->setGeometry(10, 100, 220, 40);
-  editor_str3->setGeometry(10, 170, 220, 40);
-  scroll_area->setGeometry(240, 0, 290, 350);
+	scroll_area->setGeometry(0, 0, 350, 350);
+	scroll_area->setWidgetResizable(true);
+	scroll_area->setFrameShape(QFrame::NoFrame);
+	scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	scroll_area->verticalScrollBar()->setSingleStep(35);
+	scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  scroll_area->setWidgetResizable(true);
-  scroll_area->setFrameShape(QFrame::NoFrame);
-  scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-  scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  default_scroll_widget = new MMGNumberDisplayFields(scroll_area);
-  resetScrollWidget();
+	layout = new QVBoxLayout(this);
+	layout->setSpacing(10);
+	layout->setSizeConstraint(QLayout::SetFixedSize);
+	layout->setContentsMargins(10, 10, 10, 10);
 
-  connect(editor_str1, &QComboBox::currentTextChanged, this, &MMGActionDisplay::setStr1);
-  connect(editor_str2, &QComboBox::currentTextChanged, this, &MMGActionDisplay::setStr2);
-  connect(editor_str3, &QComboBox::currentTextChanged, this, &MMGActionDisplay::setStr3);
+	string_fields = new MMGStringDisplayFields(scroll_widget);
+	layout->addWidget(string_fields);
 
-  //setVisible(true);
-  setStr1Visible(false);
-  setStr2Visible(false);
-  setStr3Visible(false);
+	number_fields = new MMGNumberDisplayFields(scroll_widget);
+	reset();
+
+	scroll_widget->setContentsMargins(0, 0, 0, 0);
+	scroll_widget->setLayout(layout);
+	scroll_area->setWidget(scroll_widget);
 }
 
-void MMGActionDisplay::setStr1(const QString &str)
+void MMGActionDisplay::setFields(QWidget *widget)
 {
-  if (str1) {
-    *str1 = str;
-    if (str == "Toggle")
-      str1->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
-      str1->set_state(MMGString::STRINGSTATE_MIDI);
-    else
-      str1->set_state(MMGString::STRINGSTATE_FIXED);
-  }
-  emit str1Changed();
+	reset();
+	fields = widget;
+	fields->setParent(scroll_widget);
+	layout->removeWidget(number_fields);
+	number_fields->setVisible(false);
+	fields->setVisible(true);
+	layout->addWidget(widget);
 }
 
-void MMGActionDisplay::setStr2(const QString &str)
+void MMGActionDisplay::reset()
 {
-  if (str2) {
-    *str2 = str;
-    if (str == "Toggle")
-      str2->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
-      str2->set_state(MMGString::STRINGSTATE_MIDI);
-    else
-      str2->set_state(MMGString::STRINGSTATE_FIXED);
-  }
-  emit str2Changed();
+	if (fields) {
+		layout->removeWidget(fields);
+		fields->setParent(nullptr);
+		fields->setVisible(false);
+		disconnect(fields, &QObject::destroyed, this, nullptr);
+	}
+
+	layout->addWidget(number_fields);
+	number_fields->setVisible(true);
+	fields = nullptr;
 }
 
-void MMGActionDisplay::setStr3(const QString &str)
+void MMGActionDisplay::setCustomOBSFields(const MMGActionFieldRequest &req)
 {
-  if (str3) {
-    *str3 = str;
-    if (str == "Toggle")
-      str3->set_state(MMGString::STRINGSTATE_TOGGLE);
-    else if (str.contains("Use Message"))
-      str3->set_state(MMGString::STRINGSTATE_MIDI);
-    else
-      str3->set_state(MMGString::STRINGSTATE_FIXED);
-  }
-  emit str3Changed();
+	if (!req.source || !req.json) return;
+
+	MMGOBSFields *fields_req = nullptr;
+	for (MMGOBSFields *obs_fields : mmg_custom_fields) {
+		if (!obs_fields->match(req.source)) continue;
+		fields_req = obs_fields;
+		fields_req->changeSource(req.source);
+	}
+	if (!fields_req) {
+		fields_req = new MMGOBSFields(req.source);
+		mmg_custom_fields.append(fields_req);
+	}
+
+	connect(fields_req, &QObject::destroyed, this, [&]() { fields = nullptr; });
+	fields_req->setJsonDestination(req.json);
+	setFields(fields_req);
 }
 
-void MMGActionDisplay::setStr1Visible(bool visible)
+void MMGActionDisplay::clearCustomOBSFields()
 {
-  label_str1->setVisible(visible);
-  editor_str1->setVisible(visible);
-}
-
-void MMGActionDisplay::setStr2Visible(bool visible)
-{
-  label_str2->setVisible(visible);
-  editor_str2->setVisible(visible);
-}
-
-void MMGActionDisplay::setStr3Visible(bool visible)
-{
-  label_str3->setVisible(visible);
-  editor_str3->setVisible(visible);
-}
-
-void MMGActionDisplay::setStr1Options(const QStringList &options)
-{
-  editor_str1->blockSignals(true);
-  editor_str1->clear();
-  editor_str1->addItems(options);
-  if (options.contains(*str1)) editor_str1->setCurrentText(*str1);
-  setStr1(editor_str1->currentText());
-  editor_str1->blockSignals(false);
-}
-
-void MMGActionDisplay::setStr2Options(const QStringList &options)
-{
-  editor_str2->blockSignals(true);
-  editor_str2->clear();
-  editor_str2->addItems(options);
-  if (options.contains(*str2)) editor_str2->setCurrentText(*str2);
-  setStr2(editor_str2->currentText());
-  editor_str2->blockSignals(false);
-}
-
-void MMGActionDisplay::setStr3Options(const QStringList &options)
-{
-  editor_str3->blockSignals(true);
-  editor_str3->clear();
-  editor_str3->addItems(options);
-  if (options.contains(*str3)) editor_str3->setCurrentText(*str3);
-  setStr3(editor_str3->currentText());
-  editor_str3->blockSignals(false);
-}
-
-void MMGActionDisplay::setScrollWidget(QWidget *widget)
-{
-  scroll_area->takeWidget();
-  current_scroll_widget = widget;
-  scroll_area->setWidget(widget);
+	qDeleteAll(mmg_custom_fields);
 }

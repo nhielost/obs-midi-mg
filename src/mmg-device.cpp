@@ -21,112 +21,102 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-qulonglong MMGDevice::next_default = 0;
-
-MMGDevice::MMGDevice(const QJsonObject &data)
+// MMGDevice
+MMGDevice::MMGDevice(MMGDeviceManager *parent, const QJsonObject &json_obj) : MMGMIDIPort(parent, json_obj)
 {
-  _name = data["name"].toString();
-  if (_name.isEmpty()) _name = get_next_default_name();
-  if (data.contains("bindings")) {
-    for (QJsonValue json_binding : data["bindings"].toArray()) {
-      QJsonObject json_obj = json_binding.toObject();
-      if (json_obj.isEmpty()) continue;
-      add(new MMGBinding(json_binding.toObject()));
-    }
-  }
+	update(json_obj);
 
-  check_binding_default_names();
-  blog(LOG_DEBUG, "Device created.");
+	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
 void MMGDevice::json(QJsonObject &device_obj) const
 {
-  QJsonArray json_bindings;
-  device_obj["name"] = _name;
-  for (const MMGBinding *const binding : _bindings) {
-    QJsonObject json_binding;
-    binding->json(json_binding);
-    json_bindings += json_binding;
-  }
-  device_obj["bindings"] = json_bindings;
+	device_obj["name"] = _name;
+	device_obj["active"] = (int)_active;
+	if (!_thru.isEmpty()) device_obj["thru"] = _thru;
 }
 
-void MMGDevice::blog(int log_status, const QString &message) const
+void MMGDevice::update(const QJsonObject &json_obj)
 {
-  global_blog(log_status, "Device {" + _name + "} -> " + message);
+	setActive(TYPE_INPUT, json_obj["active"].toInt() & 0b01);
+	setActive(TYPE_OUTPUT, json_obj["active"].toInt() & 0b10);
+	_thru = json_obj["thru"].toString();
 }
 
-QString MMGDevice::get_next_default_name()
+bool MMGDevice::isActive(DeviceType type) const
 {
-  return QVariant(++MMGDevice::next_default).toString().prepend("Untitled Device ");
+	switch (type) {
+		case TYPE_INPUT:
+			return _active & 0b01;
+
+		case TYPE_OUTPUT:
+			return _active & 0b10;
+
+		default:
+			return _active > 0;
+	}
 }
 
-void MMGDevice::check_binding_default_names()
+void MMGDevice::setActive(DeviceType type, bool active)
 {
-  for (const MMGBinding *binding : _bindings) {
-    if (binding->name().contains("Untitled Binding ")) {
-      QString name = binding->name();
-      qulonglong num = QVariant(name.split("Untitled Binding ").last()).toULongLong();
-      if (num > MMGBinding::get_next_default()) MMGBinding::set_next_default(num);
-    }
-  }
+	if (!editable || isActive(type) == active || !isCapable(type)) return;
+
+	switch (type) {
+		case TYPE_INPUT:
+			_active ^= 0b01; // 00 -> 01, 10 -> 11, 01 -> 00, 11 -> 10
+
+		case TYPE_OUTPUT:
+			_active ^= 0b10; // 00 -> 10, 01 -> 11, 10 -> 00, 11 -> 01
+
+		default:
+			break;
+	}
+
+	isActive(type) ? openPort(type) : closePort(type);
 }
 
-MMGBinding *MMGDevice::add(MMGBinding *const el)
+void MMGDevice::addConnection(MMGBinding *binding)
 {
-  _bindings.append(el);
-  el->setParent(this);
-  return el;
+	connect(this, &MMGDevice::deleting, binding, &MMGBinding::removeDevice);
 }
 
-MMGBinding *MMGDevice::copy(MMGBinding *const el)
+void MMGDevice::removeConnection(MMGBinding *binding)
 {
-  MMGBinding *new_binding = add();
-  QString old_name = new_binding->name();
-  el->copy(new_binding);
-  new_binding->setName("(Copy of " + el->name() + ") " + old_name);
-  return new_binding;
+	disconnect(this, &MMGDevice::deleting, binding, nullptr);
+}
+// End MMGDevice
+
+// MMGDeviceManager
+MMGDevice *MMGDeviceManager::add(const QJsonObject &json_obj)
+{
+	MMGDevice *current_device = find(json_obj["name"].toString());
+
+	if (current_device) {
+		current_device->update(json_obj);
+		return current_device;
+	} else {
+		return MMGManager::add(new MMGDevice(this, json_obj));
+	}
 }
 
-void MMGDevice::move(int from, int to)
+MMGDevice *MMGDeviceManager::add(const QString &name)
 {
-  if (from >= size()) return;
-  to == size() ? _bindings.append(_bindings.takeAt(from)) : _bindings.move(from, to);
+	QJsonObject json_obj;
+	json_obj["name"] = name;
+	return add(json_obj);
 }
 
-void MMGDevice::remove(MMGBinding *const el)
+bool MMGDeviceManager::filter(DeviceType type, MMGDevice *check) const
 {
-  _bindings.removeAt(indexOf(el));
+	return check->isCapable(type);
 }
 
-int MMGDevice::indexOf(MMGBinding *const el)
+const QStringList MMGDeviceManager::capableDevices(DeviceType type) const
 {
-  int i = -1;
-  for (MMGBinding *const binding : _bindings) {
-    ++i;
-    if (binding == el) return i;
-  }
-  return -1;
+	QStringList devices;
+	for (MMGDevice *device : _list) {
+		if (device->isCapable(type)) devices += device->name();
+	}
+	return devices;
 }
-
-qint64 MMGDevice::size() const
-{
-  return _bindings.size();
-}
-
-MMGBinding *MMGDevice::find(const QString &name)
-{
-  for (MMGBinding *const el : _bindings) {
-    if (el->name() == name) return el;
-  }
-  return nullptr;
-}
-
-void MMGDevice::copy(MMGDevice *dest)
-{
-  dest->setName(_name);
-  for (MMGBinding *binding : _bindings) {
-    MMGBinding *new_binding = dest->add();
-    binding->copy(new_binding);
-  }
-}
+// End MMGDeviceManager

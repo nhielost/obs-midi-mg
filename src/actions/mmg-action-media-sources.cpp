@@ -20,179 +20,282 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionMediaSources::MMGActionMediaSources(const QJsonObject &json_obj)
-  : source(json_obj, "source", 1), num(json_obj, "num", 1)
+MMGActionMediaSources::MMGActionMediaSources(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), source(json_obj, "source", 1), num(json_obj, "num", 1)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Media Sources> action created.");
-}
-
-void MMGActionMediaSources::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Media Sources> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionMediaSources::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  source.json(json_obj, "source", false);
-  num.json(json_obj, "num");
-}
-
-void MMGActionMediaSources::execute(const MMGMessage *midi) const
-{
-  OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-  if (!obs_source) {
-    blog(LOG_INFO, "FAILED: Source does not exist.");
-    return;
-  }
-  if (!(obs_source_get_output_flags(obs_source) & OBS_SOURCE_CONTROLLABLE_MEDIA)) {
-    blog(LOG_INFO, "FAILED: Source is not a media source.");
-    return;
-  }
-  obs_media_state state = obs_source_media_get_state(obs_source);
-
-  switch (sub()) {
-    case MMGActionMediaSources::SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
-      switch (state) {
-	case OBS_MEDIA_STATE_PLAYING:
-	  obs_source_media_play_pause(obs_source, true);
-	  break;
-	case OBS_MEDIA_STATE_PAUSED:
-	  obs_source_media_play_pause(obs_source, false);
-	  break;
-	case OBS_MEDIA_STATE_STOPPED:
-	case OBS_MEDIA_STATE_ENDED:
-	  obs_source_media_restart(obs_source);
-	  break;
-	default:
-	  break;
-      }
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_RESTART:
-      obs_source_media_restart(obs_source);
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_STOP:
-      obs_source_media_stop(obs_source);
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_TIME:
-      obs_source_media_set_time(obs_source, num.choose(midi) * 1000);
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_SKIP_FORWARD_TRACK:
-      obs_source_media_next(obs_source);
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TRACK:
-      obs_source_media_previous(obs_source);
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_SKIP_FORWARD_TIME:
-      obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) + (num * 1000));
-      break;
-    case MMGActionMediaSources::SOURCE_MEDIA_SKIP_BACKWARD_TIME:
-      obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) - (num * 1000));
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	source.json(json_obj, "source", false);
+	num.json(json_obj, "num");
 }
 
 void MMGActionMediaSources::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionMediaSources *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionMediaSources *>(dest);
+	if (!casted) return;
 
-  casted->source = source.copy();
-  casted->num = num.copy();
+	casted->source = source.copy();
+	casted->num = num.copy();
 }
 
 void MMGActionMediaSources::setEditable(bool edit)
 {
-  source.set_edit(edit);
-  num.set_edit(edit);
-}
-
-const QStringList MMGActionMediaSources::enumerate()
-{
-  QStringList list;
-  obs_enum_sources(
-    [](void *param, obs_source_t *source) {
-      auto _list = reinterpret_cast<QStringList *>(param);
-      if (!(obs_source_get_output_flags(source) & OBS_SOURCE_CONTROLLABLE_MEDIA)) return true;
-
-      _list->append(obs_source_get_name(source));
-      return true;
-    },
-    &list);
-  return list;
+	source.setEditable(edit);
+	num.setEditable(edit);
 }
 
 void MMGActionMediaSources::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&source);
+	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
+	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
 
-  MMGNumberDisplay *num_display = new MMGNumberDisplay(_display->numberDisplays());
-  num_display->setStorage(&num, true);
-  num_display->setVisible(false);
-  _display->numberDisplays()->add(num_display);
-
-  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
+	display()->numberDisplays()->addNew(&num);
 }
 
-void MMGActionMediaSources::setSubOptions(QComboBox *sub)
+void MMGActionMediaSources::setComboOptions(QComboBox *sub)
 {
-  sub->addItems({"Play or Pause", "Restart", "Stop", "Set Track Time", "Next Track",
-		 "Previous Track", "Skip Forward Time", "Skip Backward Time"});
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << subModuleText("PlayPause")
+			     << obstr_all("ContextBar.MediaControls", {"RestartMedia", "StopMedia"})
+			     << subModuleText("SetTime")
+			     << obstr_all("ContextBar.MediaControls", {"PlaylistNext", "PlaylistPrevious"});
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Played", "Paused", "Restarted", "Stopped"});
+			break;
+
+		default:
+			break;
+	}
+
+	opts << subModuleTextList({"SkipForward", "SkipBackward"});
+	sub->addItems(opts);
 }
 
-void MMGActionMediaSources::setSubConfig()
+void MMGActionMediaSources::setActionParams()
 {
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Media Source");
-  _display->setStr1Options(enumerate());
+	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(0);
+	source_display->setVisible(true);
+	source_display->setDescription(mmgtr("Actions.MediaSources.MediaSource"));
+	source_display->setBounds(enumerate());
 }
 
-void MMGActionMediaSources::setList1Config()
+void MMGActionMediaSources::onList1Change()
 {
-  MMGNumberDisplay *num_display = _display->numberDisplays()->fieldAt(0);
-  num_display->setVisible(false);
+	if (type() == TYPE_OUTPUT) connectOBSSignals();
 
-  switch ((Actions)subcategory) {
-    case SOURCE_MEDIA_TIME:
-      num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription("Time");
-      num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
-      num_display->setTimeFormat(true);
-      num_display->setBounds(0.0, sourceDuration());
-      num_display->setStep(1.0);
-      num_display->setDefaultValue(0.0);
-      break;
+	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	num_display->setVisible(false);
 
-    case SOURCE_MEDIA_SKIP_FORWARD_TIME:
-    case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
-      num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription("Time Adjust");
-      num_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
-      num_display->setTimeFormat(true);
-      num_display->setBounds(0.0, sourceDuration());
-      num_display->setStep(1.0);
-      num_display->setDefaultValue(0.0);
-      break;
+	if (type() != TYPE_INPUT) return;
 
-    default:
-      return;
-  }
-  num_display->reset();
+	switch (sub()) {
+		case SOURCE_MEDIA_TIME:
+			num_display->setVisible(!source.value().isEmpty());
+			num_display->setDescription(mmgtr("Actions.MediaSources.Time"));
+			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
+			num_display->setTimeFormat(true);
+			num_display->setBounds(0.0, sourceDuration());
+			num_display->setStep(1.0);
+			num_display->setDefaultValue(0.0);
+			break;
+
+		case SOURCE_MEDIA_SKIP_FORWARD_TIME:
+		case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
+			num_display->setVisible(!source.value().isEmpty());
+			num_display->setDescription(mmgtr("Actions.MediaSources.TimeAdjust"));
+			num_display->setOptions(MIDIBUTTON_FIXED);
+			num_display->setTimeFormat(true);
+			num_display->setBounds(0.0, sourceDuration());
+			num_display->setStep(1.0);
+			num_display->setDefaultValue(0.0);
+			break;
+
+		default:
+			return;
+	}
+	num_display->reset();
+}
+
+const QStringList MMGActionMediaSources::enumerate()
+{
+	QStringList list;
+	obs_enum_sources(
+		[](void *param, obs_source_t *source) {
+			auto _list = reinterpret_cast<QStringList *>(param);
+			if (!(obs_source_get_output_flags(source) & OBS_SOURCE_CONTROLLABLE_MEDIA)) return true;
+
+			_list->append(obs_source_get_name(source));
+			return true;
+		},
+		&list);
+	return list;
 }
 
 double MMGActionMediaSources::sourceDuration() const
 {
-  return obs_source_media_get_duration(
-	   OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs()))) /
-	 1000.0;
+	return obs_source_media_get_duration(OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs()))) / 1000.0;
+}
+
+void MMGActionMediaSources::execute(const MMGMessage *midi) const
+{
+	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+	ACTION_ASSERT(obs_source, "Source does not exist.");
+
+	ACTION_ASSERT(obs_source_get_output_flags(obs_source) & OBS_SOURCE_CONTROLLABLE_MEDIA,
+		      "Source is not a media source.");
+
+	switch (sub()) {
+		case SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
+			switch (obs_source_media_get_state(obs_source)) {
+				case OBS_MEDIA_STATE_PLAYING:
+					obs_source_media_play_pause(obs_source, true);
+					break;
+
+				case OBS_MEDIA_STATE_PAUSED:
+					obs_source_media_play_pause(obs_source, false);
+					break;
+
+				case OBS_MEDIA_STATE_STOPPED:
+				case OBS_MEDIA_STATE_ENDED:
+					obs_source_media_restart(obs_source);
+					break;
+
+				default:
+					break;
+			}
+			break;
+
+		case SOURCE_MEDIA_RESTART:
+			obs_source_media_restart(obs_source);
+			break;
+
+		case SOURCE_MEDIA_STOP:
+			obs_source_media_stop(obs_source);
+			break;
+
+		case SOURCE_MEDIA_TIME:
+			obs_source_media_set_time(obs_source, num.chooseFrom(midi) * 1000);
+			break;
+
+		case SOURCE_MEDIA_SKIP_FORWARD_TRACK:
+			obs_source_media_next(obs_source);
+			break;
+
+		case SOURCE_MEDIA_SKIP_BACKWARD_TRACK:
+			obs_source_media_previous(obs_source);
+			break;
+
+		case SOURCE_MEDIA_SKIP_FORWARD_TIME:
+			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) + (num * 1000));
+			break;
+
+		case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
+			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) - (num * 1000));
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionMediaSources::connectOBSSignals()
+{
+	disconnectOBSSignals();
+
+	active_source_signal =
+		mmgsignals()->sourceSignal(OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs())));
+	if (!active_source_signal) return;
+
+	switch (sub()) {
+		case SOURCE_MEDIA_PLAYED:
+			connect(active_source_signal, &MMGSourceSignal::mediaPlayed, this,
+				&MMGActionMediaSources::mediaPlayedCallback);
+			break;
+
+		case SOURCE_MEDIA_PAUSED:
+			connect(active_source_signal, &MMGSourceSignal::mediaPaused, this,
+				&MMGActionMediaSources::mediaPausedCallback);
+			break;
+
+		case SOURCE_MEDIA_RESTARTED:
+			connect(active_source_signal, &MMGSourceSignal::mediaRestarted, this,
+				&MMGActionMediaSources::mediaRestartedCallback);
+			break;
+
+		case SOURCE_MEDIA_STOPPED:
+			connect(active_source_signal, &MMGSourceSignal::mediaStopped, this,
+				&MMGActionMediaSources::mediaStoppedCallback);
+			break;
+
+		case SOURCE_MEDIA_SKIPPED_FORWARD_TRACK:
+			connect(active_source_signal, &MMGSourceSignal::mediaNextChange, this,
+				&MMGActionMediaSources::mediaNextCallback);
+			break;
+
+		case SOURCE_MEDIA_SKIPPED_BACKWARD_TRACK:
+			connect(active_source_signal, &MMGSourceSignal::mediaPreviousChange, this,
+				&MMGActionMediaSources::mediaPreviousCallback);
+			break;
+
+		default:
+			break;
+	}
+}
+
+void MMGActionMediaSources::disconnectOBSSignals()
+{
+	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
+	active_source_signal = nullptr;
+}
+
+void MMGActionMediaSources::mediaPlayedCallback()
+{
+	if (sub() != SOURCE_MEDIA_PLAYED) return;
+	emit eventTriggered();
+}
+
+void MMGActionMediaSources::mediaPausedCallback()
+{
+	if (sub() != SOURCE_MEDIA_PAUSED) return;
+	emit eventTriggered();
+}
+
+void MMGActionMediaSources::mediaRestartedCallback()
+{
+	if (sub() != SOURCE_MEDIA_RESTARTED) return;
+	emit eventTriggered();
+}
+
+void MMGActionMediaSources::mediaStoppedCallback()
+{
+	if (sub() != SOURCE_MEDIA_STOPPED) return;
+	emit eventTriggered();
+}
+
+void MMGActionMediaSources::mediaNextCallback()
+{
+	if (sub() != SOURCE_MEDIA_SKIPPED_FORWARD_TRACK) return;
+	emit eventTriggered();
+}
+
+void MMGActionMediaSources::mediaPreviousCallback()
+{
+	if (sub() != SOURCE_MEDIA_SKIPPED_BACKWARD_TRACK) return;
+	emit eventTriggered();
 }

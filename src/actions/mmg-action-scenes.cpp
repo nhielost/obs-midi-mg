@@ -20,115 +20,146 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionScenes::MMGActionScenes(const QJsonObject &json_obj) : scene(json_obj, "scene", 1)
+MMGActionScenes::MMGActionScenes(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), scene(json_obj, "scene", 1)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Scenes> action created.");
-}
-
-void MMGActionScenes::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Scenes> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionScenes::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  scene.json(json_obj, "scene");
-}
-
-void MMGActionScenes::execute(const MMGMessage *midi) const
-{
-  const QStringList scenes = MMGActionScenes::enumerate();
-
-  if (MIDI_STRING_IS_NOT_IN_RANGE(scene, scenes.size())) {
-    blog(LOG_INFO, "FAILED: MIDI value exceeded scene count.");
-    return;
-  }
-  OBSSourceAutoRelease source_obs_scene = obs_get_source_by_name(
-    (scene.state() == MMGString::STRINGSTATE_MIDI ? scenes[(int)midi->value()] : scene).qtocs());
-
-  if (!source_obs_scene) {
-    blog(LOG_INFO, "FAILED: Scene does not exist.");
-    return;
-  }
-
-  switch (sub()) {
-    case MMGActionScenes::SCENE_SCENE:
-      obs_frontend_set_current_scene(source_obs_scene);
-      break;
-    default:
-      break;
-  }
-
-  blog(LOG_DEBUG, "Successfully executed.");
+	scene.json(json_obj, "scene");
 }
 
 void MMGActionScenes::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionScenes *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionScenes *>(dest);
+	if (!casted) return;
 
-  casted->scene = scene.copy();
+	casted->scene = scene.copy();
 }
 
 void MMGActionScenes::setEditable(bool edit)
 {
-  scene.set_edit(edit);
+	scene.setEditable(edit);
 }
 
-const QStringList MMGActionScenes::enumerate()
+void MMGActionScenes::toggle()
 {
-  QStringList list;
-
-  char **scene_names = obs_frontend_get_scene_names();
-  for (int i = 0; scene_names[i] != 0; ++i) {
-    list.append(scene_names[i]);
-  }
-  bfree(scene_names);
-
-  return list;
-}
-
-const QStringList MMGActionScenes::enumerate_items(const QString &scene)
-{
-  R r{QStringList(), scene};
-  obs_enum_all_sources(
-    [](void *param, obs_source_t *source) {
-      auto r = reinterpret_cast<R *>(param);
-
-      if (!OBSSceneItemAutoRelease(obs_scene_sceneitem_from_source(
-	    OBSSceneAutoRelease(obs_get_scene_by_name(r->str.qtocs())), source)))
-	return true;
-
-      r->list.append(obs_source_get_name(source));
-      return true;
-    },
-    &r);
-  return r.list;
+	scene.toggle();
 }
 
 void MMGActionScenes::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&scene);
+	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&scene);
+	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionScenes::setSubOptions(QComboBox *sub)
+void MMGActionScenes::setComboOptions(QComboBox *sub)
 {
-  sub->addItem("Scene Switching");
+	sub->addItem(subModuleText("Switch"));
 }
 
-void MMGActionScenes::setSubConfig()
+void MMGActionScenes::setActionParams()
 {
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Scene");
-  QStringList options = enumerate();
-  options.append("Use Message Value");
-  _display->setStr1Options(options);
+	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);
+	scene_display->setVisible(true);
+	scene_display->setDescription(obstr("Basic.Scene"));
+	scene_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
+	scene_display->setBounds(enumerate());
+}
+
+const QStringList MMGActionScenes::enumerate()
+{
+	QStringList list;
+
+	char **scene_names = obs_frontend_get_scene_names();
+	for (int i = 0; scene_names[i] != 0; ++i) {
+		list.append(scene_names[i]);
+	}
+	bfree(scene_names);
+
+	return list;
+}
+
+const QStringList MMGActionScenes::enumerateItems(const QString &scene)
+{
+	QStringList list;
+	obs_scene_t *obs_scene = obs_scene_from_source(OBSSourceAutoRelease(obs_get_source_by_name(scene.qtocs())));
+
+	obs_scene_enum_items(obs_scene, enumerateItems, &list);
+	return list;
+}
+
+bool MMGActionScenes::enumerateItems(obs_scene_t *, obs_sceneitem_t *item, void *param)
+{
+	auto _list = reinterpret_cast<QStringList *>(param);
+
+	_list->prepend(obs_source_get_name(obs_sceneitem_get_source(item)));
+	if (obs_sceneitem_is_group(item)) obs_sceneitem_group_enum_items(item, enumerateItems, param);
+
+	return true;
+}
+
+const QString MMGActionScenes::currentScene(bool preview)
+{
+	return obs_source_get_name(OBSSourceAutoRelease(preview ? obs_frontend_get_current_preview_scene()
+								: obs_frontend_get_current_scene()));
+}
+
+void MMGActionScenes::execute(const MMGMessage *midi) const
+{
+	const QStringList scenes = enumerate();
+
+	OBSSourceAutoRelease source_obs_scene = obs_get_source_by_name(scene.chooseFrom(midi, scenes).qtocs());
+
+	ACTION_ASSERT(source_obs_scene, "Scene does not exist.");
+
+	switch (sub()) {
+		case SCENE_CHANGE:
+			obs_frontend_set_current_scene(source_obs_scene);
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionScenes::connectOBSSignals()
+{
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionScenes::frontendCallback);
+}
+
+void MMGActionScenes::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionScenes::frontendCallback(obs_frontend_event event) const
+{
+	if (event != OBS_FRONTEND_EVENT_SCENE_CHANGED) return;
+
+	MMGNumber values;
+	QStringList scenes = enumerate();
+
+	switch (sub()) {
+		case SCENE_CHANGED:
+			values = scenes.indexOf(currentScene());
+			if (scene.chooseTo(values, scenes)) return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered({values});
 }

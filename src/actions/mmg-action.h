@@ -20,72 +20,104 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #define MMG_ACTION_H
 
 #include "../mmg-message.h"
+#include "../mmg-signal.h"
 #include "../ui/mmg-action-display.h"
 
-#include <obs-frontend-api.h>
+class MMGActionManager;
 
-class MMGAction {
-  public:
-  virtual ~MMGAction() = default;
+class MMGAction : public QObject {
+	Q_OBJECT
 
-  enum Category {
-    MMGACTION_NONE,
-    MMGACTION_STREAM,
-    MMGACTION_RECORD,
-    MMGACTION_VIRCAM,
-    MMGACTION_REPBUF,
-    MMGACTION_STUDIOMODE,
-    MMGACTION_SCENE,
-    MMGACTION_SOURCE_VIDEO,
-    MMGACTION_SOURCE_AUDIO,
-    MMGACTION_SOURCE_MEDIA,
-    MMGACTION_TRANSITION,
-    MMGACTION_FILTER,
-    MMGACTION_HOTKEY,
-    MMGACTION_PROFILE,
-    MMGACTION_COLLECTION,
-    MMGACTION_MIDI,
-    MMGACTION_INTERNAL
-  };
+public:
+	MMGAction(MMGActionManager *parent, const QJsonObject &json_obj);
+	virtual ~MMGAction() { emit deleting(this); };
 
-  virtual void json(QJsonObject &action_obj) const;
-  virtual void execute(const MMGMessage *midi) const = 0;
-  virtual void copy(MMGAction *dest) const;
-  virtual Category category() const = 0;
+	enum Category {
+		MMGACTION_NONE,
+		MMGACTION_STREAM,
+		MMGACTION_RECORD,
+		MMGACTION_VIRCAM,
+		MMGACTION_REPBUF,
+		MMGACTION_STUDIOMODE,
+		MMGACTION_SCENE,
+		MMGACTION_SOURCE_VIDEO,
+		MMGACTION_SOURCE_AUDIO,
+		MMGACTION_SOURCE_MEDIA,
+		MMGACTION_TRANSITION,
+		MMGACTION_FILTER,
+		MMGACTION_HOTKEY,
+		MMGACTION_PROFILE,
+		MMGACTION_COLLECTION,
+		MMGACTION_MIDI
+	};
 
-  virtual void createDisplay(QWidget *parent) { _display = new MMGActionDisplay(parent); };
-  MMGActionDisplay *display() { return _display; };
+	virtual Category category() const = 0;
+	virtual const QString trName() const = 0;
 
-  short sub() const { return subcategory; };
-  void setSub(short val) { subcategory = val; };
-  virtual void setSubOptions(QComboBox *sub) = 0;
+	const QString &name() const { return _name; };
+	void setName(const QString &name) { _name = name; };
 
-  virtual void blog(int log_status, const QString &message) const;
+	MMGUtils::DeviceType type() const { return _type; };
+	void setType(MMGUtils::DeviceType type);
 
-  virtual void setEditable(bool edit) { Q_UNUSED(edit); };
+	short sub() const { return subcategory; };
+	void setSub(short val) { subcategory = val; };
 
-  virtual void setSubConfig(){};
+	void blog(int log_status, const QString &message) const;
+	virtual void json(QJsonObject &action_obj) const;
+	virtual void copy(MMGAction *dest) const;
+	virtual void setEditable(bool){};
+	virtual void toggle(){};
 
-  protected:
-  int subcategory = 0;
-  MMGActionDisplay *_display = nullptr;
+	virtual void createDisplay(QWidget *parent) { _display = new MMGActionDisplay(parent); };
+	MMGActionDisplay *display() const { return _display; };
 
-  virtual void setList1Config(){};
-  virtual void setList2Config(){};
-  virtual void setList3Config(){};
+	virtual void setComboOptions(QComboBox *sub) = 0;
+	virtual void setActionParams() = 0;
+
+	const QString subModuleText(const QString &footer) const;
+	const QStringList subModuleTextList(const QStringList &footer_list) const;
+
+	void addConnection(MMGBinding *binding);
+	void removeConnection(MMGBinding *binding);
+
+	virtual void execute(const MMGMessage *midi) const = 0;
+
+	virtual void connectOBSSignals() = 0;
+	virtual void disconnectOBSSignals() = 0;
+
+signals:
+	void deleting(MMGAction *);
+	void replacing(MMGAction *);
+
+	void executed() const;
+	void eventTriggered(const QList<MMGUtils::MMGNumber> &values = {MMGUtils::MMGNumber()}) const;
+
+private:
+	QString _name;
+
+	MMGUtils::DeviceType _type;
+	short subcategory = 0;
+	MMGActionDisplay *_display = nullptr;
+};
+using MMGActionList = QList<MMGAction *>;
+
+class MMGActionManager : public MMGManager<MMGAction> {
+
+public:
+	MMGActionManager(QObject *parent) : MMGManager(parent){};
+
+	MMGAction *add(const QJsonObject &json_obj = QJsonObject()) override;
+	MMGAction *copy(MMGAction *action) override;
+
+	bool filter(MMGUtils::DeviceType type, MMGAction *check) const override;
+	void changeActionCategory(MMGAction *&action, const QJsonObject &json_obj = QJsonObject());
 };
 
-// Macros
-#define MIDI_NUMBER_IS_NOT_IN_RANGE(mmgnumber, range) \
-  mmgnumber.state() == MMGNumber::NUMBERSTATE_MIDI && (uint)(midi->value()) >= range
-
-#define MIDI_STRING_IS_NOT_IN_RANGE(mmgstring, range) \
-  mmgstring.state() == MMGString::STRINGSTATE_MIDI && (uint)(midi->value()) >= range
-// End Macros
-
-struct R {
-  QStringList list;
-  QString str;
-};
+#define ACTION_ASSERT(cond, str)                \
+	if (!(cond)) {                          \
+		blog(LOG_INFO, "FAILED: " str); \
+		return;                         \
+	}
 
 #endif // MMG_ACTION_H

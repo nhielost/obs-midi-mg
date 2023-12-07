@@ -20,25 +20,36 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionProfiles : public MMGAction {
-  public:
-  explicit MMGActionProfiles() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionProfiles(const QJsonObject &json_obj);
-  enum Actions { PROFILE_PROFILE };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionProfiles(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_PROFILE; }
+	enum Actions { PROFILE_PROFILE };
+	enum Events { PROFILE_CHANGING, PROFILE_CHANGED, PROFILE_TOGGLE_CHANGING };
 
-  static const QStringList enumerate();
+	Category category() const override { return MMGACTION_PROFILE; };
+	const QString trName() const override { return "Profiles"; };
 
-  private:
-  MMGUtils::MMGString profile;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QStringList enumerate();
+	static const QString currentProfile();
+
+private:
+	MMGUtils::MMGString profile;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

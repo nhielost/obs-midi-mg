@@ -20,29 +20,40 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionHotkeys : public MMGAction {
-  public:
-  explicit MMGActionHotkeys() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionHotkeys(const QJsonObject &json_obj);
-  enum Actions { HOTKEY_PREDEF };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionHotkeys(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_HOTKEY; }
+	enum Actions { HOTKEY_PREDEF };
+	enum Events { HOTKEY_ACTIVATED };
 
-  static const QStringList enumerate_names(const QString &category);
-  static const QStringList enumerate_descriptions(const QString &category);
-  static const QStringList enumerate_eligible();
+	Category category() const override { return MMGACTION_HOTKEY; };
+	const QString trName() const override { return "Hotkeys"; };
 
-  private:
-  MMGUtils::MMGString hotkey_group;
-  MMGUtils::MMGString hotkey;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QMap<QString, QString> enumerate(const QString &category);
+	static const QStringList enumerateCategories();
+	static const QString registerer(obs_hotkey_t *hotkey);
+
+private:
+	MMGUtils::MMGString group;
+	MMGUtils::MMGString hotkey;
+
+private slots:
+	void onList1Change();
+
+	void hotkeyCallback(obs_hotkey_id id) const;
 };

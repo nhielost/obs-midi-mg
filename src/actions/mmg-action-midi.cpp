@@ -18,162 +18,192 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-midi.h"
 #include "../mmg-config.h"
-#include "../mmg-midiout.h"
 
 using namespace MMGUtils;
 
-MMGActionMIDI::MMGActionMIDI(const QJsonObject &json_obj)
-  : device(json_obj, "device", 1),
-    type(json_obj, "type", 2),
-    channel(json_obj, "channel", 1),
-    note(json_obj, "note", 2),
-    value(json_obj, "value", 3)
+// MMGActionMIDI
+MMGActionMIDI::MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
 {
-  subcategory = json_obj["sub"].toInt();
+	midi_binding = new MMGBinding(nullptr, json_obj);
+	midi_binding->setParent(this);
 
-  blog(LOG_DEBUG, "<MIDI> action created.");
-}
+	MMGDeviceList devices = midi_binding->usedDevices();
+	MMGMessageList messages = midi_binding->usedMessages();
+	midi_binding->setType(TYPE_OUTPUT);
+	type_check = type();
+	midi_binding->setUsedDevices(devices);
+	midi_binding->setUsedMessages(messages);
 
-void MMGActionMIDI::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<MIDI> Action -> " + message);
+	_queue = new MMGConnectionQueue(this);
+
+	if (json_obj.contains("device")) {
+		QJsonObject message_obj = json_obj;
+		MMGDevice *device = manager(device)->find(json_obj["device"].toString());
+		if (device) midi_binding->setUsedDevices({device});
+	}
+
+	if (json_obj.contains("channel")) {
+		QJsonObject message_obj = json_obj;
+		message_obj["name"] = mmgtr("Actions.Composite.MIDIMessageName");
+		midi_binding->setUsedMessages({manager(message)->add(message_obj)});
+	}
+
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionMIDI::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  device.json(json_obj, "device", false);
-  type.json(json_obj, "type");
-  channel.json(json_obj, "channel");
-  note.json(json_obj, "note");
-  value.json(json_obj, "value");
-}
+	QJsonArray devices_array;
+	for (MMGDevice *device : midi_binding->usedDevices())
+		devices_array += device->name();
 
-void MMGActionMIDI::execute(const MMGMessage *midi) const
-{
-  if (sub() == 0) {
-    MMGDevice *output = global()->find(device);
-    if (!output) {
-      blog(LOG_INFO, "FAILED: Output device is not connected or does not exist.");
-      return;
-    }
+	json_obj["devices"] = devices_array;
 
-    MMGMessage msg;
-    msg.type()->set_str(type.state() == MMGString::STRINGSTATE_MIDI ? midi->type() : type);
-    msg.channel()->set_num(channel.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->channel()
-									  : channel);
-    msg.note()->set_num(note.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->note() : note);
-    msg.value()->set_num(value.state() == MMGNumber::NUMBERSTATE_MIDI ? midi->value() : value);
+	QJsonArray messages_array;
+	for (MMGMessage *message : midi_binding->usedMessages())
+		messages_array += message->name();
 
-    if (!output_device()->isOutputPortOpen()) output_device()->openOutputPort(output);
-    output_device()->sendMessage(&msg);
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	json_obj["messages"] = messages_array;
 }
 
 void MMGActionMIDI::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionMIDI *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionMIDI *>(dest);
+	if (!casted) return;
 
-  casted->device = device.copy();
-  casted->type = type.copy();
-  casted->channel = channel.copy();
-  casted->note = note.copy();
-  casted->value = value.copy();
-}
-
-void MMGActionMIDI::setEditable(bool edit)
-{
-  device.set_edit(edit);
-  type.set_edit(edit);
-  channel.set_edit(edit);
-  note.set_edit(edit);
-  value.set_edit(edit);
+	midi_binding->copy(casted->midi_binding);
 }
 
 void MMGActionMIDI::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&device);
-  _display->setStr2Storage(&type);
-
-  MMGNumberDisplay *channel_display = new MMGNumberDisplay(_display->numberDisplays());
-  channel_display->setStorage(&channel, true);
-  _display->numberDisplays()->add(channel_display);
-  MMGNumberDisplay *note_display = new MMGNumberDisplay(_display->numberDisplays());
-  note_display->setStorage(&note, true);
-  _display->numberDisplays()->add(note_display);
-  MMGNumberDisplay *value_display = new MMGNumberDisplay(_display->numberDisplays());
-  value_display->setStorage(&value, true);
-  _display->numberDisplays()->add(value_display);
-
-  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
-  _display->connect(_display, &MMGActionDisplay::str2Changed, [&]() { setList2Config(); });
+	binding_display = new MMGBindingDisplay(display(), false);
+	binding_display->layout()->setContentsMargins(10, 10, 10, 10);
+	binding_display->setStorage(midi_binding);
+	connect(binding_display, &MMGBindingDisplay::edited, this, &MMGActionMIDI::editClicked);
+	display()->setFields(binding_display);
 }
 
-void MMGActionMIDI::setSubOptions(QComboBox *sub)
+void MMGActionMIDI::editClicked(int page)
 {
-  sub->addItem("Send Single Message");
+	emit display()->editRequest(midi_binding, page);
 }
 
-void MMGActionMIDI::setSubConfig()
+void MMGActionMIDI::setComboOptions(QComboBox *sub)
 {
-  _display->setStr1Visible(false);
-  _display->setStr2Visible(false);
-  _display->setStr3Visible(false);
-
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Output Device");
-  _display->setStr1Options(output_device()->outputDeviceNames());
+	sub->addItems(subModuleTextList({"Message"}));
 }
 
-void MMGActionMIDI::setList1Config()
+void MMGActionMIDI::setActionParams()
 {
-  _display->setStr2Visible(true);
-  _display->setStr2Description("Message Type");
-  _display->setStr2Options(
-    {"Note On", "Note Off", "Control Change", "Program Change", "Pitch Bend", "Use Message Type"});
+	if (type() != type_check) { // To clear on type change
+		midi_binding->setType(TYPE_INPUT);
+		midi_binding->setType(TYPE_OUTPUT);
+	}
+	type_check = type();
+	binding_display->display();
 }
 
-void MMGActionMIDI::setList2Config()
+void MMGActionMIDI::execute(const MMGMessage *midi) const
 {
-  MMGNumberDisplay *channel_display = _display->numberDisplays()->fieldAt(0);
-  MMGNumberDisplay *note_display = _display->numberDisplays()->fieldAt(1);
-  MMGNumberDisplay *value_display = _display->numberDisplays()->fieldAt(2);
+	QScopedPointer<MMGMessage> sent_message(new MMGMessage);
 
-  channel_display->setDescription("Channel");
-  channel_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
-  channel_display->setBounds(1.0, 16.0);
-  channel_display->setStep(1.0);
-  channel_display->setDefaultValue(1.0);
+	for (MMGDevice *device : midi_binding->usedDevices()) {
+		if (!device->isActive(TYPE_OUTPUT)) {
+			blog(LOG_INFO, QString("Output device <%1> is not connected. (Is the output device enabled?)")
+					       .arg(device->name()));
+			continue;
+		}
 
-  note_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
-  note_display->setBounds(0.0, 127.0);
-  note_display->setStep(1.0);
-  note_display->setDefaultValue(0.0);
+		for (MMGMessage *message : midi_binding->usedMessages()) {
+			message->copy(sent_message.data());
 
-  value_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_DEFAULT);
-  value_display->setBounds(0.0, 127.0);
-  value_display->setStep(1.0);
-  value_display->setDefaultValue(0.0);
+			if (sent_message->type().state() == STATE_MIDI) sent_message->type() = midi->type();
+			sent_message->channel().chooseOther(midi->channel());
+			sent_message->note().chooseOther(midi->note());
+			sent_message->value().chooseOther(midi->value());
 
-  type.set_state(type == "Use Message Type");
+			device->sendMessage(sent_message.data());
+		}
+	}
 
-  setLabels();
+	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionMIDI::setLabels()
+void MMGActionMIDI::connectOBSSignals()
 {
-  if (!_display) return;
-
-  MMGNumberDisplay *note_display = _display->numberDisplays()->fieldAt(1);
-  MMGNumberDisplay *value_display = _display->numberDisplays()->fieldAt(2);
-
-  set_message_labels(type.state() ? _display->parentBinding()->message()->type() : type,
-		     note_display, value_display);
+	disconnectOBSSignals();
+	if (type() == TYPE_OUTPUT) _queue->connectQueue();
 }
+
+void MMGActionMIDI::disconnectOBSSignals()
+{
+	_queue->disconnectQueue();
+}
+// End MMGActionMIDI
+
+// MMGConnectionQueue
+MMGConnectionQueue::MMGConnectionQueue(MMGActionMIDI *parent) : QObject(parent)
+{
+	action = parent;
+}
+
+void MMGConnectionQueue::blog(int log_status, const QString &message) const
+{
+	action->blog(log_status, message);
+}
+
+void MMGConnectionQueue::connectQueue()
+{
+	resetQueue();
+	if (queue.isEmpty()) return;
+
+	for (MMGDevice *device : action->midi_binding->usedDevices())
+		connect(device, &MMGMIDIPort::messageReceived, this, &MMGConnectionQueue::messageFound);
+}
+
+void MMGConnectionQueue::disconnectQueue()
+{
+	for (MMGDevice *device : action->midi_binding->usedDevices())
+		disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
+}
+
+void MMGConnectionQueue::resetQueue()
+{
+	queue.clear();
+
+	for (MMGMessage *message : action->midi_binding->usedMessages())
+		queue.enqueue(message);
+}
+
+void MMGConnectionQueue::resetConnections()
+{
+	disconnectQueue();
+	if (action->type() == TYPE_OUTPUT) connectQueue();
+}
+
+void MMGConnectionQueue::messageFound(const MMGSharedMessage &incoming)
+{
+	MMGMessage *message = manager(message)->find(queue.head()->name());
+	if (!message) {
+		queue.dequeue();
+		messageFound(incoming); // Try the next message
+		return;
+	}
+
+	if (!message->acceptable(incoming.get())) return;
+
+	queue.dequeue();
+	message->toggle();
+
+	if (queue.isEmpty()) {
+		emit action->eventTriggered();
+		resetQueue();
+	}
+}
+// End MMGConnectionQueue

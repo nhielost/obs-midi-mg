@@ -20,14 +20,21 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionNone : public MMGAction {
-  public:
-  explicit MMGActionNone() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionNone(const QJsonObject &json_obj) { Q_UNUSED(json_obj); };
-  enum Actions { NONE_NONE };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override { sub->addItem("None"); };
+public:
+	MMGActionNone(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_NONE; }
+	enum Actions { NONE_DO_NONE };
+	enum Events { NONE_NONE_DONE };
+
+	Category category() const override { return MMGACTION_NONE; };
+	const QString trName() const override { return "None"; };
+
+	void setComboOptions(QComboBox *sub) override { sub->addItem(mmgtr("Actions.Titles.None")); };
+	void setActionParams() override{};
+
+	void execute(const MMGMessage *) const override { blog(LOG_DEBUG, "Successfully executed."); };
+	void connectOBSSignals() override{};
+	void disconnectOBSSignals() override{};
 };

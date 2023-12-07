@@ -20,42 +20,102 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionStream::MMGActionStream(const QJsonObject &json_obj)
+MMGActionStream::MMGActionStream(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Stream> action created.");
+	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionStream::blog(int log_status, const QString &message) const
+void MMGActionStream::setComboOptions(QComboBox *sub)
 {
-  global_blog(log_status, "<Stream> Action -> " + message);
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << obstr_all("Basic.Main", {"StartStreaming", "StopStreaming"}) << subModuleText("Toggle");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList(
+				{"Starting", "Started", "Stopping", "Stopped", "ToggleStarting", "ToggleStarted"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionStream::execute(const MMGMessage *midi) const
+void MMGActionStream::execute(const MMGMessage *) const
 {
-  Q_UNUSED(midi);
-  switch (sub()) {
-    case MMGActionStream::STREAM_ON:
-      if (!obs_frontend_streaming_active()) obs_frontend_streaming_start();
-      break;
-    case MMGActionStream::STREAM_OFF:
-      if (obs_frontend_streaming_active()) obs_frontend_streaming_stop();
-      break;
-    case MMGActionStream::STREAM_TOGGLE_ONOFF:
-      if (obs_frontend_streaming_active()) {
-	obs_frontend_streaming_stop();
-      } else {
-	obs_frontend_streaming_start();
-      }
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Executed successfully.");
+	switch (sub()) {
+		case STREAM_ON:
+			if (!obs_frontend_streaming_active()) obs_frontend_streaming_start();
+			break;
+
+		case STREAM_OFF:
+			if (obs_frontend_streaming_active()) obs_frontend_streaming_stop();
+			break;
+
+		case STREAM_TOGGLE_ONOFF:
+			if (obs_frontend_streaming_active()) {
+				obs_frontend_streaming_stop();
+			} else {
+				obs_frontend_streaming_start();
+			}
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionStream::setSubOptions(QComboBox *sub)
+void MMGActionStream::connectOBSSignals()
 {
-  sub->addItems({"Start Streaming", "Stop Streaming", "Toggle Streaming"});
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionStream::frontendCallback);
+}
+
+void MMGActionStream::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionStream::frontendCallback(obs_frontend_event event) const
+{
+	switch (sub()) {
+		case STREAM_STARTING:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTING) return;
+			break;
+
+		case STREAM_STARTED:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTED) return;
+			break;
+		case STREAM_STOPPING:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STOPPING) return;
+			break;
+
+		case STREAM_STOPPED:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STOPPED) return;
+			break;
+
+		case STREAM_TOGGLE_STARTING:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTING &&
+			    event != OBS_FRONTEND_EVENT_STREAMING_STOPPING)
+				return;
+			break;
+
+		case STREAM_TOGGLE_STARTED:
+			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTED &&
+			    event != OBS_FRONTEND_EVENT_STREAMING_STOPPED)
+				return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered();
 }

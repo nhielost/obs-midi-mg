@@ -19,47 +19,54 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_DEVICE_H
 #define MMG_DEVICE_H
 
-#include "mmg-binding.h"
+#include "mmg-utils.h"
+#include "mmg-midi.h"
 
-class MMGDevice : public QObject {
-  Q_OBJECT
+#define MMG_ENABLED if (editable)
 
-  public:
-  MMGDevice() = default;
-  explicit MMGDevice(const QJsonObject &data);
+class MMGBinding;
+class MMGDeviceManager;
 
-  void json(QJsonObject &device_obj) const;
-  void blog(int log_status, const QString &message) const;
+class MMGDevice : public MMGMIDIPort {
+	Q_OBJECT
 
-  const QString &name() const { return _name; };
-  void setName(const QString &val) { _name = val; };
+public:
+	MMGDevice(MMGDeviceManager *parent, const QJsonObject &json_obj);
 
-  void copy(MMGDevice *dest);
+	void json(QJsonObject &device_obj) const;
+	void update(const QJsonObject &json_obj);
+	void copy(MMGDevice *) const {};
+	void setEditable(bool edit) { editable = edit; };
 
-  MMGBinding *add(MMGBinding *el = new MMGBinding);
-  MMGBinding *copy(MMGBinding *el);
-  void move(int from, int to);
-  void remove(MMGBinding *el);
-  MMGBinding *find(const QString &name);
-  int indexOf(MMGBinding *el);
-  qint64 size() const;
-  void clear() { _bindings.clear(); };
+	bool isActive(MMGUtils::DeviceType type) const;
+	void setActive(MMGUtils::DeviceType type, bool active);
 
-  const MMGBindingList &bindings() const { return _bindings; };
+	void addConnection(MMGBinding *binding);
+	void removeConnection(MMGBinding *binding);
 
-  static qulonglong get_next_default() { return next_default; };
-  static void set_next_default(qulonglong num) { next_default = num; };
-  static QString get_next_default_name();
+signals:
+	void deleting(MMGDevice *device);
 
-  private:
-  QString _name;
-  QList<MMGBinding *> _bindings;
+private:
+	uint _active : 2 = 0;
 
-  static qulonglong next_default;
+	bool editable = true;
+};
+using MMGDeviceList = QList<MMGDevice *>;
 
-  void check_binding_default_names();
+class MMGDeviceManager : public MMGManager<MMGDevice> {
+
+public:
+	MMGDeviceManager(QObject *parent) : MMGManager(parent){};
+
+	MMGDevice *add(const QJsonObject &json_obj = QJsonObject()) override;
+	MMGDevice *add(const QString &name);
+
+	bool filter(MMGUtils::DeviceType type, MMGDevice *check) const override;
+
+	const QStringList capableDevices(MMGUtils::DeviceType) const;
 };
 
-using MMGDevices = QList<MMGDevice *>;
+#undef MMG_ENABLED
 
 #endif // MMG_DEVICE_H

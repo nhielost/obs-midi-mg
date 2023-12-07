@@ -22,25 +22,17 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QObject>
 
 #include <obs.hpp>
+#include <obs-module.h>
+#include <obs-frontend-api.h>
 
 #include <libremidi/libremidi.hpp>
 
-#include "plugin-macros.generated.h"
-
-class MMGMIDIIn;
-class MMGMIDIOut;
 class MMGConfig;
-class MMGEchoWindow;
+MMGConfig *config();
 
-using Configuration = QSharedPointer<MMGConfig>;
-Configuration global();
+#define OBS_MIDIMG_VERSION "v3.0.0"
 
-using MMGMIDIInDevice = QSharedPointer<MMGMIDIIn>;
-using MMGMIDIOutDevice = QSharedPointer<MMGMIDIOut>;
-
-MMGMIDIInDevice input_device();
-MMGMIDIOutDevice output_device();
-
-#define OBS_MIDIMG_VERSION "v" PLUGIN_VERSION
 #define qtocs() toUtf8().constData()
-#define mmgtocs() str().qtocs()
+#define mmgtocs() value().qtocs()
+#define mmgtr(str) obs_module_text(str)
+#define obstr(str) obs_frontend_get_locale_string(str)

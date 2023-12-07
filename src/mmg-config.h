@@ -19,50 +19,43 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_CONFIG_H
 #define MMG_CONFIG_H
 
-#include "mmg-device.h"
-
-struct MMGSettings {
-  public:
-  MMGSettings() = default;
-  explicit MMGSettings(const QJsonObject &settings_obj);
-  void json(QJsonObject &settings_obj) const;
-
-  bool active() const { return _active; };
-  const QString &thruDevice() const { return thru_device; };
-  void setActive(bool is_active);
-  void setThruDevice(const QString &name) { thru_device = name; };
-
-  private:
-  bool _active = true;
-  QString thru_device;
-};
+#include "mmg-binding.h"
+#include "mmg-settings.h"
 
 class MMGConfig : public QObject {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGConfig();
+public:
+	MMGConfig();
 
-  void blog(int log_status, const QString &message) const;
+	void blog(int log_status, const QString &message) const;
 
-  void load(const QString &path_str = QString());
-  void save(const QString &path_str = QString()) const;
-  void clear();
-  void refresh();
-  const QString &activeDeviceName() { return active_device_name; };
-  void setActiveDeviceName(const QString &name);
-  MMGDevice *find(const QString &name);
-  MMGDevice *currentDevice() { return find(active_device_name); };
-  const QStringList allDeviceNames() const;
-  MMGSettings *preferences() { return &settings; };
-  static QString filepath();
+	void load(const QString &path_str = QString());
+	void save(const QString &path_str = QString()) const;
+	void clearAllData();
 
-  private:
-  MMGDevices devices;
-  MMGSettings settings;
-  QString active_device_name = "";
+	MMGDeviceManager *devices() const { return _devices; };
+	MMGMessageManager *messages() const { return _messages; };
+	MMGActionManager *actions() const { return _actions; };
+	MMGBindingManager *bindings() const { return _bindings; };
+	MMGSettingsManager *settings() const { return _settings; };
 
-  void check_device_default_names();
+	MMGSignals *mmgsignals() const { return _signals; };
+	MMGMIDI *midi() const { return _midi; };
+
+	static QString filepath();
+
+private:
+	MMGDeviceManager *_devices;
+	MMGMessageManager *_messages;
+	MMGActionManager *_actions;
+	MMGBindingManager *_bindings;
+	MMGSettingsManager *_settings;
+
+	MMGSignals *_signals;
+	MMGMIDI *_midi;
 };
+
+#define manager(which) config()->which##s()
 
 #endif // MMG_CONFIG_H

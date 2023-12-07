@@ -20,39 +20,62 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionAudioSources : public MMGAction {
-  public:
-  explicit MMGActionAudioSources() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionAudioSources(const QJsonObject &json_obj);
-  enum Actions {
-    SOURCE_AUDIO_VOLUME_CHANGETO,
-    SOURCE_AUDIO_VOLUME_CHANGEBY,
-    SOURCE_AUDIO_VOLUME_MUTE_ON,
-    SOURCE_AUDIO_VOLUME_MUTE_OFF,
-    SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF,
-    SOURCE_AUDIO_OFFSET,
-    SOURCE_AUDIO_MONITOR
-  };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionAudioSources(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_SOURCE_AUDIO; }
+	enum Actions {
+		SOURCE_AUDIO_VOLUME_CHANGETO,
+		SOURCE_AUDIO_VOLUME_CHANGEBY,
+		SOURCE_AUDIO_VOLUME_MUTE_ON,
+		SOURCE_AUDIO_VOLUME_MUTE_OFF,
+		SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF,
+		SOURCE_AUDIO_OFFSET,
+		SOURCE_AUDIO_MONITOR
+	};
+	enum Events {
+		SOURCE_AUDIO_VOLUME_CHANGED,
+		SOURCE_AUDIO_VOLUME_UNUSED,
+		SOURCE_AUDIO_VOLUME_MUTED,
+		SOURCE_AUDIO_VOLUME_UNMUTED,
+		SOURCE_AUDIO_VOLUME_TOGGLE_MUTED,
+		SOURCE_AUDIO_OFFSET_CHANGED,
+		SOURCE_AUDIO_MONITOR_CHANGED
+	};
 
-  static const QStringList enumerate();
+	Category category() const override { return MMGACTION_SOURCE_AUDIO; };
+	const QString trName() const override { return "AudioSources"; };
 
-  private:
-  MMGUtils::MMGString source;
-  MMGUtils::MMGString action;
-  MMGUtils::MMGNumber num;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
-  void setList2Config() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
 
-  static const QStringList audio_monitor_options;
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QStringList enumerate();
+	static const QStringList audioMonitorOptions();
+	static double convertDecibels(double value, bool convert_to);
+
+private:
+	MMGUtils::MMGString source;
+	MMGUtils::MMGString action;
+	MMGUtils::MMGNumber num;
+
+	const MMGSourceSignal *active_source_signal = nullptr;
+
+private slots:
+	void onList1Change();
+
+	void sourceVolumeCallback(double volume);
+	void sourceMuteCallback(bool muted);
+	void sourceOffsetCallback(int64_t offset);
+	void sourceMonitorCallback(int monitor);
 };

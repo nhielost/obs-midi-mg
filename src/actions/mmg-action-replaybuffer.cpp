@@ -17,59 +17,125 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-action-replaybuffer.h"
+
 #include <util/config-file.h>
 
 using namespace MMGUtils;
 
-MMGActionReplayBuffer::MMGActionReplayBuffer(const QJsonObject &json_obj)
+MMGActionReplayBuffer::MMGActionReplayBuffer(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Replay Buffer> action created.");
+	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionReplayBuffer::blog(int log_status, const QString &message) const
+void MMGActionReplayBuffer::setComboOptions(QComboBox *sub)
 {
-  global_blog(log_status, "<Replay Buffer> Action -> " + message);
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << obstr_all("Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"})
+			     << subModuleText("Toggle") << subModuleText("Save");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
+						   "ToggleStarted", "Save"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionReplayBuffer::execute(const MMGMessage *midi) const
+void MMGActionReplayBuffer::execute(const MMGMessage *) const
 {
-  config_t *obs_config = obs_frontend_get_profile_config();
-  if ((QString(config_get_string(obs_config, "Output", "Mode")) == "Simple" &&
-       !config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
-      (QString(config_get_string(obs_config, "Output", "Mode")) == "Advanced" &&
-       !config_get_bool(obs_config, "AdvOut", "RecRB"))) {
-    blog(LOG_INFO, "<Replay Buffer> action failed - Replay Buffers are not enabled.");
-    return;
-  }
+	config_t *obs_config = obs_frontend_get_profile_config();
+	ACTION_ASSERT((QString(config_get_string(obs_config, "Output", "Mode")) == "Simple" &&
+		       config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
+			      (QString(config_get_string(obs_config, "Output", "Mode")) == "Advanced" &&
+			       config_get_bool(obs_config, "AdvOut", "RecRB")),
+		      "Replay buffers are not enabled.");
 
-  Q_UNUSED(midi);
-  switch (sub()) {
-    case MMGActionReplayBuffer::REPBUF_ON:
-      if (!obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_start();
-      break;
-    case MMGActionReplayBuffer::REPBUF_OFF:
-      if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_stop();
-      break;
-    case MMGActionReplayBuffer::REPBUF_TOGGLE_ONOFF:
-      if (obs_frontend_replay_buffer_active()) {
-	obs_frontend_replay_buffer_stop();
-      } else {
-	obs_frontend_replay_buffer_start();
-      }
-      break;
-    case MMGActionReplayBuffer::REPBUF_SAVE:
-      if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_save();
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	switch (sub()) {
+		case REPBUF_ON:
+			if (!obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_start();
+			break;
+
+		case REPBUF_OFF:
+			if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_stop();
+			break;
+
+		case REPBUF_TOGGLE_ONOFF:
+			if (obs_frontend_replay_buffer_active()) {
+				obs_frontend_replay_buffer_stop();
+			} else {
+				obs_frontend_replay_buffer_start();
+			}
+			break;
+
+		case REPBUF_SAVE:
+			if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_save();
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionReplayBuffer::setSubOptions(QComboBox *sub)
+void MMGActionReplayBuffer::connectOBSSignals()
 {
-  sub->addItems(
-    {"Start Replay Buffer", "Stop Replay Buffer", "Toggle Replay Buffer", "Save Replay Buffer"});
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionReplayBuffer::frontendCallback);
+}
+
+void MMGActionReplayBuffer::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionReplayBuffer::frontendCallback(obs_frontend_event event) const
+{
+	switch (sub()) {
+		case REPBUF_STARTING:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING) return;
+			break;
+
+		case REPBUF_STARTED:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED) return;
+			break;
+
+		case REPBUF_STOPPING:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPING) return;
+			break;
+
+		case REPBUF_STOPPED:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED) return;
+			break;
+
+		case REPBUF_TOGGLE_STARTING:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING &&
+			    event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPING)
+				return;
+			break;
+
+		case REPBUF_TOGGLE_STARTED:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED &&
+			    event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED)
+				return;
+			break;
+
+		case REPBUF_SAVED:
+			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED) return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered();
 }

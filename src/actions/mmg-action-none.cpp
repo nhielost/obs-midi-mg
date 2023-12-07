@@ -20,13 +20,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-void MMGActionNone::blog(int log_status, const QString &message) const
+MMGActionNone::MMGActionNone(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
 {
-  global_blog(log_status, "<None> Action -> " + message);
-}
-
-void MMGActionNone::execute(const MMGMessage *midi) const
-{
-  Q_UNUSED(midi);
-  blog(LOG_DEBUG, "Executed successfully.");
+	blog(LOG_DEBUG, "Action created.");
 }

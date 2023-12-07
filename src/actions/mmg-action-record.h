@@ -20,21 +20,34 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionRecord : public MMGAction {
-  public:
-  explicit MMGActionRecord() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionRecord(const QJsonObject &json_obj);
-  enum Actions {
-    RECORD_ON,
-    RECORD_OFF,
-    RECORD_TOGGLE_ONOFF,
-    RECORD_PAUSE,
-    RECORD_RESUME,
-    RECORD_TOGGLE_PAUSE
-  };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionRecord(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_RECORD; }
+	enum Actions { RECORD_ON, RECORD_OFF, RECORD_TOGGLE_ONOFF, RECORD_PAUSE, RECORD_RESUME, RECORD_TOGGLE_PAUSE };
+	enum Events {
+		RECORD_STARTING,
+		RECORD_STARTED,
+		RECORD_STOPPING,
+		RECORD_STOPPED,
+		RECORD_TOGGLE_STARTING,
+		RECORD_TOGGLE_STARTED,
+		RECORD_PAUSED,
+		RECORD_RESUMED,
+		RECORD_TOGGLE_PAUSED
+	};
+
+	Category category() const override { return MMGACTION_RECORD; };
+	const QString trName() const override { return "Recording"; };
+
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override{};
+
+	void execute(const MMGMessage *) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

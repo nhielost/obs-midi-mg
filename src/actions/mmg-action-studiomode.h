@@ -20,29 +20,39 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionStudioMode : public MMGAction {
-  public:
-  explicit MMGActionStudioMode() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionStudioMode(const QJsonObject &json_obj);
-  enum Actions {
-    STUDIOMODE_ON,
-    STUDIOMODE_OFF,
-    STUDIOMODE_TOGGLE_ONOFF,
-    STUDIOMODE_CHANGEPREVIEW,
-    STUDIOMODE_TRANSITION
-  };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionStudioMode(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_STUDIOMODE; }
+	enum Actions {
+		STUDIOMODE_ON,
+		STUDIOMODE_OFF,
+		STUDIOMODE_TOGGLE_ONOFF,
+		STUDIOMODE_CHANGEPREVIEW,
+		STUDIOMODE_TRANSITION
+	};
+	enum Events { STUDIOMODE_ENABLED, STUDIOMODE_DISABLED, STUDIOMODE_TOGGLE_ENABLED, STUDIOMODE_PREVIEWCHANGED };
 
-  private:
-  MMGUtils::MMGString scene;
+	Category category() const override { return MMGACTION_STUDIOMODE; };
+	const QString trName() const override { return "StudioMode"; };
 
-  void setSubConfig() override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
+
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private:
+	MMGUtils::MMGString scene;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

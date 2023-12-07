@@ -20,208 +20,337 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-const QStringList MMGActionAudioSources::audio_monitor_options{
-  "Off", "Monitor Only", "Monitor & Output", "Use Message Value"};
-
-MMGActionAudioSources::MMGActionAudioSources(const QJsonObject &json_obj)
-  : source(json_obj, "source", 1), action(json_obj, "action", 2), num(json_obj, "num", 1)
+MMGActionAudioSources::MMGActionAudioSources(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  source(json_obj, "source", 1),
+	  action(json_obj, "action", 2),
+	  num(json_obj, "num", 1)
 {
-  subcategory = json_obj["sub"].toInt();
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_CHANGETO:
+			if (type() != TYPE_INPUT) break;
+			if (num.max() > 27) {
+				num.setMin(-99);
+				num.setMax(27);
+			}
+			break;
+		case SOURCE_AUDIO_VOLUME_CHANGEBY:
+			if (type() != TYPE_INPUT) break;
+			if (num.max() > 20) {
+				num.setMin(-20);
+				num.setMax(20);
+			}
+			break;
+		default:
+			break;
+	}
 
-  blog(LOG_DEBUG, "<Audio Sources> action created.");
-}
-
-void MMGActionAudioSources::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Audio Sources> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionAudioSources::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  source.json(json_obj, "source", false);
-  action.json(json_obj, "action");
-  num.json(json_obj, "num");
-}
-
-void MMGActionAudioSources::execute(const MMGMessage *midi) const
-{
-  OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-  if (!obs_source) {
-    blog(LOG_INFO, "FAILED: Source does not exist.");
-    return;
-  }
-  if (!(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO)) {
-    blog(LOG_INFO, "FAILED: Source is not an audio source.");
-    return;
-  }
-
-  switch (sub()) {
-    case MMGActionAudioSources::SOURCE_AUDIO_VOLUME_CHANGETO:
-      // Now divided by 127, no need for adding one
-      obs_source_set_volume(obs_source, std::pow((num.choose(midi) / 100.0), 3.0));
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_VOLUME_CHANGEBY:
-      if (std::cbrt(obs_source_get_volume(obs_source)) * 100.0 + num >= 100.0) {
-	obs_source_set_volume(obs_source, 1);
-      } else if (std::cbrt(obs_source_get_volume(obs_source)) * 100.0 + num <= 0.0) {
-	obs_source_set_volume(obs_source, 0);
-      } else {
-	obs_source_set_volume(
-	  obs_source, std::pow(std::cbrt(obs_source_get_volume(obs_source)) + (num / 100.0), 3.0));
-      }
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_VOLUME_MUTE_ON:
-      obs_source_set_muted(obs_source, true);
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_VOLUME_MUTE_OFF:
-      obs_source_set_muted(obs_source, false);
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
-      obs_source_set_muted(obs_source, !obs_source_muted(obs_source));
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_OFFSET:
-      obs_source_set_sync_offset(obs_source, (num.choose(midi) * 1000000));
-      break;
-    case MMGActionAudioSources::SOURCE_AUDIO_MONITOR:
-      if (MIDI_STRING_IS_NOT_IN_RANGE(action, 3)) {
-	blog(LOG_INFO, "FAILED: MIDI value exceeds audio monitor option count.");
-	return;
-      }
-      obs_source_set_monitoring_type(
-	obs_source, (obs_monitoring_type)(action.state() ? midi->value()
-							 : audio_monitor_options.indexOf(action)));
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	source.json(json_obj, "source", false);
+	action.json(json_obj, "action");
+	num.json(json_obj, "num");
 }
 
 void MMGActionAudioSources::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionAudioSources *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionAudioSources *>(dest);
+	if (!casted) return;
 
-  casted->source = source.copy();
-  casted->action = action.copy();
-  casted->num = num.copy();
+	casted->source = source.copy();
+	casted->action = action.copy();
+	casted->num = num.copy();
 }
 
 void MMGActionAudioSources::setEditable(bool edit)
 {
-  source.set_edit(edit);
-  action.set_edit(edit);
-  num.set_edit(edit);
+	source.setEditable(edit);
+	action.setEditable(edit);
+	num.setEditable(edit);
 }
 
-const QStringList MMGActionAudioSources::enumerate()
+void MMGActionAudioSources::toggle()
 {
-  QStringList list;
-  obs_enum_all_sources(
-    [](void *param, obs_source_t *source) {
-      auto _list = reinterpret_cast<QStringList *>(param);
-
-      if (obs_source_get_type(source) != OBS_SOURCE_TYPE_INPUT) return true;
-      if (!(obs_source_get_output_flags(source) & OBS_SOURCE_AUDIO)) return true;
-
-      _list->append(obs_source_get_name(source));
-      return true;
-    },
-    &list);
-  return list;
+	action.toggle();
 }
 
 void MMGActionAudioSources::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&source);
-  _display->setStr2Storage(&action);
+	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
+	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
 
-  MMGNumberDisplay *num_display = new MMGNumberDisplay(_display->numberDisplays());
-  num_display->setStorage(&num, true);
-  _display->numberDisplays()->add(num_display);
+	MMGStringDisplay *action_display = display()->stringDisplays()->addNew(&action);
+	action_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 
-  _display->connect(_display, &MMGActionDisplay::str1Changed, [&]() { setList1Config(); });
-  _display->connect(_display, &MMGActionDisplay::str2Changed, [&]() { setList2Config(); });
+	display()->numberDisplays()->addNew(&num);
 }
 
-void MMGActionAudioSources::setSubOptions(QComboBox *sub)
+void MMGActionAudioSources::setComboOptions(QComboBox *sub)
 {
-  sub->addItems({"Change Source Volume To", "Change Source Volume By", "Mute Source",
-		 "Unmute Source", "Toggle Source Mute", "Source Audio Offset",
-		 "Source Audio Monitor"});
+	sub->addItems(subModuleTextList(
+		{"ChangeVolume", "IncrementVolume", "Mute", "Unmute", "ToggleMute", "AudioOffset", "AudioMonitor"}));
+	if (type() == TYPE_OUTPUT) enable_combo_option(sub, 1, false);
 }
 
-void MMGActionAudioSources::setSubConfig()
+void MMGActionAudioSources::setActionParams()
 {
-  _display->setStr1Visible(false);
-  _display->setStr2Visible(false);
-  _display->setStr3Visible(false);
+	display()->stringDisplays()->hideAll();
+	display()->numberDisplays()->hideAll();
 
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Audio Source");
-  _display->setStr1Options(enumerate());
+	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(0);
+	source_display->setVisible(true);
+	source_display->setDescription(mmgtr("Actions.AudioSources.AudioSource"));
+	source_display->setBounds(enumerate());
 }
 
-void MMGActionAudioSources::setList1Config()
+void MMGActionAudioSources::onList1Change()
 {
-  MMGNumberDisplay *num_display = _display->numberDisplays()->fieldAt(0);
-  num_display->setVisible(false);
+	if (type() == TYPE_OUTPUT) connectOBSSignals();
 
-  switch ((Actions)subcategory) {
-    case SOURCE_AUDIO_VOLUME_CHANGETO:
-      num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription("Volume (%)");
-      num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
-      num_display->setBounds(0.0, 100.0);
-      num_display->setStep(0.5);
-      num_display->setDefaultValue(0.0);
-      break;
+	MMGStringDisplay *action_display = display()->stringDisplays()->fieldAt(1);
+	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
 
-    case SOURCE_AUDIO_VOLUME_CHANGEBY:
-      num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription("Volume (%)");
-      num_display->setOptions(MMGNumberDisplay::OPTIONS_FIXED_ONLY);
-      num_display->setBounds(-50.0, 50.0);
-      num_display->setStep(0.5);
-      num_display->setDefaultValue(0.0);
-      break;
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_CHANGETO:
+			num_display->setVisible(!source.value().isEmpty());
+			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
+			num_display->setBounds(-99.0, 27.0);
+			num_display->setStep(0.1);
+			num_display->setDefaultValue(0.0);
+			break;
 
-    case SOURCE_AUDIO_VOLUME_MUTE_ON:
-    case SOURCE_AUDIO_VOLUME_MUTE_OFF:
-    case SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
-      return;
+		case SOURCE_AUDIO_VOLUME_CHANGEBY:
+			num_display->setVisible(!source.value().isEmpty());
+			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+			num_display->setOptions(MIDIBUTTON_FIXED);
+			num_display->setBounds(-20.0, 20.0);
+			num_display->setStep(0.1);
+			num_display->setDefaultValue(0.0);
+			break;
 
-    case SOURCE_AUDIO_OFFSET:
-      num_display->setVisible(!source.str().isEmpty());
-      num_display->setDescription("Offset");
-      num_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
-      num_display->setBounds(0.0, 20000.0);
-      num_display->setStep(25.0);
-      num_display->setDefaultValue(0.0);
-      break;
+		case SOURCE_AUDIO_VOLUME_MUTE_ON:
+		case SOURCE_AUDIO_VOLUME_MUTE_OFF:
+		case SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
+			return;
 
-    case SOURCE_AUDIO_MONITOR:
-      _display->setStr2Visible(true);
-      _display->setStr2Description("Audio Monitor");
-      _display->setStr2Options(audio_monitor_options);
-      return;
+		case SOURCE_AUDIO_OFFSET:
+			num_display->setVisible(!source.value().isEmpty());
+			num_display->setDescription(obstr("Basic.AdvAudio.SyncOffset"));
+			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
+			num_display->setBounds(0.0, 20000.0);
+			num_display->setStep(25.0);
+			num_display->setDefaultValue(0.0);
+			break;
 
-    default:
-      return;
-  }
-  num_display->reset();
+		case SOURCE_AUDIO_MONITOR:
+			action_display->setVisible(true);
+			action_display->setDescription(obstr("Basic.AdvAudio.Monitoring"));
+			action_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
+			action_display->setBounds(audioMonitorOptions());
+			return;
+
+		default:
+			return;
+	}
+
+	num_display->reset();
 }
 
-void MMGActionAudioSources::setList2Config()
+const QStringList MMGActionAudioSources::enumerate()
 {
-  if (subcategory == SOURCE_AUDIO_MONITOR) {
-    num = audio_monitor_options.indexOf(action);
-    num.set_state(action.state());
-  }
+	QStringList list;
+	obs_enum_all_sources(
+		[](void *param, obs_source_t *source) {
+			auto _list = reinterpret_cast<QStringList *>(param);
+
+			if (obs_source_get_type(source) != OBS_SOURCE_TYPE_INPUT) return true;
+			if (!(obs_source_get_output_flags(source) & OBS_SOURCE_AUDIO)) return true;
+
+			_list->append(obs_source_get_name(source));
+			return true;
+		},
+		&list);
+	return list;
+}
+
+const QStringList MMGActionAudioSources::audioMonitorOptions()
+{
+	return obstr_all("Basic.AdvAudio.Monitoring", {"None", "MonitorOnly", "Both"});
+}
+
+double MMGActionAudioSources::convertDecibels(double value, bool convert_to)
+{
+	return convert_to ? (20 * std::log10(value)) : std::pow(10, value / 20);
+}
+
+void MMGActionAudioSources::execute(const MMGMessage *midi) const
+{
+	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+	ACTION_ASSERT(obs_source, "Source does not exist.");
+
+	ACTION_ASSERT(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO, "Source is not an audio source.");
+
+	double util_value;
+	QStringList util_list;
+
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_CHANGETO:
+			obs_source_set_volume(obs_source, convertDecibels(num.chooseFrom(midi), false));
+			break;
+
+		case SOURCE_AUDIO_VOLUME_CHANGEBY:
+			util_value = convertDecibels(
+				convertDecibels(obs_source_get_volume(obs_source), true) + num.chooseFrom(midi), false);
+			obs_source_set_volume(obs_source, util_value);
+			break;
+
+		case SOURCE_AUDIO_VOLUME_MUTE_ON:
+			obs_source_set_muted(obs_source, true);
+			break;
+
+		case SOURCE_AUDIO_VOLUME_MUTE_OFF:
+			obs_source_set_muted(obs_source, false);
+			break;
+
+		case SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
+			obs_source_set_muted(obs_source, !obs_source_muted(obs_source));
+			break;
+
+		case SOURCE_AUDIO_OFFSET:
+			obs_source_set_sync_offset(obs_source, (num.chooseFrom(midi) * 1000000));
+			break;
+
+		case SOURCE_AUDIO_MONITOR:
+			util_list = audioMonitorOptions();
+			util_value = util_list.indexOf(action.chooseFrom(midi, util_list));
+			obs_source_set_monitoring_type(obs_source, (obs_monitoring_type)(util_value));
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionAudioSources::connectOBSSignals()
+{
+	disconnectOBSSignals();
+
+	active_source_signal =
+		mmgsignals()->sourceSignal(OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs())));
+	if (!active_source_signal) return;
+
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_CHANGED:
+			connect(active_source_signal, &MMGSourceSignal::sourceVolumeChanged, this,
+				&MMGActionAudioSources::sourceVolumeCallback);
+			break;
+
+		case SOURCE_AUDIO_VOLUME_MUTED:
+		case SOURCE_AUDIO_VOLUME_UNMUTED:
+		case SOURCE_AUDIO_VOLUME_TOGGLE_MUTED:
+			connect(active_source_signal, &MMGSourceSignal::sourceMuted, this,
+				&MMGActionAudioSources::sourceMuteCallback);
+			break;
+
+		case SOURCE_AUDIO_OFFSET_CHANGED:
+			connect(active_source_signal, &MMGSourceSignal::sourceSyncOffsetChanged, this,
+				&MMGActionAudioSources::sourceOffsetCallback);
+			break;
+
+		case SOURCE_AUDIO_MONITOR_CHANGED:
+			connect(active_source_signal, &MMGSourceSignal::sourceMonitoringChanged, this,
+				&MMGActionAudioSources::sourceMonitorCallback);
+			break;
+
+		default:
+			break;
+	}
+}
+
+void MMGActionAudioSources::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), nullptr, this, nullptr);
+
+	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
+	active_source_signal = nullptr;
+}
+
+void MMGActionAudioSources::sourceVolumeCallback(double volume)
+{
+	if (sub() != SOURCE_AUDIO_VOLUME_CHANGED) return;
+
+	auto signal = qobject_cast<MMGSourceSignal *>(sender());
+	if (!signal) return;
+
+	MMGNumber values = num;
+
+	double db = convertDecibels(volume, true);
+	if (!num.acceptable(db)) return;
+	values = db;
+
+	emit eventTriggered({values});
+}
+
+void MMGActionAudioSources::sourceMuteCallback(bool muted)
+{
+	auto signal = qobject_cast<MMGSourceSignal *>(sender());
+	if (!signal) return;
+
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_MUTED:
+			if (!muted) return;
+			break;
+
+		case SOURCE_AUDIO_VOLUME_UNMUTED:
+			if (muted) return;
+			break;
+
+		case SOURCE_AUDIO_VOLUME_TOGGLE_MUTED:
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered();
+}
+
+void MMGActionAudioSources::sourceOffsetCallback(int64_t offset)
+{
+	if (sub() != SOURCE_AUDIO_OFFSET_CHANGED) return;
+
+	auto signal = qobject_cast<MMGSourceSignal *>(sender());
+	if (!signal) return;
+
+	MMGNumber values = num;
+	if (!num.acceptable(offset / 1000000.0)) return;
+	values = offset / 1000000.0;
+
+	emit eventTriggered({values});
+}
+
+void MMGActionAudioSources::sourceMonitorCallback(int monitor)
+{
+	if (sub() != SOURCE_AUDIO_MONITOR_CHANGED) return;
+
+	auto signal = qobject_cast<MMGSourceSignal *>(sender());
+	if (!signal) return;
+
+	MMGNumber values;
+	if (action.chooseTo(values, audioMonitorOptions())) return;
+	values = monitor;
+
+	emit eventTriggered({values});
 }
