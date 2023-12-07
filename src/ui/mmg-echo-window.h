@@ -14,74 +14,90 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QDialog>
 
 #include "ui_mmg-echo-window.h"
-#include "../mmg-utils.h"
 #include "mmg-number-display.h"
-#include "mmg-fields.h"
+#include "mmg-string-display.h"
+#include "mmg-binding-display.h"
+#include "mmg-manager-display.h"
 #include "../mmg-device.h"
 
 class MMGEchoWindow : public QDialog {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  explicit MMGEchoWindow(QWidget *parent);
-  ~MMGEchoWindow() override;
+public:
+	explicit MMGEchoWindow(QWidget *parent);
+	~MMGEchoWindow() override;
 
-  private:
-  Ui::MMGEchoWindow *ui;
+private:
+	Ui::MMGEchoWindow *ui;
 
-  MMGNumberDisplay *channel_display;
-  MMGNumberDisplay *note_display;
-  MMGNumberDisplay *value_display;
+	MMGBindingDisplay *main_binding_display;
 
-  MMGDevice *current_device = nullptr;
-  MMGBinding *current_binding = nullptr;
-  MMGMessage *current_message = nullptr;
-  MMGAction *current_action = nullptr;
+	MMGStringDisplay *type_display;
+	MMGNumberDisplay *channel_display;
+	MMGNumberDisplay *note_display;
+	MMGNumberDisplay *value_display;
 
-  QList<MMGOBSFields *> custom_fields;
-  MMGOBSFields *current_fields = nullptr;
+	MMGManagerDisplay<MMGDevice> *devices_display;
+	MMGManagerDisplay<MMGBinding> *bindings_display;
+	MMGManagerDisplay<MMGMessage> *messages_display;
+	MMGManagerDisplay<MMGAction> *actions_display;
+	MMGManagerDisplay<MMGSettings> *preferences_display;
 
-  short listening_mode = 0;
+	MMGDevice *current_device = nullptr;
+	MMGBinding *current_binding = nullptr;
+	MMGMessage *current_message = nullptr;
+	MMGAction *current_action = nullptr;
 
-  void reject() override;
-  void connect_ui_signals();
-  void switch_structure_pane(int page);
-  void set_message_view();
-  void set_action_view();
-  void set_preferences_view();
-  void change_sub_options();
-  void add_widget_item(const MMGBinding *binding) const;
-  void export_bindings();
-  void import_bindings();
-  void i_need_help() const;
-  void report_a_bug() const;
+	short listening_mode = 0;
+	bool binding_edit = false;
 
-  public slots:
-  void show_window();
-  void listen_update(const MMGSharedMessage &);
-  void custom_field_request(void *, MMGUtils::MMGString *);
+	void reject() override;
+	void connectUISignals();
+	void translate();
 
-  private slots:
-  void on_device_change(const QString &name);
-  void on_message_type_change(const QString &type);
-  void on_message_listen_continuous(bool toggled);
-  void on_message_listen_once(bool toggled);
-  void on_message_type_toggle(bool toggled);
-  void on_message_value_toggle(bool toggled);
-  void on_action_cat_change(int index);
-  void on_action_sub_change(int index);
-  void on_active_change(bool toggle);
-  void on_midi_thru_change(bool toggle);
-  void on_midi_thru_device_change(const QString &device);
-  void on_preferences_click(bool toggle);
-  void on_transfer_mode_change(short index);
-  void on_transfer_bindings_click();
-  void on_update_check();
-  void on_add_click();
-  void on_copy_click();
-  void on_remove_click();
-  void on_list_selection_change(QListWidgetItem *widget_item);
-  void on_list_widget_state_change(QListWidgetItem *widget_item);
-  void on_binding_drag(const QModelIndex &parent, int start, int end, const QModelIndex &dest,
-		       int row) const;
+public slots:
+	void displayWindow();
+	void updateMessage(const MMGSharedMessage &);
+
+private slots:
+	void onAddClick();
+	void onCopyClick();
+	void onRemoveClick();
+	void onConfirmClick();
+	void onScreenChange(int page);
+
+	void deviceShow();
+	void deviceBindingEdit();
+	void onDeviceInputActiveChange(bool toggled);
+	void onDeviceOutputActiveChange(bool toggled);
+	void onDeviceThruStateChange(bool toggled);
+	void onDeviceThruChange(const QString &device);
+
+	void messageShow();
+	void messageBindingEdit();
+	void onMessageTypeChange();
+	void onListenOnceClick(bool toggled);
+	void onListenContinuousClick(bool toggled);
+
+	void actionShow();
+	void actionBindingEdit();
+	void onActionCategoryChange(int index);
+	void onActionSwitch(bool toggled);
+	void onActionSubUpdate();
+	void onActionSubChange(int index);
+	void onActionEditRequest(MMGBinding *binding, int page);
+
+	void bindingShow();
+	void bindingBindingEdit(){};
+	void onBindingActiveChange(bool toggled);
+	void onBindingSwitch(bool toggled);
+	void onBindingFieldEdit(int page);
+
+	void preferenceShow();
+	void preferenceBindingEdit();
+	void exportBindings();
+	void importBindings();
+	void openHelp() const;
+	void reportBug() const;
+	void checkForUpdates() const;
 };

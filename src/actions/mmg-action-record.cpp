@@ -20,52 +20,130 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionRecord::MMGActionRecord(const QJsonObject &json_obj)
+MMGActionRecord::MMGActionRecord(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Record> action created.");
+	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionRecord::blog(int log_status, const QString &message) const
+void MMGActionRecord::setComboOptions(QComboBox *sub)
 {
-  global_blog(log_status, "<Record> Action -> " + message);
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << obstr_all("Basic.Main", {"StartRecording", "StopRecording"}) << subModuleText("Toggle")
+			     << obstr_all("Basic.Main", {"PauseRecording", "UnpauseRecording"})
+			     << subModuleText("TogglePause");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
+						   "ToggleStarted", "Paused", "Resumed", "TogglePaused"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionRecord::execute(const MMGMessage *midi) const
+void MMGActionRecord::execute(const MMGMessage *) const
 {
-  Q_UNUSED(midi);
-  switch (sub()) {
-    case MMGActionRecord::RECORD_ON:
-      if (!obs_frontend_recording_active()) obs_frontend_recording_start();
-      break;
-    case MMGActionRecord::RECORD_OFF:
-      if (obs_frontend_recording_active()) obs_frontend_recording_stop();
-      break;
-    case MMGActionRecord::RECORD_TOGGLE_ONOFF:
-      if (obs_frontend_recording_active()) {
-	obs_frontend_recording_stop();
-      } else {
-	obs_frontend_recording_start();
-      }
-      break;
-    case MMGActionRecord::RECORD_PAUSE:
-      if (!obs_frontend_recording_paused()) obs_frontend_recording_pause(true);
-      break;
-    case MMGActionRecord::RECORD_RESUME:
-      if (obs_frontend_recording_paused()) obs_frontend_recording_pause(false);
-      break;
-    case MMGActionRecord::RECORD_TOGGLE_PAUSE:
-      obs_frontend_recording_pause(!obs_frontend_recording_paused());
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	switch (sub()) {
+		case RECORD_ON:
+			if (!obs_frontend_recording_active()) obs_frontend_recording_start();
+			break;
+
+		case RECORD_OFF:
+			if (obs_frontend_recording_active()) obs_frontend_recording_stop();
+			break;
+
+		case RECORD_TOGGLE_ONOFF:
+			if (obs_frontend_recording_active()) {
+				obs_frontend_recording_stop();
+			} else {
+				obs_frontend_recording_start();
+			}
+			break;
+
+		case RECORD_PAUSE:
+			if (!obs_frontend_recording_paused()) obs_frontend_recording_pause(true);
+			break;
+
+		case RECORD_RESUME:
+			if (obs_frontend_recording_paused()) obs_frontend_recording_pause(false);
+			break;
+
+		case RECORD_TOGGLE_PAUSE:
+			obs_frontend_recording_pause(!obs_frontend_recording_paused());
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionRecord::setSubOptions(QComboBox *sub)
+void MMGActionRecord::connectOBSSignals()
 {
-  sub->addItems({"Start Recording", "Stop Recording", "Toggle Recording", "Pause Recording",
-		 "Resume Recording", "Toggle Pause Recording"});
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionRecord::frontendCallback);
+}
+
+void MMGActionRecord::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionRecord::frontendCallback(obs_frontend_event event) const
+{
+	switch (sub()) {
+		case RECORD_STARTING:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTING) return;
+			break;
+
+		case RECORD_STARTED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTED) return;
+			break;
+
+		case RECORD_STOPPING:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STOPPING) return;
+			break;
+
+		case RECORD_STOPPED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STOPPED) return;
+			break;
+
+		case RECORD_TOGGLE_STARTING:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTING &&
+			    event != OBS_FRONTEND_EVENT_RECORDING_STOPPING)
+				return;
+			break;
+
+		case RECORD_TOGGLE_STARTED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTED &&
+			    event != OBS_FRONTEND_EVENT_RECORDING_STOPPED)
+				return;
+			break;
+
+		case RECORD_PAUSED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_PAUSED) return;
+			break;
+		case RECORD_RESUMED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_UNPAUSED) return;
+			break;
+
+		case RECORD_TOGGLE_PAUSED:
+			if (event != OBS_FRONTEND_EVENT_RECORDING_PAUSED &&
+			    event != OBS_FRONTEND_EVENT_RECORDING_UNPAUSED)
+				return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered();
 }

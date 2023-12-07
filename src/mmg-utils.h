@@ -29,6 +29,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QComboBox>
 #include <QDateTime>
 #include <QLabel>
+#include <QPushButton>
 #include <QLayout>
 
 #define MMG_ENABLED if (editable)
@@ -40,120 +41,146 @@ class MMGNumberDisplay;
 
 namespace MMGUtils {
 
-struct MMGPair {
-  QString key;
-  QVariant val;
+enum DeviceType { TYPE_NONE = -1, TYPE_INPUT, TYPE_OUTPUT };
+enum ValueState { STATE_FIXED, STATE_MIDI, STATE_CUSTOM, STATE_IGNORE, STATE_TOGGLE };
 
-  bool operator==(const MMGPair &other) const { return key == other.key && val == other.val; };
+template<typename T> struct MMGValue {
+
+public:
+	virtual ~MMGValue() = default;
+
+	const T &value() const { return val; };
+	const T &min() const { return lower; };
+	const T &max() const { return higher; };
+	ValueState state() const { return value_state; };
+	void setValue(const T &value) { MMG_ENABLED val = value; };
+	void setMin(const T &min) { MMG_ENABLED lower = min; };
+	void setMax(const T &max) { MMG_ENABLED higher = max; };
+	void setState(ValueState state) { MMG_ENABLED value_state = state; };
+	void setState(short state) { MMG_ENABLED value_state = (ValueState)state; };
+
+	MMGValue<T> copy() const { return *this; };
+	bool isEditable() const { return editable; };
+	void setEditable(bool edit) { editable = edit; };
+	void toggle()
+	{
+		if (value_state != STATE_TOGGLE) return;
+		val = val == lower ? higher : lower;
+	};
+
+	operator const T &() const { return val; };
+	MMGValue<T> &operator=(const T &value)
+	{
+		setValue(value);
+		return *this;
+	};
+
+protected:
+	T val;
+	T lower;
+	T higher;
+	ValueState value_state = STATE_FIXED;
+
+	bool editable = true;
 };
 
-struct MMGNumber {
-  MMGNumber(){};
-  MMGNumber(const QJsonObject &json_obj, const QString &preferred, int fallback_num);
+struct MMGNumber : public MMGValue<double> {
 
-  enum State { NUMBERSTATE_FIXED, NUMBERSTATE_MIDI, NUMBERSTATE_CUSTOM, NUMBERSTATE_IGNORE };
+public:
+	using MMGValue<double>::operator=;
 
-  double num() const { return number; };
-  double min() const { return lower; };
-  double max() const { return higher; };
-  State state() const { return num_state; };
-  void set_num(double val) { MMG_ENABLED number = val; };
-  void set_min(double val) { MMG_ENABLED lower = val; };
-  void set_max(double val) { MMG_ENABLED higher = val; };
-  void set_state(State state) { MMG_ENABLED num_state = state; }
-  void set_state(short state) { MMG_ENABLED num_state = (State)state; }
+	MMGNumber();
+	MMGNumber(const QJsonObject &json_obj, const QString &preferred, int fallback_num = 0);
 
-  void json(QJsonObject &json_obj, const QString &prefix, bool use_bounds = true) const;
-  MMGNumber copy() const { return *this; };
-  void set_edit(bool edit) { editable = edit; };
+	void json(QJsonObject &json_obj, const QString &prefix, bool use_bounds = true) const;
 
-  double choose(const MMGMessage *midi, double default_val = 0.0) const;
+	double chooseFrom(const MMGMessage *midi, bool round = false, double default_val = 0.0) const;
+	void chooseOther(const MMGNumber &applied);
 
-  operator double() const { return number; };
-  double operator=(double val)
-  {
-    set_num(val);
-    return number;
-  };
-
-  private:
-  double number = 0.0;
-  double lower = 0.0;
-  double higher = 100.0;
-  bool editable = true;
-
-  State num_state = NUMBERSTATE_FIXED;
+	double map(const MMGNumber &other, bool round = true) const;
+	bool acceptable(double val) const;
 };
-struct MMGString {
-  MMGString(){};
-  MMGString(const QJsonObject &json_obj, const QString &preferred, int fallback_num);
 
-  enum State { STRINGSTATE_FIXED, STRINGSTATE_MIDI, STRINGSTATE_TOGGLE };
+struct MMGString : public MMGValue<QString> {
 
-  const QString &str() const { return string; };
-  State state() const { return str_state; };
-  void set_str(const QString &val) { MMG_ENABLED string = val; };
-  void set_state(State state) { MMG_ENABLED str_state = state; }
-  void set_state(short state) { MMG_ENABLED str_state = (State)state; }
+public:
+	using MMGValue<QString>::operator=;
 
-  void json(QJsonObject &json_obj, const QString &prefix, bool use_state = true) const;
-  MMGString copy() const { return *this; };
-  void set_edit(bool edit) { editable = edit; };
+	MMGString(){};
+	MMGString(const QJsonObject &json_obj, const QString &preferred, int fallback_num = 0);
 
-  operator const QString &() const { return string; };
-  QString &operator=(const QString &val)
-  {
-    set_str(val);
-    return string;
-  };
+	void json(QJsonObject &json_obj, const QString &prefix, bool use_state = true) const;
 
-  bool operator==(const char *ch) const { return string == ch; };
-  bool operator!=(const char *ch) const { return string != ch; };
+	QString chooseFrom(const MMGMessage *midi, const QStringList &midi_range) const;
+	bool chooseTo(MMGNumber &values, const QStringList &range) const;
 
-  private:
-  QString string;
-  State str_state = STRINGSTATE_FIXED;
-  bool editable = true;
+	bool operator==(const char *ch) const { return val == ch; };
+	bool operator!=(const char *ch) const { return val != ch; };
+};
+
+class MMGJsonObject : public QObject {
+
+public:
+	MMGJsonObject(QObject *parent = nullptr) : QObject(parent){};
+
+	bool isEmpty() const { return json_obj.isEmpty(); };
+	QJsonValue value(const QString &key) const { return json_obj[key]; };
+	void insert(const QString &key, const QJsonValue &value) { json_obj[key] = value; };
+
+	const QJsonObject &json() const { return json_obj; };
+	void setJson(const QJsonObject &json) { json_obj = json; };
+	void clear() { json_obj = {}; };
+
+private:
+	QJsonObject json_obj;
+};
+
+template<class T> struct MMGNoEdit {
+	MMGNoEdit(T *val)
+	{
+		no_edit = val;
+		val->setEditable(false);
+	};
+	~MMGNoEdit() { no_edit->setEditable(true); };
+
+private:
+	T *no_edit;
 };
 
 class MMGTimer : public QTimer {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGTimer(QObject *parent = nullptr);
+public:
+	MMGTimer(QObject *parent = nullptr);
 
-  signals:
-  void resetting(int);
-  void stopping();
+signals:
+	void resetting(int);
+	void stopping();
 
-  public slots:
-  void stopTimer() { emit stopping(); };
-  void reset(int time);
+public slots:
+	void stopTimer() { emit stopping(); };
+	void reset(int time);
 };
 
-void set_message_labels(const QString &type, MMGNumberDisplay *note_display,
-			MMGNumberDisplay *value_display);
+QString mmgtr_join(const QString &header, const QString &joiner);
+QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool decider);
+QStringList mmgtr_all(const QString &header, const QStringList &list);
+QStringList obstr_all(const QString &header, const QStringList &list);
+
+void set_message_labels(const QString &type, MMGNumberDisplay *note_display, MMGNumberDisplay *value_display);
 
 const QByteArray json_to_str(const QJsonObject &json_obj);
 const QJsonObject json_from_str(const QByteArray &str);
-void debug_json(const QJsonValue &val);
 
-bool bool_from_str(const QString &str);
-double num_from_str(const QString &str);
+bool num_between(double num, double lower, double higher, bool inclusive = true);
 QString num_to_str(int num, const QString &prefix = "");
 
-void open_message_box(const QString &title, const QString &text);
+void enable_combo_option(QComboBox *combo, int index, bool enable);
 
-void transfer_bindings(short mode, const QString &source, const QString &dest);
+bool open_message_box(const QString &message, bool information = true);
 
-const vec3 get_obs_property_bounds(obs_property_t *prop);
-const vec3 get_obs_property_bounds(obs_source_t *source, const QString &field);
-const QList<MMGPair> get_obs_property_options(obs_property_t *prop);
-const QList<MMGPair> get_obs_property_options(obs_source_t *source, const QString &field);
-uint argb_abgr(uint rgb);
-
-void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json,
-			      const MMGMessage *midi_value);
+void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi_value);
+QList<MMGNumber> obs_source_custom_updated(obs_source_t *source, const QJsonObject &action_json);
 }
 
 #undef MMG_ENABLED

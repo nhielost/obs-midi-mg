@@ -21,113 +21,173 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionStudioMode::MMGActionStudioMode(const QJsonObject &json_obj) : scene(json_obj, "scene", 1)
+MMGActionStudioMode::MMGActionStudioMode(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), scene(json_obj, "scene", 1)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Studio Mode> action created.");
-}
-
-void MMGActionStudioMode::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Studio Mode> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionStudioMode::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  scene.json(json_obj, "scene");
-}
-
-void MMGActionStudioMode::execute(const MMGMessage *midi) const
-{
-  const QStringList scenes = MMGActionScenes::enumerate();
-
-  if (MIDI_STRING_IS_NOT_IN_RANGE(scene, scenes.size())) {
-    blog(LOG_INFO, "FAILED: MIDI value exceeded scene count.");
-    return;
-  }
-
-  // For new Studio Mode activation (pre 28.0.0 method encounters threading errors)
-  auto set_studio_mode = [](bool on) {
-    if (obs_frontend_preview_program_mode_active() == on) return;
-    obs_queue_task(
-      OBS_TASK_UI,
-      [](void *param) {
-	auto enabled = (bool *)param;
-	obs_frontend_set_preview_program_mode(*enabled);
-      },
-      &on, true);
-  };
-
-  OBSSourceAutoRelease source_obs_scene = obs_get_source_by_name(
-    (scene.state() == MMGString::STRINGSTATE_MIDI ? scenes[(int)midi->value()] : scene).qtocs());
-  OBSSourceAutoRelease obs_preview_scene = obs_frontend_get_current_preview_scene();
-
-  switch (sub()) {
-    case MMGActionStudioMode::STUDIOMODE_ON:
-      set_studio_mode(true);
-      break;
-    case MMGActionStudioMode::STUDIOMODE_OFF:
-      set_studio_mode(false);
-      break;
-    case MMGActionStudioMode::STUDIOMODE_TOGGLE_ONOFF:
-      set_studio_mode(!obs_frontend_preview_program_mode_active());
-      break;
-    case MMGActionStudioMode::STUDIOMODE_CHANGEPREVIEW:
-      if (!source_obs_scene) {
-	blog(LOG_INFO, "FAILED: Scene does not exist.");
-	return;
-      }
-      obs_frontend_set_current_preview_scene(source_obs_scene);
-      break;
-    case MMGActionStudioMode::STUDIOMODE_TRANSITION:
-      obs_frontend_set_current_scene(obs_preview_scene);
-      break;
-    default:
-      break;
-  }
-
-  blog(LOG_DEBUG, "Successfully executed.");
+	scene.json(json_obj, "scene");
 }
 
 void MMGActionStudioMode::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionStudioMode *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionStudioMode *>(dest);
+	if (!casted) return;
 
-  casted->scene = scene.copy();
+	casted->scene = scene.copy();
 }
 
 void MMGActionStudioMode::setEditable(bool edit)
 {
-  scene.set_edit(edit);
+	scene.setEditable(edit);
+}
+
+void MMGActionStudioMode::toggle()
+{
+	scene.toggle();
 }
 
 void MMGActionStudioMode::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&scene);
+	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&scene);
+	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionStudioMode::setSubOptions(QComboBox *sub)
+void MMGActionStudioMode::setComboOptions(QComboBox *sub)
 {
-  sub->addItems({"Turn On Studio Mode", "Turn Off Studio Mode", "Toggle Studio Mode",
-		 "Change Preview Scene", "Preview to Program"});
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << subModuleTextList(
+				{"Activate", "Deactivate", "ToggleActivate", "PreviewChange", "Transition"});
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Activate", "Deactivate", "ToggleActivate", "PreviewChange"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionStudioMode::setSubConfig()
+void MMGActionStudioMode::setActionParams()
 {
-  _display->setStr1Visible(false);
-  if (subcategory == 3) {
-    _display->setStr1Visible(true);
-    _display->setStr1Description("Scene");
-    QStringList options = MMGActionScenes::enumerate();
-    options.append("Use Message Value");
-    _display->setStr1Options(options);
-  }
+	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);
+	scene_display->setVisible(false);
+	if (sub() == 3) {
+		scene_display->setVisible(true);
+		scene_display->setDescription(obstr("Basic.Scene"));
+		scene_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
+		scene_display->setBounds(MMGActionScenes::enumerate());
+	}
+}
+
+void MMGActionStudioMode::execute(const MMGMessage *midi) const
+{
+	const QStringList scenes = MMGActionScenes::enumerate();
+
+	// For new Studio Mode activation (pre 28.0.0 method encounters threading errors)
+	auto set_studio_mode = [](bool on) {
+		if (obs_frontend_preview_program_mode_active() == on) return;
+		obs_queue_task(
+			OBS_TASK_UI,
+			[](void *param) {
+				auto enabled = (bool *)param;
+				obs_frontend_set_preview_program_mode(*enabled);
+			},
+			&on, true);
+	};
+
+	OBSSourceAutoRelease source_obs_scene = obs_get_source_by_name(scene.chooseFrom(midi, scenes).qtocs());
+	OBSSourceAutoRelease obs_preview_scene = obs_frontend_get_current_preview_scene();
+
+	switch (sub()) {
+		case STUDIOMODE_ON:
+			set_studio_mode(true);
+			break;
+
+		case STUDIOMODE_OFF:
+			set_studio_mode(false);
+			break;
+
+		case STUDIOMODE_TOGGLE_ONOFF:
+			set_studio_mode(!obs_frontend_preview_program_mode_active());
+			break;
+
+		case STUDIOMODE_CHANGEPREVIEW:
+			ACTION_ASSERT(source_obs_scene, "Scene does not exist.");
+			obs_frontend_set_current_preview_scene(source_obs_scene);
+			break;
+
+		case STUDIOMODE_TRANSITION:
+			ACTION_ASSERT(obs_preview_scene, "Either Studio Mode is disabled, "
+							 "or the scene does not exist.");
+			obs_frontend_set_current_scene(obs_preview_scene);
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionStudioMode::connectOBSSignals()
+{
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionStudioMode::frontendCallback);
+}
+
+void MMGActionStudioMode::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionStudioMode::frontendCallback(obs_frontend_event event) const
+{
+	MMGNumber values;
+	QStringList scenes = MMGActionScenes::enumerate();
+
+	switch (sub()) {
+		case STUDIOMODE_ENABLED:
+			if (event != OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED) return;
+			break;
+
+		case STUDIOMODE_DISABLED:
+			if (event != OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED) return;
+			break;
+
+		case STUDIOMODE_TOGGLE_ENABLED:
+			if (event != OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED &&
+			    event != OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED)
+				return;
+			break;
+
+		case STUDIOMODE_PREVIEWCHANGED:
+			if (event != OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED ||
+			    !obs_frontend_preview_program_mode_active())
+				return;
+
+			values = scenes.indexOf(MMGActionScenes::currentScene(true));
+			if (scene.chooseTo(values, scenes)) return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered({values});
 }

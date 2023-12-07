@@ -17,191 +17,239 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-message.h"
+#include "mmg-config.h"
 
 using namespace MMGUtils;
 
-MMGMessage::MMGMessage() : _channel(), _type(), _note(), _value()
+// MMGMessage
+MMGMessage::MMGMessage(QObject *parent) : QObject(parent)
 {
-  _channel = 1;
-  _type = "Note On";
-  _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
-  _value.set_max(127);
-  blog(LOG_DEBUG, "Empty message created.");
+	setRanges();
+
+	_name = mmgtr("Message.Untitled");
+	_channel = 1;
+	_type = mmgtr("Message.Type.NoteOn");
+	_value.setState(STATE_MIDI);
+
+	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
 MMGMessage::MMGMessage(const libremidi::message &message)
 {
-  _channel = message.get_channel();
-  _type = get_midi_type(message);
-  _note = get_midi_note(message);
-  _value = get_midi_value(message);
+	setRanges();
+
+	_channel = message.get_channel();
+	_type = getType(message);
+	_note = getNote(message);
+	_value = getValue(message);
+
+	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
-MMGMessage::MMGMessage(const QJsonObject &obj)
-  : _channel(obj, "channel", 0),
-    _type(obj, "type", 0),
-    _note(obj, "note", 0),
-    _value(obj, "value", 0)
+MMGMessage::MMGMessage(const QJsonObject &json_obj)
+	: _channel(json_obj, "channel"), _type(json_obj, "type"), _note(json_obj, "note"), _value(json_obj, "value")
 {
-  if (_channel == 0) _channel = 1;
+	_name = json_obj["name"].toString(mmgtr("Message.Untitled"));
 
-  if ((obj["value_require"].isBool() && !(obj["value_require"].toBool())) || _value < 0)
-    _value.set_state(MMGNumber::NUMBERSTATE_MIDI);
+	setRanges();
 
-  if ((obj["value_toggle"].isBool() && obj["value_toggle"].toBool()) ||
-      obj["value_state"].toInt() == 2)
-    _value.set_state(MMGNumber::NUMBERSTATE_IGNORE);
+	if (_channel == 0) _channel = 1;
 
-  if (obj["type_toggle"].isBool() && obj["type_toggle"].toBool())
-    _type.set_state(MMGString::STRINGSTATE_TOGGLE);
+	if ((json_obj["value_require"].isBool() && !(json_obj["value_require"].toBool())) || _value < 0)
+		_value.setState(STATE_MIDI);
 
-  blog(LOG_DEBUG, "Message created.");
-}
+	if ((json_obj["value_toggle"].isBool() && json_obj["value_toggle"].toBool()) ||
+	    json_obj["value_state"].toInt() == 2)
+		_value.setState(STATE_TOGGLE);
 
-void MMGMessage::json(QJsonObject &message_obj) const
-{
-  _channel.json(message_obj, "channel", false);
-  _type.json(message_obj, "type");
-  _note.json(message_obj, "note", false);
-  _value.json(message_obj, "value");
+	if (json_obj["type_toggle"].isBool() && json_obj["type_toggle"].toBool()) {
+		_type.setState(STATE_TOGGLE);
+		_type.setMax(mmgtr("Message.Type.NoteOff"));
+	}
+
+	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Messages -> " + message);
+	global_blog(log_status, "[Messages] " + message);
 }
 
-int MMGMessage::get_midi_note(const libremidi::message &mess)
+void MMGMessage::json(QJsonObject &message_obj) const
 {
-  switch (mess.get_message_type()) {
-    case libremidi::message_type::NOTE_OFF:
-    case libremidi::message_type::NOTE_ON:
-    case libremidi::message_type::CONTROL_CHANGE:
-      return mess[1];
-    default:
-      return 0;
-  }
-}
-
-int MMGMessage::get_midi_value(const libremidi::message &mess)
-{
-  switch (mess.get_message_type()) {
-    case libremidi::message_type::NOTE_ON:
-    case libremidi::message_type::NOTE_OFF:
-    case libremidi::message_type::CONTROL_CHANGE:
-    case libremidi::message_type::PITCH_BEND:
-      return mess[2];
-    case libremidi::message_type::PROGRAM_CHANGE:
-      return mess[1];
-    default:
-      return -1;
-  }
-}
-
-QString MMGMessage::get_midi_type(const libremidi::message &mess)
-{
-  switch (mess.get_message_type()) {
-    // Standard Messages
-    case libremidi::message_type::NOTE_OFF:
-      return "Note Off";
-    case libremidi::message_type::NOTE_ON:
-      return "Note On";
-    case libremidi::message_type::POLY_PRESSURE:
-      return "Polyphonic Pressure";
-    case libremidi::message_type::CONTROL_CHANGE:
-      return "Control Change";
-    case libremidi::message_type::PROGRAM_CHANGE:
-      return "Program Change";
-    case libremidi::message_type::AFTERTOUCH:
-      return "Channel Aftertouch";
-    case libremidi::message_type::PITCH_BEND:
-      return "Pitch Bend";
-    // System Common Messages
-    case libremidi::message_type::SYSTEM_EXCLUSIVE:
-      return "System Exclusive";
-    case libremidi::message_type::TIME_CODE:
-      return "Time Code";
-    case libremidi::message_type::SONG_POS_POINTER:
-      return "Song Position Pointer";
-    case libremidi::message_type::SONG_SELECT:
-      return "Song Select";
-    case libremidi::message_type::RESERVED1:
-      return "Reserved (1)";
-    case libremidi::message_type::RESERVED2:
-      return "Reserved (2)";
-    case libremidi::message_type::TUNE_REQUEST:
-      return "Tune Request";
-    case libremidi::message_type::EOX:
-      return "End of System Exclusive";
-    // System Realtime Messages
-    case libremidi::message_type::TIME_CLOCK:
-      return "Time Clock";
-    case libremidi::message_type::RESERVED3:
-      return "Reserved (3)";
-    case libremidi::message_type::START:
-      return "Start File";
-    case libremidi::message_type::CONTINUE:
-      return "Continue File";
-    case libremidi::message_type::STOP:
-      return "Stop File";
-    case libremidi::message_type::RESERVED4:
-      return "Reserved (4)";
-    case libremidi::message_type::ACTIVE_SENSING:
-      return "Active Sensing";
-    case libremidi::message_type::SYSTEM_RESET:
-      return "System Reset";
-    default:
-      return "Error";
-  }
-}
-
-void MMGMessage::toggle()
-{
-  if (_type.state() == MMGString::STRINGSTATE_TOGGLE) {
-    if (_type == "Note On") {
-      _type = "Note Off";
-    } else if (_type == "Note Off") {
-      _type = "Note On";
-    }
-  }
-  if (_value.state() == MMGNumber::NUMBERSTATE_IGNORE) { // TOGGLE SETTING
-    if (_value == 127) {
-      _value = 0;
-    } else if (_value == 0) {
-      _value = 127;
-    }
-  }
-}
-
-bool MMGMessage::acceptable(const MMGMessage *test) const
-{
-  bool is_true = true;
-  is_true &= (_channel == test->channel());
-  is_true &= (_type == test->type().str());
-  if (_type != "Program Change" && _type != "Pitch Bend") is_true &= (_note == test->note());
-  if (_value.state() == 1) return is_true;
-  if (_value.state() == 2) {
-    if (_value.min() <= _value.max()) {
-      return is_true && (test->value() >= _value.min() && test->value() <= _value.max());
-    } else {
-      return is_true && (test->value() < _value.min() && test->value() > _value.max());
-    }
-  }
-  return is_true && (_value == test->value());
+	message_obj["name"] = _name;
+	_channel.json(message_obj, "channel");
+	_type.json(message_obj, "type");
+	_note.json(message_obj, "note");
+	_value.json(message_obj, "value");
 }
 
 void MMGMessage::copy(MMGMessage *dest) const
 {
-  dest->_channel = _channel.copy();
-  dest->_type = _type.copy();
-  dest->_note = _note.copy();
-  dest->_value = _value.copy();
+	dest->_name = _name;
+	dest->_channel = _channel.copy();
+	dest->_type = _type.copy();
+	dest->_note = _note.copy();
+	dest->_value = _value.copy();
 }
 
 void MMGMessage::setEditable(bool edit)
 {
-  _channel.set_edit(edit);
-  _type.set_edit(edit);
-  _note.set_edit(edit);
-  _value.set_edit(edit);
+	_channel.setEditable(edit);
+	_type.setEditable(edit);
+	_note.setEditable(edit);
+	_value.setEditable(edit);
 }
+
+void MMGMessage::toggle()
+{
+	_type.toggle();
+	_channel.toggle();
+	_note.toggle();
+	_value.toggle();
+}
+
+bool MMGMessage::acceptable(const MMGMessage *test) const
+{
+	bool accepted = true;
+	accepted &= _channel.acceptable(test->channel());
+	accepted &= (_type == test->type().value());
+	if (_type != mmgtr("Message.Type.ProgramChange") && _type != mmgtr("Message.Type.PitchBend"))
+		accepted &= _note.acceptable(test->note());
+
+	return accepted && _value.acceptable(test->value());
+}
+
+void MMGMessage::applyValues(const MMGNumber &applied)
+{
+	if (_type.state() == STATE_MIDI) {
+		MMGNumber number;
+		number.setMax(acceptedTypes().size() - 1);
+		_type = acceptedTypes().value(applied.map(number));
+	}
+	_channel.chooseOther(applied);
+	_note.chooseOther(applied);
+	_value.chooseOther(applied);
+}
+
+void MMGMessage::addConnection(MMGBinding *binding)
+{
+	connect(this, &MMGMessage::deleting, binding, &MMGBinding::removeMessage);
+}
+
+void MMGMessage::removeConnection(MMGBinding *binding)
+{
+	disconnect(this, &MMGMessage::deleting, binding, nullptr);
+}
+
+int MMGMessage::getNote(const libremidi::message &mess)
+{
+	switch (mess.get_message_type()) {
+		case libremidi::message_type::NOTE_OFF:
+		case libremidi::message_type::NOTE_ON:
+		case libremidi::message_type::CONTROL_CHANGE:
+			return mess[1];
+		default:
+			return 0;
+	}
+}
+
+int MMGMessage::getValue(const libremidi::message &mess)
+{
+	switch (mess.get_message_type()) {
+		case libremidi::message_type::NOTE_ON:
+		case libremidi::message_type::NOTE_OFF:
+		case libremidi::message_type::CONTROL_CHANGE:
+		case libremidi::message_type::PITCH_BEND:
+			return mess[2];
+		case libremidi::message_type::PROGRAM_CHANGE:
+			return mess[1];
+		default:
+			return -1;
+	}
+}
+
+QString MMGMessage::getType(const libremidi::message &mess)
+{
+	switch (mess.get_message_type()) {
+		// Standard Messages
+		case libremidi::message_type::NOTE_OFF:
+			return mmgtr("Message.Type.NoteOff");
+		case libremidi::message_type::NOTE_ON:
+			return mmgtr("Message.Type.NoteOn");
+		case libremidi::message_type::POLY_PRESSURE:
+			return "Polyphonic Pressure";
+		case libremidi::message_type::CONTROL_CHANGE:
+			return mmgtr("Message.Type.ControlChange");
+		case libremidi::message_type::PROGRAM_CHANGE:
+			return mmgtr("Message.Type.ProgramChange");
+		case libremidi::message_type::AFTERTOUCH:
+			return "Channel Aftertouch";
+		case libremidi::message_type::PITCH_BEND:
+			return mmgtr("Message.Type.PitchBend");
+		// System Common Messages
+		case libremidi::message_type::SYSTEM_EXCLUSIVE:
+			return "System Exclusive";
+		case libremidi::message_type::TIME_CODE:
+			return "Time Code";
+		case libremidi::message_type::SONG_POS_POINTER:
+			return "Song Position Pointer";
+		case libremidi::message_type::SONG_SELECT:
+			return "Song Select";
+		case libremidi::message_type::RESERVED1:
+			return "Reserved (1)";
+		case libremidi::message_type::RESERVED2:
+			return "Reserved (2)";
+		case libremidi::message_type::TUNE_REQUEST:
+			return "Tune Request";
+		case libremidi::message_type::EOX:
+			return "End of System Exclusive";
+		// System Realtime Messages
+		case libremidi::message_type::TIME_CLOCK:
+			return "Time Clock";
+		case libremidi::message_type::RESERVED3:
+			return "Reserved (3)";
+		case libremidi::message_type::START:
+			return "Start File";
+		case libremidi::message_type::CONTINUE:
+			return "Continue File";
+		case libremidi::message_type::STOP:
+			return "Stop File";
+		case libremidi::message_type::RESERVED4:
+			return "Reserved (4)";
+		case libremidi::message_type::ACTIVE_SENSING:
+			return "Active Sensing";
+		case libremidi::message_type::SYSTEM_RESET:
+			return "System Reset";
+		default:
+			return "Error";
+	}
+}
+
+const QStringList MMGMessage::acceptedTypes()
+{
+	return mmgtr_all("Message.Type", {"NoteOn", "NoteOff", "ControlChange", "ProgramChange", "PitchBend"});
+}
+
+void MMGMessage::setRanges()
+{
+	if (_channel.state() == STATE_FIXED && _channel.max() == 100) {
+		_channel.setMin(1);
+		_channel.setMax(16);
+	}
+
+	if (_type.state() == STATE_FIXED && _type.max() == mmgtr("Messages.Type.NoteOn"))
+		_type.setMax(mmgtr("Message.Type.PitchBend"));
+
+	if (_note.state() == STATE_FIXED && _note.max() == 100) _note.setMax(127);
+	if (_value.state() == STATE_FIXED && _value.max() == 100) _value.setMax(127);
+}
+// End MMGMessage
+
+// MMGMessageManager
+MMGMessage *MMGMessageManager::add(const QJsonObject &json_obj)
+{
+	MMGMessage *message = json_obj.isEmpty() ? new MMGMessage(this) : new MMGMessage(json_obj);
+	return MMGManager::add(message);
+}
+// End MMGMessageManager

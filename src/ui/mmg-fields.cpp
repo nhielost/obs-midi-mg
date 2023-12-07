@@ -18,8 +18,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-fields.h"
 
-#include <obs-frontend-api.h>
-
 #include <QColorDialog>
 #include <QFontDialog>
 #include <QLineEdit>
@@ -28,673 +26,903 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-// MMGOBSNumberField
-MMGOBSNumberField::MMGOBSNumberField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSField(init.fields, p)
+// MMGOBSField
+const QString MMGOBSField::frame_style = "border: 1px solid #ff0000; border-radius: 8px;";
+
+MMGOBSField::MMGOBSField(QWidget *widget) : QWidget(widget)
 {
-  name = obs_property_name(init.prop);
+	setFixedSize(330, 90);
+	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
-  num_display = new MMGNumberDisplay(this);
-  num_display->setStorage(&number);
+	label = new QLabel(this);
+	label->setVisible(false);
+}
 
-  update(init.prop);
-  if (init.current_json.contains(name)) {
-    number = init.current_json[name].toDouble();
-  } else {
-    number = init.default_json[name].toDouble();
-  }
-  num_display->display();
+const QSignalBlocker MMGOBSField::updateAndBlock(obs_property_t *prop)
+{
+	setEnabled(obs_property_visible(prop) && obs_property_enabled(prop));
+	return QSignalBlocker(this);
+}
+// End MMGOBSField
 
-  connect(num_display, &MMGNumberDisplay::numberChanged, parent, &MMGOBSFields::mmg_json);
+// MMGOBSNumberField
+MMGOBSNumberField::MMGOBSNumberField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
+{
+	_name = obs_property_name(init.prop);
+
+	num_display = new MMGNumberDisplay(this);
+	num_display->move(0, 10);
+	num_display->setOptions(MIDIBUTTON_FIXED | MIDIBUTTON_CUSTOM | MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
+	num_display->setStorage(&number);
+
+	refresh(init);
+
+	connect(num_display, &MMGNumberDisplay::numberChanged, this, &MMGOBSField::saveData);
+}
+
+void MMGOBSNumberField::jsonData(QJsonObject &json_obj) const
+{
+	json_obj["number"] = number.value();
+	json_obj["lower"] = number.min();
+	json_obj["higher"] = number.max();
+	json_obj["state"] = number.state();
 }
 
 void MMGOBSNumberField::apply(const QJsonObject &json_obj)
 {
-  num_display->blockSignals(true);
-  update(parent->property(name));
-  number = MMGNumber(json_obj, name, 0);
-  num_display->display();
-  num_display->blockSignals(false);
+	number.setValue(json_obj["number"].toDouble());
+	number.setMin(json_obj["lower"].toDouble());
+	number.setMax(json_obj["higher"].toDouble());
+	number.setState(json_obj["state"].toInt());
+	emit triggerUpdate();
+}
+
+void MMGOBSNumberField::refresh(const MMGOBSFieldInit &init)
+{
+	if (init.current_json.contains(_name)) {
+		number = init.current_json[_name].toDouble();
+	} else {
+		number = init.default_json[_name].toDouble();
+	}
+	update(init.prop);
 }
 
 void MMGOBSNumberField::update(obs_property_t *prop)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  num_display->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	num_display->setDescription(obs_property_description(prop));
 
-  if (obs_property_get_type(prop) != OBS_PROPERTY_FLOAT &&
-      obs_property_get_type(prop) != OBS_PROPERTY_INT)
-    return;
+	if (obs_property_get_type(prop) != OBS_PROPERTY_FLOAT && obs_property_get_type(prop) != OBS_PROPERTY_INT)
+		return;
 
-  vec3 bounds = get_obs_property_bounds(prop);
-  num_display->setBounds(bounds.x, bounds.y);
-  num_display->setStep(bounds.z);
-  num_display->setDescription(obs_property_description(prop));
+	MMGNumber bounds = propertyBounds(prop);
+	num_display->setBounds(bounds.min(), bounds.max());
+	num_display->setStep(bounds.value());
+	num_display->display();
+}
+
+const MMGNumber MMGOBSNumberField::propertyBounds(obs_property_t *prop)
+{
+	MMGNumber bounds;
+	if (!prop) return bounds;
+
+	if (obs_property_get_type(prop) == OBS_PROPERTY_INT) {
+		bounds.setValue(obs_property_int_step(prop));
+		bounds.setMin(obs_property_int_min(prop));
+		bounds.setMax(obs_property_int_max(prop));
+	} else if (obs_property_get_type(prop) == OBS_PROPERTY_FLOAT) {
+		bounds.setValue(obs_property_float_step(prop));
+		bounds.setMin(obs_property_float_min(prop));
+		bounds.setMax(obs_property_float_max(prop));
+	}
+
+	return bounds;
+}
+
+const MMGNumber MMGOBSNumberField::propertyBounds(obs_source_t *source, const QString &field)
+{
+	MMGNumber bounds;
+	if (!source) return bounds;
+
+	obs_properties_t *props = obs_source_properties(source);
+	if (!props) goto finish;
+	bounds = propertyBounds(obs_properties_get(props, field.qtocs()));
+
+finish:
+	obs_properties_destroy(props);
+	return bounds;
 }
 // End MMGOBSNumber Field
 
 // MMGOBSStringField
-MMGOBSStringField::MMGOBSStringField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSField(init.fields, p)
+MMGOBSStringField::MMGOBSStringField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  name = obs_property_name(init.prop);
+	_name = obs_property_name(init.prop);
 
-  label = new QLabel(this);
-  label->setVisible(true);
-  label->setText(obs_property_description(init.prop));
-  label->setWordWrap(true);
-  label->setGeometry(0, 0, 270, 30);
+	str_display = new MMGStringDisplay(this);
+	str_display->setOptions(MIDIBUTTON_FIXED | MIDIBUTTON_MIDI | MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
+	str_display->setDisplayMode(
+		(MMGStringDisplay::Mode)(obs_property_list_type(init.prop) == OBS_COMBO_TYPE_EDITABLE ? 2 : 0));
+	str_display->setStorage(&string);
 
-  combo = new QComboBox(this);
-  combo->setVisible(true);
-  combo->setGeometry(0, 30, 270, 40);
-  combo->setEditable(obs_property_list_type(init.prop) == OBS_COMBO_TYPE_EDITABLE);
+	refresh(init);
 
-  if (init.current_json.contains(name)) {
-    value = init.current_json[name];
-  } else {
-    value = init.default_json[name];
-  }
-  update(init.prop);
-
-  combo->connect(combo, &QComboBox::currentIndexChanged, combo,
-		 [&](int index) { callback(combo->itemData(index)); });
+	connect(str_display, &MMGStringDisplay::stringChanged, this, &MMGOBSField::saveUpdates);
+	connect(str_display, &MMGStringDisplay::stringChanged, this, &MMGOBSField::saveData);
 }
 
-void MMGOBSStringField::callback(const QVariant &val)
+void MMGOBSStringField::jsonUpdate(QJsonObject &json_obj) const
 {
-  value = val.value<QJsonValue>();
-  state = val == "msg_val" ? MMGString::STRINGSTATE_MIDI : MMGString::STRINGSTATE_FIXED;
-  parent->obs_json();
-  parent->mmg_json();
+	json_obj[_name] = values.value(options.indexOf(string.value())).toJsonValue();
+}
+
+void MMGOBSStringField::jsonData(QJsonObject &json_obj) const
+{
+	json_obj["value"] = values.value(options.indexOf(string.value())).toJsonValue();
+	json_obj["lower"] = values.value(options.indexOf(string.min())).toJsonValue();
+	json_obj["higher"] = values.value(options.indexOf(string.max())).toJsonValue();
+	json_obj["state"] = string.state();
 }
 
 void MMGOBSStringField::apply(const QJsonObject &json_obj)
 {
-  value = json_obj[name]["value"];
-  state = (MMGString::State)json_obj[name]["state"].toInt();
-  update(parent->property(name));
+	string.setValue(options.value(values.indexOf(json_obj["value"].toVariant())));
+	string.setMin(options.value(values.indexOf(json_obj["lower"].toVariant())));
+	string.setMax(options.value(values.indexOf(json_obj["higher"].toVariant())));
+	string.setState(json_obj["state"].toInt());
+	emit triggerUpdate();
+}
+
+void MMGOBSStringField::refresh(const MMGOBSFieldInit &init)
+{
+	options = propertyDescriptions(init.prop);
+	values = propertyValues(init.prop);
+	if (init.current_json.contains(_name)) {
+		string = options.value(values.indexOf(init.current_json[_name].toVariant()));
+	} else {
+		string = options.value(values.indexOf(init.default_json[_name].toVariant()));
+	}
+	update(init.prop);
 }
 
 void MMGOBSStringField::update(obs_property_t *prop)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  combo->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	if (obs_property_get_type(prop) != OBS_PROPERTY_LIST) return;
 
-  if (obs_property_get_type(prop) != OBS_PROPERTY_LIST) return;
+	str_display->setDescription(obs_property_description(prop));
+	options = propertyDescriptions(prop);
+	values = propertyValues(prop);
+	if (str_display->bounds() != options) str_display->setBounds(options);
 
-  QList<MMGPair> prop_options = get_obs_property_options(prop);
-  if (options != prop_options) {
-    options = prop_options;
-    combo->clear();
-    for (const MMGPair &key : prop_options) {
-      combo->addItem(key.key, key.val);
-    }
-    if (!prop_options.isEmpty()) combo->addItem("Use Message Value", "msg_val");
-    int index = combo->findData(value.toVariant());
-    combo->setCurrentIndex(index == -1 ? 0 : index);
-  }
+	MMGNoEdit no_edit_string(&string);
+	str_display->display();
+}
+
+const QStringList MMGOBSStringField::propertyDescriptions(obs_property_t *prop)
+{
+	QStringList names;
+
+	for (size_t i = 0; i < obs_property_list_item_count(prop); ++i)
+		names += obs_property_list_item_name(prop, i);
+
+	return names;
+}
+
+const QVariantList MMGOBSStringField::propertyValues(obs_property_t *prop)
+{
+	QVariantList values;
+
+	for (size_t i = 0; i < obs_property_list_item_count(prop); ++i) {
+		QVariant value;
+
+		switch (obs_property_list_format(prop)) {
+			case OBS_COMBO_FORMAT_FLOAT:
+				value = obs_property_list_item_float(prop, i);
+				break;
+			case OBS_COMBO_FORMAT_INT:
+				value = obs_property_list_item_int(prop, i);
+				break;
+			case OBS_COMBO_FORMAT_STRING:
+				value = QString(obs_property_list_item_string(prop, i));
+				break;
+			default:
+				break;
+		}
+
+		values += value;
+	}
+
+	return values;
+}
+
+const QVariantList MMGOBSStringField::propertyValues(obs_source_t *source, const QString &field)
+{
+	QVariantList values;
+	if (!source) return values;
+
+	obs_properties_t *props = obs_source_properties(source);
+	if (!props) goto finish;
+	values = propertyValues(obs_properties_get(props, field.qtocs()));
+
+finish:
+	obs_properties_destroy(props);
+	return values;
 }
 // End MMGOBSStringField
 
 // MMGOBSBooleanField
-MMGOBSBooleanField::MMGOBSBooleanField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSStringField(p, init)
+MMGOBSBooleanField::MMGOBSBooleanField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  label->setWordWrap(false);
+	_name = obs_property_name(init.prop);
 
-  combo->blockSignals(true);
-  combo->clear();
-  combo->addItems({"True", "False", "Toggle", "Ignore"});
-  combo->setItemData(0, true);
-  combo->setItemData(1, false);
-  combo->blockSignals(false);
+	label->setVisible(true);
+	label->setGeometry(0, 10, 150, 30);
+	label->setText(obs_property_description(init.prop));
+	label->setWordWrap(true);
 
-  combo->blockSignals(true);
-  if (init.current_json.contains(name)) {
-    value = init.current_json[name];
-    combo->setCurrentIndex(state != 0 ? state : !value.toBool());
-  } else {
-    value = init.default_json[name];
-    combo->setCurrentIndex(state != 0 ? state : !value.toBool());
-  }
-  combo->blockSignals(false);
+	button = new QPushButton(this);
+	button->setCheckable(true);
+	button->setGeometry(220, 20, 50, 50);
+	button->setIcon(QIcon(":/icons/confirm.svg"));
+	button->setIconSize(QSize(28, 28));
+	button->setCursor(Qt::PointingHandCursor);
+
+	midi_buttons = new MMGMIDIButtons(this);
+	midi_buttons->move(0, 47);
+	midi_buttons->setOptions(MIDIBUTTON_FIXED | MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
+
+	refresh(init);
+
+	connect(button, &QAbstractButton::toggled, this, &MMGOBSBooleanField::changeBoolean);
+	connect(midi_buttons, &MMGMIDIButtons::stateChanged, this, &MMGOBSBooleanField::changeState);
 }
 
-void MMGOBSBooleanField::callback(const QVariant &val)
+void MMGOBSBooleanField::jsonData(QJsonObject &json_obj) const
 {
-  value = (combo->currentIndex() > 1 ? QVariant(true) : val).toJsonValue();
-  state = (MMGString::State)(combo->currentIndex() > 1 ? combo->currentIndex() : 0);
-  parent->obs_json();
-  parent->mmg_json();
+	json_obj["value"] = boolean;
+	json_obj["state"] = state;
+}
+
+void MMGOBSBooleanField::changeBoolean(bool value)
+{
+	boolean = value;
+	emit saveUpdates();
+	emit saveData();
+}
+
+void MMGOBSBooleanField::changeState(int _state)
+{
+	state = (ValueState)_state;
+	button->setEnabled(state == 0);
+	emit saveUpdates();
+	emit saveData();
 }
 
 void MMGOBSBooleanField::apply(const QJsonObject &json_obj)
 {
-  value = json_obj[name]["value"];
-  state = (MMGString::State)json_obj[name]["state"].toInt();
-  combo->setCurrentIndex(state != 0 ? state : !value.toBool());
+	boolean = json_obj["value"].toBool();
+	state = (ValueState)json_obj["state"].toInt();
+	if (state > 0 && state < 3) state = STATE_IGNORE;
+	button->setChecked(boolean);
+	midi_buttons->setState(state);
 }
 
-void MMGOBSBooleanField::update(obs_property_t *prop)
+void MMGOBSBooleanField::refresh(const MMGOBSFieldInit &init)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  combo->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(init.prop));
+
+	if (init.current_json.contains(_name)) {
+		boolean = init.current_json[_name].toBool();
+	} else {
+		boolean = init.default_json[_name].toBool();
+	}
+	state = STATE_FIXED;
+
+	button->setChecked(boolean);
+	midi_buttons->setState(state);
 }
 // End MMGOBSBooleanField
 
 // MMGOBSButtonField
-const QString MMGOBSButtonField::style_sheet = "border: 1px solid #ff0000; border-radius: 10px;";
-
-MMGOBSButtonField::MMGOBSButtonField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSField(init.fields, p)
+MMGOBSButtonField::MMGOBSButtonField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  name = obs_property_name(init.prop);
+	_name = obs_property_name(init.prop);
 
-  label = new QLabel(this);
-  label->setVisible(false);
+	button = new QPushButton(this);
+	button->setVisible(true);
+	button->setGeometry(10, 25, 310, 40);
+	button->setCursor(Qt::PointingHandCursor);
+	connect(button, &QPushButton::clicked, this, &MMGOBSButtonField::clicked);
 
-  button = new QPushButton(this);
-  button->setVisible(true);
-  button->setGeometry(15, 15, 240, 40);
-  button->setCursor(QCursor(Qt::PointingHandCursor));
-  button->setText(obs_property_description(init.prop));
-  button->connect(button, &QPushButton::clicked, button, [&]() { callback(); });
+	refresh(init);
+}
+
+void MMGOBSButtonField::refresh(const MMGOBSFieldInit &init)
+{
+	update(init.prop);
 }
 
 void MMGOBSButtonField::update(obs_property_t *prop)
 {
-  button->setEnabled(obs_property_visible(prop) && obs_property_enabled(prop));
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	button->setText(obs_property_description(prop));
 }
 
-void MMGOBSButtonField::callback()
+void MMGOBSButtonField::callback(obs_property_t *prop, void *source)
 {
-  obs_property_t *prop = parent->property(name);
-  if (obs_property_button_type(prop) == OBS_BUTTON_URL) {
-    QUrl url(QString(obs_property_button_url(prop)), QUrl::StrictMode);
-    if (!url.isValid() || !url.scheme().contains("http")) return;
-    QDesktopServices::openUrl(url);
-  } else {
-    obs_property_button_clicked(prop, nullptr);
-  }
-  parent->obs_json();
-  parent->mmg_json();
+	if (obs_property_button_type(prop) == OBS_BUTTON_URL) {
+		QUrl url(obs_property_button_url(prop), QUrl::StrictMode);
+		if (!url.isValid() || !url.scheme().contains("http")) return;
+		QDesktopServices::openUrl(url);
+	} else {
+		obs_property_button_clicked(prop, source);
+		update(prop);
+	}
 }
 // End MMGOBSButtonField
 
 // MMGOBSColorField
-MMGOBSColorField::MMGOBSColorField(QWidget *p, const MMGOBSFieldInit &init, bool use_alpha)
-  : MMGOBSButtonField(p, init)
+MMGOBSColorField::MMGOBSColorField(QWidget *p, const MMGOBSFieldInit &init, bool use_alpha) : MMGOBSField(p)
 {
-  alpha = use_alpha;
+	_name = obs_property_name(init.prop);
+	alpha = use_alpha;
 
-  label->setVisible(true);
-  label->setText(obs_property_description(init.prop));
-  label->setWordWrap(true);
-  label->setGeometry(0, 0, 130, 20);
+	label->setVisible(true);
+	label->setGeometry(0, 0, 150, 40);
+	label->setWordWrap(true);
 
-  button->setGeometry(0, 30, 130, 40);
-  button->setText("Select Color...");
+	button = new QPushButton(this);
+	button->setVisible(true);
+	button->setGeometry(160, 0, 170, 40);
+	button->setCursor(Qt::PointingHandCursor);
+	button->setText(mmgtr("Fields.ColorSelect"));
+	connect(button, &QPushButton::clicked, this, &MMGOBSColorField::callback);
 
-  frame = new QFrame(this);
-  frame->setVisible(true);
-  frame->setGeometry(140, 0, 130, 70);
+	frame = new QFrame(this);
+	frame->setVisible(true);
+	frame->setGeometry(0, 45, 330, 45);
 
-  if (init.current_json.contains(name)) {
-    color = QColor::fromRgba(argb_abgr(init.current_json[name].toInteger(4278190080u)));
-  } else {
-    color = QColor::fromRgba(argb_abgr(init.default_json[name].toInteger(4278190080u)));
-  }
-  frame->setStyleSheet(style_sheet + " background-color: " + color.name((QColor::NameFormat)alpha));
+	refresh(init);
+	frame->setStyleSheet(frame_style + " background-color: " + color.name((QColor::NameFormat)alpha));
 }
 
-void MMGOBSColorField::obs_json(QJsonObject &json_obj) const
+void MMGOBSColorField::jsonUpdate(QJsonObject &json_obj) const
 {
-  json_obj[name] = (double)argb_abgr(color.rgba());
+	json_obj[_name] = (double)convertColor(color.rgba());
 }
 
-void MMGOBSColorField::mmg_json(QJsonObject &json_obj) const
+void MMGOBSColorField::jsonData(QJsonObject &json_obj) const
 {
-  QJsonObject color_obj;
-  color_obj["color"] = (double)argb_abgr(color.rgba());
-  json_obj[name] = color_obj;
+	json_obj["color"] = (double)convertColor(color.rgba());
 }
 
 void MMGOBSColorField::apply(const QJsonObject &json_obj)
 {
-  color = QColor::fromRgba(argb_abgr(json_obj[name]["color"].toInteger(4278190080u)));
-  frame->setStyleSheet(style_sheet + " background-color: " + color.name((QColor::NameFormat)alpha));
+	color = QColor::fromRgba(convertColor(json_obj["color"].toInteger(0xFF000000)));
+	frame->setStyleSheet(frame_style + " background-color: " + color.name((QColor::NameFormat)alpha));
+}
+
+void MMGOBSColorField::refresh(const MMGOBSFieldInit &init)
+{
+	if (init.current_json.contains(_name)) {
+		color = QColor::fromRgba(convertColor(init.current_json[_name].toInteger(0xFF000000)));
+	} else {
+		color = QColor::fromRgba(convertColor(init.default_json[_name].toInteger(0xFF000000)));
+	}
+	update(init.prop);
 }
 
 void MMGOBSColorField::update(obs_property_t *prop)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  button->setEnabled(enabled);
-  frame->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	label->setText(obs_property_description(prop));
 }
 
 void MMGOBSColorField::callback()
 {
-  QColor _color = QColorDialog::getColor(color, nullptr, QString(),
-					 alpha ? QColorDialog::ShowAlphaChannel
-					       : (QColorDialog::ColorDialogOption)0);
-  color = _color.isValid() ? _color : color;
-  frame->setStyleSheet(style_sheet + " background-color: " + color.name((QColor::NameFormat)alpha));
-  parent->mmg_json();
+	QColor _color = QColorDialog::getColor(color, nullptr, QString(), (QColorDialog::ColorDialogOption)alpha);
+	color = _color.isValid() ? _color : color;
+	frame->setStyleSheet(frame_style + " background-color: " + color.name((QColor::NameFormat)alpha));
+	emit saveData();
+}
+
+double MMGOBSColorField::convertColor(double rgb)
+{
+	uint val = rgb;
+	return (val & 0xFF000000) | ((val & 0xFF0000) >> 16) | (val & 0xFF00) | ((val & 0xFF) << 16);
 }
 // End MMGOBSColorField
 
 // MMGOBSFontField
-MMGOBSFontField::MMGOBSFontField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSButtonField(p, init)
+MMGOBSFontField::MMGOBSFontField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  label->setVisible(true);
-  label->setText(obs_property_description(init.prop));
-  label->setWordWrap(true);
-  label->setGeometry(0, 0, 130, 20);
+	_name = obs_property_name(init.prop);
 
-  button->setGeometry(0, 30, 130, 40);
-  button->setText("Select Font...");
+	label->setVisible(true);
+	label->setGeometry(0, 0, 150, 40);
+	label->setWordWrap(true);
 
-  QFrame *frame = new QFrame(this);
-  frame->setVisible(true);
-  frame->setGeometry(140, 0, 130, 70);
-  frame->setStyleSheet(style_sheet);
+	button = new QPushButton(this);
+	button->setVisible(true);
+	button->setGeometry(160, 0, 170, 40);
+	button->setText(mmgtr("Fields.FontSelect"));
+	button->setCursor(Qt::PointingHandCursor);
+	connect(button, &QPushButton::clicked, this, &MMGOBSFontField::callback);
 
-  inner_label = new QLabel(frame);
-  inner_label->setVisible(true);
-  inner_label->setGeometry(0, 0, 130, 70);
-  inner_label->setAlignment(Qt::AlignCenter);
-  inner_label->setText(font.family() + "\n" + QString::number(font.pointSize()) + "pt");
-  inner_label->setWordWrap(true);
+	frame = new QFrame(this);
+	frame->setVisible(true);
+	frame->setGeometry(0, 45, 330, 45);
+	frame->setStyleSheet(frame_style);
 
-  if (init.current_json.contains(name)) {
-    apply(init.current_json);
-  } else {
-    apply(init.default_json);
-  }
+	inner_label = new QLabel(frame);
+	inner_label->setVisible(true);
+	inner_label->setGeometry(0, 0, 330, 45);
+	inner_label->setAlignment(Qt::AlignCenter);
+
+	refresh(init);
 }
 
-void MMGOBSFontField::obs_json(QJsonObject &json_obj) const
+void MMGOBSFontField::jsonUpdate(QJsonObject &json_obj) const
 {
-  QJsonObject font_json;
-  font_json["face"] = font.family();
-  font_json["flags"] = (font.strikeOut() << 3) | (font.underline() << 2) | (font.italic() << 1) |
-		       (font.bold() << 0);
-  font_json["size"] = font.pointSize();
-  font_json["style"] = font.styleName();
-  json_obj[name] = font_json;
+	QJsonObject font_obj;
+	jsonData(font_obj);
+	json_obj[_name] = font_obj;
+}
+
+void MMGOBSFontField::jsonData(QJsonObject &json_obj) const
+{
+	json_obj["face"] = font.family();
+	json_obj["flags"] = (font.strikeOut() << 3) | (font.underline() << 2) | (font.italic() << 1) |
+			    (font.bold() << 0);
+	json_obj["size"] = font.pointSize();
+	json_obj["style"] = font.styleName();
 }
 
 void MMGOBSFontField::apply(const QJsonObject &json_obj)
 {
-  QJsonObject font_obj = json_obj[name].toObject();
-  font.setFamily(font_obj["face"].toString());
-  int flags = font_obj["flags"].toInt();
-  font.setBold(flags & 0b0001);
-  font.setItalic(flags & 0b0010);
-  font.setUnderline(flags & 0b0100);
-  font.setStrikeOut(flags & 0b1000);
-  font.setPointSize(font_obj["size"].toInt());
-  font.setStyleName(font_obj["style"].toString());
-  inner_label->setText(font.family() + "\n" + QString::number(font.pointSize()) + "pt");
+	font.setFamily(json_obj["face"].toString());
+	int flags = json_obj["flags"].toInt();
+	font.setBold(flags & 0b0001);
+	font.setItalic(flags & 0b0010);
+	font.setUnderline(flags & 0b0100);
+	font.setStrikeOut(flags & 0b1000);
+	font.setPointSize(json_obj["size"].toInt());
+	font.setStyleName(json_obj["style"].toString());
+	inner_label->setText(font.family() + ", " + QString::number(font.pointSize()) + "pt");
+}
+
+void MMGOBSFontField::refresh(const MMGOBSFieldInit &init)
+{
+	if (init.current_json.contains(_name)) {
+		apply(init.current_json[_name].toObject());
+	} else {
+		apply(init.default_json[_name].toObject());
+	}
+	update(init.prop);
 }
 
 void MMGOBSFontField::update(obs_property_t *prop)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  button->setEnabled(enabled);
-  inner_label->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	label->setText(obs_property_description(prop));
+
+	inner_label->setFont(font);
+	inner_label->setText(QString("%1, %2pt").arg(font.family()).arg(font.pointSize()));
 }
 
 void MMGOBSFontField::callback()
 {
-  bool accept;
-  QFont _font = QFontDialog::getFont(&accept, font, nullptr, "Select Font...",
-				     QFontDialog::DontUseNativeDialog);
-  if (accept) font = _font;
-  inner_label->setText(font.family() + "\n" + QString::number(font.pointSize()) + "pt");
-  parent->mmg_json();
+	bool accept;
+	QFont _font = QFontDialog::getFont(&accept, font, nullptr, mmgtr("Fields.FontSelect"),
+					   QFontDialog::DontUseNativeDialog);
+	if (accept) font = _font;
+	emit triggerUpdate();
+	emit saveData();
 }
 // End MMGOBSFontField
 
 // MMGOBSGroupField
-MMGOBSGroupField::MMGOBSGroupField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSField(init.fields, p)
+MMGOBSGroupField::MMGOBSGroupField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  name = obs_property_name(init.prop);
+	_name = obs_property_name(init.prop);
 
-  setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+	setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
-  QVBoxLayout *layout = new QVBoxLayout(this);
-  layout->setSpacing(15);
-  layout->setSizeConstraint(QLayout::SetFixedSize);
-  layout->setContentsMargins(0, 0, 0, 25);
-  setLayout(layout);
+	QVBoxLayout *layout = new QVBoxLayout(this);
+	layout->setSpacing(10);
+	layout->setSizeConstraint(QLayout::SetFixedSize);
+	layout->setContentsMargins(0, 10, 0, 25);
+	setLayout(layout);
 
-  if (obs_property_group_type(init.prop) == OBS_GROUP_CHECKABLE) {
-    boolean_field = new MMGOBSBooleanField(p, init);
-    boolean_field->setStyleSheet("QLabel {font-weight: bold;}");
-    parent->layout()->addWidget(boolean_field);
-  } else if (obs_property_group_type(init.prop) == OBS_GROUP_NORMAL) {
-    label = new QLabel(this);
-    label->setVisible(true);
-    label->setStyleSheet("QLabel {font-weight: bold;}");
-    label->setText(obs_property_description(init.prop));
-    layout->addWidget(label);
-  }
-
-  parent->create(this, obs_property_group_content(init.prop), init);
+	if (obs_property_group_type(init.prop) == OBS_GROUP_CHECKABLE) {
+		boolean_field = new MMGOBSBooleanField(p, init);
+		boolean_field->setStyleSheet("QLabel {font-weight: bold;}");
+	} else if (obs_property_group_type(init.prop) == OBS_GROUP_NORMAL) {
+		label->setVisible(true);
+		label->setWordWrap(true);
+		label->setStyleSheet("QLabel {font-weight: bold;}");
+		layout->addWidget(label);
+	}
 }
 
-void MMGOBSGroupField::obs_json(QJsonObject &json_obj) const
+void MMGOBSGroupField::jsonUpdate(QJsonObject &json_obj) const
 {
-  if (boolean_field) boolean_field->obs_json(json_obj);
+	HAS_BOOLEAN_FIELD boolean_field->jsonUpdate(json_obj);
 }
 
-void MMGOBSGroupField::mmg_json(QJsonObject &json_obj) const
+void MMGOBSGroupField::jsonData(QJsonObject &json_obj) const
 {
-  if (boolean_field) boolean_field->mmg_json(json_obj);
+	HAS_BOOLEAN_FIELD boolean_field->jsonData(json_obj);
+}
+
+void MMGOBSGroupField::refresh(const MMGOBSFieldInit &init)
+{
+	HAS_BOOLEAN_FIELD boolean_field->refresh(init);
+	update(init.prop);
 }
 
 void MMGOBSGroupField::update(obs_property_t *prop)
 {
-  if (boolean_field) {
-    boolean_field->update(prop);
-    boolean_field_state = boolean_field->value.toBool(true);
-    setEnabled(boolean_field_state);
-  }
+	if (boolean_field) {
+		boolean_field->update(prop);
+		setEnabled(boolean_field->boolean);
+	} else {
+		label->setText(obs_property_description(prop));
+	}
 }
 // End MMGOBSGroupField
 
-// MMGOBSTextField
-MMGOBSTextField::MMGOBSTextField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSField(init.fields, p)
-{
-  name = obs_property_name(init.prop);
-
-  obs_text_type prop_type = obs_property_text_type(init.prop);
-
-  label = new QLabel(this);
-  label->setVisible(true);
-  label->setText(obs_property_description(init.prop));
-  label->setGeometry(0, 0, 270, 20);
-
-  text_edit = new QTextEdit(this);
-  text_edit->setGeometry(0, 20, 270, 50);
-  text_edit->setVisible(prop_type == OBS_TEXT_MULTILINE);
-
-  line_edit = new QLineEdit(this);
-  line_edit->setGeometry(0, 20, 270, 50);
-  line_edit->setVisible(prop_type != OBS_TEXT_MULTILINE);
-  line_edit->setEchoMode((QLineEdit::EchoMode)(prop_type == OBS_TEXT_PASSWORD ? 3 : 0));
-
-  if (init.current_json.contains(name)) {
-    text = init.current_json[name].toString();
-  } else {
-    text = init.default_json[name].toString();
-  }
-  text.set_state((MMGString::State)checkMIDI());
-  update(parent->property(name));
-
-  text_edit->connect(text_edit, &QTextEdit::textChanged, text_edit,
-		     [&]() { callback(text_edit->toPlainText()); });
-  line_edit->connect(line_edit, &QLineEdit::textChanged, line_edit,
-		     [&]() { callback(line_edit->text()); });
-}
-
-void MMGOBSTextField::callback(const QString &str)
-{
-  text = str;
-  text.set_state((MMGString::State)checkMIDI());
-  parent->mmg_json();
-}
-
-void MMGOBSTextField::apply(const QJsonObject &json_obj)
-{
-  text = json_obj[name]["string"].toString();
-  text.set_state((MMGString::State)checkMIDI());
-
-  update(parent->property(name));
-}
-
-void MMGOBSTextField::update(obs_property_t *prop)
-{
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  text_edit->setEnabled(enabled);
-  line_edit->setEnabled(enabled);
-
-  text_edit->setPlainText(text);
-  line_edit->setText(text);
-}
-
-bool MMGOBSTextField::checkMIDI() const
-{
-  return text.str().contains("${type}") || text.str().contains("${channel}") ||
-	 text.str().contains("${note}") || text.str().contains("${value}") ||
-	 text.str().contains("${control}");
-}
-// End MMGOBSTextField
-
 // MMGOBSPathField
-MMGOBSPathField::MMGOBSPathField(QWidget *p, const MMGOBSFieldInit &init)
-  : MMGOBSButtonField(p, init)
+MMGOBSPathField::MMGOBSPathField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  label->setVisible(true);
-  label->setText(obs_property_description(init.prop));
-  label->setGeometry(0, 0, 130, 20);
+	_name = obs_property_name(init.prop);
 
-  button->setGeometry(0, 30, 130, 40);
+	label->setVisible(true);
+	label->setGeometry(0, 0, 150, 40);
+	label->setWordWrap(true);
 
-  QFrame *frame = new QFrame(this);
-  frame->setVisible(true);
-  frame->setGeometry(140, 0, 130, 70);
-  frame->setStyleSheet(style_sheet);
+	button = new QPushButton(this);
+	button->setVisible(true);
+	button->setGeometry(160, 0, 170, 40);
+	button->setCursor(Qt::PointingHandCursor);
+	connect(button, &QPushButton::clicked, this, &MMGOBSPathField::callback);
 
-  path_display = new QLabel(frame);
-  path_display->setVisible(true);
-  path_display->setGeometry(0, 0, 130, 70);
-  path_display->setAlignment(Qt::AlignBottom);
-  path_display->setWordWrap(true);
+	frame = new QFrame(this);
+	frame->setVisible(true);
+	frame->setGeometry(0, 45, 330, 45);
+	frame->setStyleSheet(frame_style);
 
-  if (init.current_json.contains(name)) {
-    path = init.current_json[name].toString();
-  } else {
-    path = init.default_json[name].toString();
-  }
-  update(parent->property(name));
+	path_display = new QLabel(frame);
+	path_display->setVisible(true);
+	path_display->setGeometry(0, 0, 330, 45);
+	path_display->setAlignment(Qt::AlignVCenter | Qt::AlignBottom);
+	path_display->setWordWrap(true);
+
+	refresh(init);
+}
+
+void MMGOBSPathField::jsonData(QJsonObject &json_obj) const
+{
+	json_obj["string"] = path;
+	json_obj["state"] = state;
 }
 
 void MMGOBSPathField::apply(const QJsonObject &json_obj)
 {
-  path = json_obj[name]["string"].toString();
-  update(parent->property(name));
+	path = json_obj["string"].toString();
+	state = (ValueState)json_obj["state"].toInt();
+	emit triggerUpdate();
+}
+
+void MMGOBSPathField::refresh(const MMGOBSFieldInit &init)
+{
+	if (init.current_json.contains(_name)) {
+		path = init.current_json[_name].toString();
+	} else {
+		path = init.default_json[_name].toString();
+	}
+	update(init.prop);
 }
 
 void MMGOBSPathField::update(obs_property_t *prop)
 {
-  bool enabled = obs_property_visible(prop) && obs_property_enabled(prop);
-  label->setEnabled(enabled);
-  button->setEnabled(enabled);
-  path_display->setEnabled(enabled);
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	label->setText(obs_property_description(prop));
 
-  if (obs_property_get_type(prop) != OBS_PROPERTY_PATH) return;
+	if (obs_property_get_type(prop) != OBS_PROPERTY_PATH) return;
 
-  default_path = obs_property_path_default_path(prop);
-  dialog_type = obs_property_path_type(prop);
-  filters = obs_property_path_filter(prop);
+	default_path = obs_property_path_default_path(prop);
+	dialog_type = obs_property_path_type(prop);
+	filters = obs_property_path_filter(prop);
 
-  path_display->setText(path);
-  button->setText(dialog_type < 2 ? "Select File..." : "Select Folder...");
+	path_display->setText(path);
+	button->setText(mmgtr_two("Fields", "FileSelect", "FolderSelect", dialog_type < 2));
 }
 
 void MMGOBSPathField::callback()
 {
-  QString new_path;
-  switch (dialog_type) {
-    case 0: // FILE READING
-      new_path = QFileDialog::getOpenFileName(nullptr, "Select File...", default_path, filters,
-					      nullptr, QFileDialog::Option::HideNameFilterDetails);
-      break;
-    case 1: // FILE WRITING
-      new_path = QFileDialog::getSaveFileName(nullptr, "Select File...", default_path, filters);
-      break;
-    case 2: // DIRECTORY
-      new_path = QFileDialog::getExistingDirectory(nullptr, "Select Folder...", default_path);
-      break;
-    default:
-      break;
-  }
-  if (!new_path.isNull()) {
-    path = new_path;
-    update(parent->property(name));
-    parent->mmg_json();
-  }
+	QString new_path;
+	switch (dialog_type) {
+		case 0: // FILE READING
+			new_path = QFileDialog::getOpenFileName(nullptr, button->text(), default_path, filters, nullptr,
+								QFileDialog::Option::HideNameFilterDetails);
+			break;
+		case 1: // FILE WRITING
+			new_path = QFileDialog::getSaveFileName(nullptr, button->text(), default_path, filters);
+			break;
+		case 2: // DIRECTORY
+			new_path = QFileDialog::getExistingDirectory(nullptr, button->text(), default_path);
+			break;
+		default:
+			break;
+	}
+
+	if (new_path.isNull()) return;
+	path = new_path;
+	emit triggerUpdate();
+	emit saveData();
 }
 // End MMGOBSPathField
 
-// MMGOBSFields
-MMGOBSFields::MMGOBSFields(QWidget *parent, obs_source_t *source) : QWidget(parent)
+// MMGOBSTextField
+MMGOBSTextField::MMGOBSTextField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
-  // Qt Setup
-  setGeometry(0, 0, 290, 350);
-  QVBoxLayout *custom_field_layout = new QVBoxLayout(this);
-  custom_field_layout->setSpacing(10);
-  custom_field_layout->setSizeConstraint(QLayout::SetFixedSize);
-  custom_field_layout->setContentsMargins(10, 10, 10, 10);
-  setLayout(custom_field_layout);
+	_name = obs_property_name(init.prop);
 
-  // The Good Stuff
-  if (!source) {
-    open_message_box(
-      "Custom Setup Error",
-      "The custom fields menu could not be displayed.\n\nThe source is invalid or does not exist.");
-    return;
-  };
+	obs_text_type prop_type = obs_property_text_type(init.prop);
 
-  _source = obs_source_get_ref(source);
+	label->setVisible(true);
+	label->setGeometry(0, 0, 330, 30);
 
-  OBSDataAutoRelease source_data = obs_source_get_settings(source);
-  OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
-  QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
-  QJsonObject defaults_json = json_from_str(obs_data_get_json(source_defaults));
+	text_edit = new QTextEdit(this);
+	text_edit->setGeometry(0, 30, 330, 60);
+	text_edit->setVisible(prop_type == OBS_TEXT_MULTILINE);
 
-  props = obs_source_properties(source);
+	line_edit = new QLineEdit(this);
+	line_edit->setGeometry(0, 30, 330, 60);
+	line_edit->setVisible(prop_type != OBS_TEXT_MULTILINE);
+	line_edit->setEchoMode((QLineEdit::EchoMode)(prop_type == OBS_TEXT_PASSWORD ? 3 : 0));
 
-  MMGOBSFieldInit init{this, nullptr, source_json, defaults_json};
-  create(this, props, init);
+	refresh(init);
 
-  // Finish
-  obs_json();
-};
-
-void MMGOBSFields::add(QWidget *parent, MMGOBSField *field)
-{
-  fields.append(field);
-  parent->layout()->addWidget(field);
+	text_edit->connect(text_edit, &QTextEdit::textChanged, text_edit,
+			   [&]() { callback(text_edit->toPlainText()); });
+	line_edit->connect(line_edit, &QLineEdit::textChanged, this, &MMGOBSTextField::callback);
 }
 
-void MMGOBSFields::create(QWidget *parent, obs_properties_t *props,
-			  const MMGOBSFieldInit &json_init)
+void MMGOBSTextField::jsonData(QJsonObject &json_obj) const
 {
-  if (!props) return;
+	json_obj["string"] = text;
+	json_obj["state"] = state;
+}
 
-  obs_property_t *prop = obs_properties_first(props);
+void MMGOBSTextField::callback(const QString &str)
+{
+	text = str;
+	state = (ValueState)checkMIDI();
+	emit saveData();
+}
 
-  MMGOBSFieldInit init{this, prop, json_init.current_json, json_init.default_json};
+void MMGOBSTextField::apply(const QJsonObject &json_obj)
+{
+	text = json_obj["string"].toString();
+	state = (ValueState)checkMIDI();
 
-  do {
-    init.prop = prop;
+	emit triggerUpdate();
+}
 
-    switch (obs_property_get_type(prop)) {
-      case OBS_PROPERTY_FLOAT:
-      case OBS_PROPERTY_INT:
-	add(parent, new MMGOBSNumberField(parent, init));
-	break;
-      case OBS_PROPERTY_LIST:
-	add(parent, new MMGOBSStringField(parent, init));
-	break;
-      case OBS_PROPERTY_BOOL:
-	add(parent, new MMGOBSBooleanField(parent, init));
-	break;
-      case OBS_PROPERTY_BUTTON:
-	add(parent, new MMGOBSButtonField(parent, init));
-	break;
-      case OBS_PROPERTY_COLOR:
-	add(parent, new MMGOBSColorField(parent, init, false));
-	break;
-      case OBS_PROPERTY_COLOR_ALPHA:
-	add(parent, new MMGOBSColorField(parent, init, true));
-	break;
-      case OBS_PROPERTY_FONT:
-	add(parent, new MMGOBSFontField(parent, init));
-	break;
-      case OBS_PROPERTY_GROUP:
-	add(parent, new MMGOBSGroupField(parent, init));
-	continue;
-      case OBS_PROPERTY_PATH:
-	add(parent, new MMGOBSPathField(parent, init));
-	break;
-      case OBS_PROPERTY_TEXT:
-	if (obs_property_text_type(prop) != OBS_TEXT_INFO) {
-	  add(parent, new MMGOBSTextField(parent, init));
-	  break;
+void MMGOBSTextField::refresh(const MMGOBSFieldInit &init)
+{
+	if (init.current_json.contains(_name)) {
+		text = init.current_json[_name].toString();
+	} else {
+		text = init.default_json[_name].toString();
 	}
-	[[fallthrough]];
-      case OBS_PROPERTY_EDITABLE_LIST:
-      case OBS_PROPERTY_FRAME_RATE:
-      default:
-	continue;
-    }
-  } while (obs_property_next(&prop) != 0);
+	state = (ValueState)checkMIDI();
+	update(init.prop);
 }
 
-void MMGOBSFields::obs_json()
+void MMGOBSTextField::update(obs_property_t *prop)
 {
-  QJsonObject json_obj;
-  for (MMGOBSField *field : fields) {
-    field->obs_json(json_obj);
-  }
-  OBSDataAutoRelease data = obs_data_create_from_json(json_to_str(json_obj));
-  obs_properties_apply_settings(props, data);
-  for (MMGOBSField *field : fields) {
-    field->update(property(field->get_name()));
-  }
+	QSignalBlocker blocker_this(updateAndBlock(prop));
+	label->setText(obs_property_description(prop));
+
+	text_edit->setPlainText(text);
+	line_edit->setText(text);
 }
 
-void MMGOBSFields::mmg_json()
+bool MMGOBSTextField::checkMIDI() const
 {
-  if (!json_des) return;
+	return text.contains("${type}") || text.contains("${channel}") || text.contains("${note}") ||
+	       text.contains("${control}") || text.contains("${value}") || text.contains("${velocity}");
+}
+// End MMGOBSTextField
 
-  QJsonObject json_obj;
-  for (MMGOBSField *field : fields) {
-    field->mmg_json(json_obj);
-  }
-  json_des->set_str(json_to_str(json_obj));
+// MMGOBSFields
+MMGOBSFields::MMGOBSFields(obs_source_t *source)
+{
+	if (!source) {
+		open_message_box("FieldsError");
+		return;
+	}
+
+	identifier = obs_source_get_id(source);
+
+	resize(330, 350);
+	QVBoxLayout *layout = new QVBoxLayout(this);
+	layout->setSpacing(10);
+	layout->setSizeConstraint(QLayout::SetFixedSize);
+	layout->setContentsMargins(0, 0, 0, 0);
+	setLayout(layout);
+
+	addFields(this, props, getSourceData(source));
+	jsonUpdate();
 }
 
-void MMGOBSFields::setJsonDestination(MMGString *json, bool force)
+void MMGOBSFields::changeSource(obs_source_t *source)
 {
-  if (json_des == json) return;
-  json_des = json;
+	if (!match(source) || obs_source_get_name(source) == source_name) return;
 
-  if (force) {
-    if (!json->str().isEmpty()) apply();
-  } else {
-    mmg_json();
-  }
-};
+	MMGOBSFieldInit init = getSourceData(source);
+	if (json_des) json_des->clear();
 
-void MMGOBSFields::apply()
+	for (MMGOBSField *field : fields) {
+		init.prop = obs_properties_get(props, field->name().qtocs());
+		field->refresh(init);
+	}
+}
+
+MMGOBSFieldInit MMGOBSFields::getSourceData(obs_source_t *source)
 {
-  QJsonObject json_obj = json_from_str(json_des->mmgtocs());
-  for (MMGOBSField *field : fields) {
-    field->apply(json_obj);
-  }
+	source_name = obs_source_get_name(source);
+
+	OBSDataAutoRelease source_data = obs_source_get_settings(source);
+	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
+	QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
+	QJsonObject defaults_json = json_from_str(obs_data_get_json(source_defaults));
+
+	if (props) obs_properties_destroy(props);
+	props = obs_source_properties(source);
+
+	return {nullptr, source_json, defaults_json};
+}
+
+void MMGOBSFields::addFields(QWidget *parent, obs_properties_t *_props, const MMGOBSFieldInit &json_init)
+{
+	if (!_props) return;
+
+	obs_property_t *prop = obs_properties_first(_props);
+
+	MMGOBSFieldInit init{prop, json_init.current_json, json_init.default_json};
+
+	do {
+		init.prop = prop;
+		MMGOBSField *field;
+
+		switch (obs_property_get_type(prop)) {
+			case OBS_PROPERTY_FLOAT:
+			case OBS_PROPERTY_INT:
+				field = new MMGOBSNumberField(parent, init);
+				break;
+			case OBS_PROPERTY_LIST:
+				field = new MMGOBSStringField(parent, init);
+				break;
+			case OBS_PROPERTY_BOOL:
+				field = new MMGOBSBooleanField(parent, init);
+				break;
+			case OBS_PROPERTY_BUTTON:
+				field = new MMGOBSButtonField(parent, init);
+				connect(qobject_cast<MMGOBSButtonField *>(field), &MMGOBSButtonField::clicked, this,
+					&MMGOBSFields::buttonFieldClicked);
+				break;
+			case OBS_PROPERTY_COLOR:
+				field = new MMGOBSColorField(parent, init, false);
+				break;
+			case OBS_PROPERTY_COLOR_ALPHA:
+				field = new MMGOBSColorField(parent, init, true);
+				break;
+			case OBS_PROPERTY_FONT:
+				field = new MMGOBSFontField(parent, init);
+				break;
+			case OBS_PROPERTY_GROUP:
+				field = new MMGOBSGroupField(parent, init);
+				addGroupContent(qobject_cast<MMGOBSGroupField *>(field), init);
+				break;
+			case OBS_PROPERTY_PATH:
+				field = new MMGOBSPathField(parent, init);
+				break;
+			case OBS_PROPERTY_TEXT:
+				if (obs_property_text_type(prop) != OBS_TEXT_INFO) {
+					field = new MMGOBSTextField(parent, init);
+					break;
+				}
+				[[fallthrough]];
+			case OBS_PROPERTY_EDITABLE_LIST:
+			case OBS_PROPERTY_FRAME_RATE:
+			default:
+				continue;
+		}
+		connect(field, &MMGOBSField::triggerUpdate, this, &MMGOBSFields::updateField);
+		connect(field, &MMGOBSField::saveUpdates, this, &MMGOBSFields::jsonUpdate);
+		connect(field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
+
+		fields.append(field);
+		parent->layout()->addWidget(field);
+
+	} while (obs_property_next(&prop) != 0);
+}
+
+void MMGOBSFields::jsonUpdate()
+{
+	auto sender_field = qobject_cast<MMGOBSField *>(sender());
+
+	if (sender_field) {
+		sender_field->jsonUpdate(json_src);
+	} else {
+		for (MMGOBSField *field : fields)
+			field->jsonUpdate(json_src);
+	}
+
+	OBSDataAutoRelease obs_data = obs_data_create_from_json(json_to_str(json_src));
+	obs_properties_apply_settings(props, obs_data);
+
+	for (MMGOBSField *field : fields)
+		field->update(obs_properties_get(props, field->name().qtocs()));
+}
+
+void MMGOBSFields::jsonData()
+{
+	if (!json_des) return;
+	auto field = qobject_cast<MMGOBSField *>(sender());
+	if (!field) return;
+
+	QJsonObject json_obj;
+	field->jsonData(json_obj);
+	json_des->insert(field->name(), json_obj);
+}
+
+void MMGOBSFields::setJsonDestination(MMGJsonObject *json)
+{
+	if (json_des) disconnect(json_des, &QObject::destroyed, this, nullptr);
+	json_des = json;
+	connect(json_des, &QObject::destroyed, this, [&]() { json_des = nullptr; });
+
+	if (json_src.keys() != json_des->json().keys()) json_des->clear();
+	bool do_apply = !json_des->isEmpty();
+
+	for (MMGOBSField *field : fields) {
+		if (do_apply) field->apply(json_des->value(field->name()).toObject());
+		emit field->saveData();
+	}
+}
+
+void MMGOBSFields::updateField()
+{
+	auto field = qobject_cast<MMGOBSField *>(sender());
+	if (!field) return;
+
+	field->update(obs_properties_get(props, field->name().qtocs()));
+}
+
+void MMGOBSFields::buttonFieldClicked()
+{
+	auto field = qobject_cast<MMGOBSButtonField *>(sender());
+	if (!field) return;
+
+	obs_property_t *prop = obs_properties_get(props, field->name().qtocs());
+	field->callback(prop, OBSSourceAutoRelease(obs_get_source_by_name(source_name.qtocs())));
+}
+
+void MMGOBSFields::addGroupContent(MMGOBSGroupField *field, const MMGOBSFieldInit &init)
+{
+	MMGOBSBooleanField *bool_field = field->booleanField();
+	if (bool_field) {
+		connect(bool_field, &MMGOBSField::triggerUpdate, this, &MMGOBSFields::updateField);
+		connect(bool_field, &MMGOBSField::saveUpdates, this, &MMGOBSFields::jsonUpdate);
+		connect(bool_field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
+		layout()->addWidget(bool_field);
+	}
+	addFields(field, obs_property_group_content(init.prop), init);
 }
 // End MMGOBSFields

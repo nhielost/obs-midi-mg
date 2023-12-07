@@ -20,61 +20,65 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QToolButton>
 #include <QLCDNumber>
 #include <QTimer>
+#include <QWheelEvent>
+#include <QKeyEvent>
 
 class MMGLCDNumber : public QWidget {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGLCDNumber(QWidget *parent = nullptr);
-  ~MMGLCDNumber() = default;
+public:
+	MMGLCDNumber(QWidget *parent = nullptr);
+	~MMGLCDNumber() = default;
 
-  enum State { LCDNUMBER_ACTIVE, LCDNUMBER_0_127, LCDNUMBER_INACTIVE };
+	enum State { LCDNUMBER_ACTIVE, LCDNUMBER_0_127, LCDNUMBER_INACTIVE };
 
-  double value() const { return _value; };
-  double min() const { return _min; };
-  double max() const { return _max; };
-  double step() const { return _step; };
+	double value() const { return _value; };
+	double min() const { return _min; };
+	double max() const { return _max; };
+	double step() const { return _step; };
 
-  void setModifiable(bool editable) { modifiable = editable; };
-  void setBounds(double lower, double upper);
-  void setStep(double step);
-  void setTimeFormat(bool time_format) { _time_format = time_format; };
+	void setEditable(bool edit) { editable = edit; };
+	void setBounds(double lower, double upper);
+	void setStep(double step);
+	void setTimeFormat(bool time_format) { _time_format = time_format; };
 
-  void setValue(double val);
-  void display(State state);
+	void setValue(double val);
+	void display(State state);
 
-  signals:
-  void numberChanged(double);
+protected:
+	void wheelEvent(QWheelEvent *) override;
 
-  private:
-  QLCDNumber *lcd;
-  QToolButton *inc_button;
-  QToolButton *dec_button;
+signals:
+	void numberChanged(double);
 
-  double _value = 0.0;
-  bool modifiable = true;
+private:
+	QLCDNumber *lcd;
+	QToolButton *inc_button;
+	QToolButton *dec_button;
 
-  double _min = 0.0;
-  double _max = 100.0;
-  double _step = 1.0;
+	double _value = 0.0;
+	bool editable = true;
 
-  QTimer *repeat_delay_timer;
-  QTimer *auto_repeat_timer;
-  short timer_iterator = 0;
-  bool timer_kind = false;
-  double step_mult = 1;
+	double _min = 0.0;
+	double _max = 100.0;
+	double _step = 1.0;
 
-  bool _time_format = false;
+	QTimer *repeat_delay_timer;
+	QTimer *auto_repeat_timer;
+	bool timer_kind = false;
+	double step_mult = 1;
 
-  double adj_step() const { return _step * step_mult; };
+	bool _time_format = false;
 
-  private slots:
-  void inc() { setValue(_value + adj_step()); };
-  void dec() { setValue(_value - adj_step()); };
+	double adj_step() const { return _step * step_mult; };
 
-  void delayAutoRepeatInc();
-  void delayAutoRepeatDec();
-  void initAutoRepeat() { auto_repeat_timer->start(50); }
-  void autoRepeat();
-  void autoRepeatCancel();
+private slots:
+	void inc() { setValue(_value + adj_step()); };
+	void dec() { setValue(_value - adj_step()); };
+
+	void delayAutoRepeatInc();
+	void delayAutoRepeatDec();
+	void initAutoRepeat();
+	void autoRepeat();
+	void autoRepeatCancel();
 };

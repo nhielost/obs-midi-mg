@@ -20,108 +20,156 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionProfiles::MMGActionProfiles(const QJsonObject &json_obj) : profile(json_obj, "profile", 1)
+MMGActionProfiles::MMGActionProfiles(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), profile(json_obj, "profile", 1)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Profiles> action created.");
-}
-
-void MMGActionProfiles::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Profiles> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionProfiles::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  profile.json(json_obj, "profile");
-}
-
-void MMGActionProfiles::execute(const MMGMessage *midi) const
-{
-  const QStringList profiles = MMGActionProfiles::enumerate();
-
-  if (MIDI_STRING_IS_NOT_IN_RANGE(profile, profiles.size())) {
-    blog(LOG_INFO, "FAILED: MIDI value exceeds profile count.");
-    return;
-  }
-
-  // For new Profile change (pre 28.0.0 method encounters threading errors)
-  auto set_profile = [](const char *name) {
-    char *current_profile = obs_frontend_get_current_profile();
-    if (name == current_profile) {
-      bfree(current_profile);
-      return;
-    }
-    bfree(current_profile);
-    obs_queue_task(
-      OBS_TASK_UI,
-      [](void *param) {
-	auto profile_name = (char **)param;
-	obs_frontend_set_current_profile(*profile_name);
-      },
-      &name, true);
-  };
-
-  if (sub() == 0) {
-    if (!(obs_frontend_streaming_active() || obs_frontend_recording_active() ||
-	  obs_frontend_virtualcam_active())) {
-      set_profile(
-	(profile.state() == MMGString::STRINGSTATE_MIDI ? profiles[(int)midi->value()] : profile)
-	  .qtocs());
-    }
-  }
-
-  blog(LOG_DEBUG, "Successfully executed.");
+	profile.json(json_obj, "profile");
 }
 
 void MMGActionProfiles::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionProfiles *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionProfiles *>(dest);
+	if (!casted) return;
 
-  casted->profile = profile.copy();
+	casted->profile = profile.copy();
 }
 
 void MMGActionProfiles::setEditable(bool edit)
 {
-  profile.set_edit(edit);
+	profile.setEditable(edit);
 }
 
-const QStringList MMGActionProfiles::enumerate()
+void MMGActionProfiles::toggle()
 {
-  QStringList list;
-
-  char **profile_names = obs_frontend_get_profiles();
-  for (int i = 0; profile_names[i] != 0; ++i) {
-    list.append(profile_names[i]);
-  }
-  bfree(profile_names);
-
-  return list;
+	profile.toggle();
 }
 
 void MMGActionProfiles::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&profile);
+	MMGStringDisplay *profile_display = display()->stringDisplays()->addNew(&profile);
+	profile_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionProfiles::setSubOptions(QComboBox *sub)
+void MMGActionProfiles::setComboOptions(QComboBox *sub)
 {
-  sub->addItem("Switch Profiles");
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << subModuleText("Switch");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionProfiles::setSubConfig()
+void MMGActionProfiles::setActionParams()
 {
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Profile");
-  QStringList options = enumerate();
-  options.append("Use Message Value");
-  _display->setStr1Options(options);
+	MMGStringDisplay *profile_display = display()->stringDisplays()->fieldAt(0);
+	profile_display->setVisible(true);
+	profile_display->setDescription(obstr("TitleBar.Profile"));
+	profile_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
+	profile_display->setBounds(enumerate());
+}
+
+const QStringList MMGActionProfiles::enumerate()
+{
+	QStringList list;
+
+	char **profile_names = obs_frontend_get_profiles();
+	for (int i = 0; profile_names[i] != 0; ++i) {
+		list.append(profile_names[i]);
+	}
+	bfree(profile_names);
+
+	return list;
+}
+
+const QString MMGActionProfiles::currentProfile()
+{
+	char *char_profile = obs_frontend_get_current_profile();
+	QString q_profile = char_profile;
+	bfree(char_profile);
+	return q_profile;
+}
+
+void MMGActionProfiles::execute(const MMGMessage *midi) const
+{
+	ACTION_ASSERT(sub() == PROFILE_PROFILE, "Invalid action.");
+
+	ACTION_ASSERT(!obs_frontend_streaming_active(), "Profiles cannot be changed when streaming.");
+	ACTION_ASSERT(!obs_frontend_recording_active(), "Profiles cannot be changed when recording.");
+	ACTION_ASSERT(!obs_frontend_virtualcam_active(), "Profiles cannot be changed when using the virtual camera.");
+
+	QString name = profile.chooseFrom(midi, enumerate());
+	ACTION_ASSERT(name != currentProfile(), "The profile is already active.");
+
+	obs_queue_task(
+		OBS_TASK_UI,
+		[](void *param) {
+			auto profile_name = (QString *)param;
+			obs_frontend_set_current_profile(profile_name->qtocs());
+		},
+		&name, true);
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionProfiles::connectOBSSignals()
+{
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionProfiles::frontendCallback);
+}
+
+void MMGActionProfiles::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionProfiles::frontendCallback(obs_frontend_event event) const
+{
+	MMGNumber values;
+	const QStringList profiles = enumerate();
+
+	switch (sub()) {
+		case PROFILE_CHANGING:
+			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGING) return;
+			values = profiles.indexOf(currentProfile());
+			break;
+
+		case PROFILE_CHANGED:
+			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGED) return;
+			values = profiles.indexOf(currentProfile());
+			break;
+
+		case PROFILE_TOGGLE_CHANGING:
+			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGING && event != OBS_FRONTEND_EVENT_PROFILE_CHANGED)
+				return;
+			values = profiles.indexOf(currentProfile());
+			break;
+
+		default:
+			return;
+	}
+
+	if (profile.chooseTo(values, profiles)) return;
+	emit eventTriggered({values});
 }

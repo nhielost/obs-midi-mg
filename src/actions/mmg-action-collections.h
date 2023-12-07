@@ -20,25 +20,36 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionCollections : public MMGAction {
-  public:
-  explicit MMGActionCollections() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionCollections(const QJsonObject &json_obj);
-  enum Actions { COLLECTION_COLLECTION };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionCollections(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_COLLECTION; }
+	enum Actions { COLLECTION_COLLECTION };
+	enum Events { COLLECTION_CHANGING, COLLECTION_CHANGED, COLLECTION_TOGGLE_CHANGING };
 
-  static const QStringList enumerate();
+	Category category() const override { return MMGACTION_COLLECTION; };
+	const QString trName() const override { return "Collections"; };
 
-  private:
-  MMGUtils::MMGString collection;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QStringList enumerate();
+	static const QString currentCollection();
+
+private:
+	MMGUtils::MMGString collection;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

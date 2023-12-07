@@ -21,69 +21,59 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "../mmg-utils.h"
 #include "mmg-lcd-number.h"
+#include "mmg-midi-buttons.h"
 
 class MMGNumberDisplay : public QWidget {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGNumberDisplay(QWidget *parent);
+public:
+	MMGNumberDisplay(QWidget *parent);
 
-  enum ComboOptions : int {
-    OPTIONS_FIXED_ONLY,
-    OPTIONS_MIDI_DEFAULT,
-    OPTIONS_MIDI_CUSTOM,
-    OPTIONS_IGNORE,
-    OPTIONS_ALL
-  };
-  enum Mode {
-    MODE_DEFAULT,
-    MODE_THIN,
-  };
+	enum Mode { MODE_NORMAL, MODE_THIN };
 
-  int state() const { return combo->currentIndex() == 2 ? 1 : combo->currentIndex(); };
+	void setStorage(MMGUtils::MMGNumber *storage, bool force_values = false);
+	void setDescription(const QString &desc);
+	void setOptions(MIDIButtons options);
+	void setBounds(double lower, double upper, bool extend_bounds = false);
+	void setStep(double inc);
+	void setDefaultValue(double val) { defaults = val; };
+	void setTimeFormat(bool format);
+	void setDisplayMode(Mode mode);
+	void display();
+	void reset();
 
-  void setStorage(MMGUtils::MMGNumber *storage, bool force_values = false);
-  void setDescription(const QString &desc);
-  void setOptions(ComboOptions options);
-  void setBounds(double lower, double upper, bool extend_bounds = false);
-  void setStep(double inc);
-  void setDefaultValue(double val) { default_val = val; };
-  void setTimeFormat(bool format);
-  void setDisplayMode(Mode mode);
-  void display();
-  void reset();
+signals:
+	void numberChanged();
 
-  signals:
-  void numberChanged();
+public slots:
+	void setLCDState(short state);
 
-  public slots:
-  void setLCDMode(int labels);
+protected:
+	MMGUtils::MMGNumber *number = nullptr;
+	MMGUtils::MMGNumber defaults;
 
-  protected:
-  MMGUtils::MMGNumber *number = nullptr;
+	QLabel *label;
+	MMGLCDNumber *lcd_number;
+	MMGLCDNumber *lcd_min;
+	MMGLCDNumber *lcd_max;
 
-  double default_val = 0.0;
-  double default_bounds_min = 0.0;
-  double default_bounds_max = 100.0;
-
-  QLabel *label;
-  MMGLCDNumber *lcd_number;
-  MMGLCDNumber *lcd_min;
-  MMGLCDNumber *lcd_max;
-  QComboBox *combo;
+	MMGMIDIButtons *midi_buttons;
 };
 
 class MMGNumberDisplayFields : public QWidget {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGNumberDisplayFields(QWidget *parent);
+public:
+	MMGNumberDisplayFields(QWidget *parent);
 
-  void add(MMGNumberDisplay *field);
-  MMGNumberDisplay *fieldAt(int index) { return fields.at(index); };
+	void add(MMGNumberDisplay *field);
+	MMGNumberDisplay *addNew(MMGUtils::MMGNumber *storage);
 
-  private:
-  QList<MMGNumberDisplay *> fields;
+	MMGNumberDisplay *fieldAt(int index) { return fields.at(index); };
+	void hideAll();
+
+private:
+	QList<MMGNumberDisplay *> fields;
 };
 
 #endif // MMG_NUMBER_DISPLAY_H

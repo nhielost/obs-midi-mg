@@ -20,14 +20,30 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionStream : public MMGAction {
-  public:
-  explicit MMGActionStream() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionStream(const QJsonObject &json_obj);
-  enum Actions { STREAM_ON, STREAM_OFF, STREAM_TOGGLE_ONOFF };
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionStream(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_STREAM; }
+	enum Actions { STREAM_ON, STREAM_OFF, STREAM_TOGGLE_ONOFF };
+	enum Events {
+		STREAM_STARTING,
+		STREAM_STARTED,
+		STREAM_STOPPING,
+		STREAM_STOPPED,
+		STREAM_TOGGLE_STARTING,
+		STREAM_TOGGLE_STARTED
+	};
+
+	Category category() const override { return MMGACTION_STREAM; };
+	const QString trName() const override { return "Streaming"; };
+
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override{};
+
+	void execute(const MMGMessage *) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

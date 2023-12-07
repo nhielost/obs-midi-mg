@@ -1,0 +1,29 @@
+<RCC>
+  <qresource prefix="">
+    <file>icons/action.svg</file>
+    <file>icons/activate.svg</file>
+    <file>icons/add.svg</file>
+    <file>icons/binding.svg</file>
+    <file>icons/bugreport.svg</file>
+    <file>icons/confirm.svg</file>
+    <file>icons/copy.svg</file>
+    <file>icons/custom.svg</file>
+    <file>icons/decrease.svg</file>
+    <file>icons/delete.svg</file>
+    <file>icons/device.svg</file>
+    <file>icons/disable.svg</file>
+    <file>icons/edit.svg</file>
+    <file>icons/export.svg</file>
+    <file>icons/fixed.svg</file>
+    <file>icons/help.svg</file>
+    <file>icons/import.svg</file>
+    <file>icons/increase.svg</file>
+    <file>icons/message.svg</file>
+    <file>icons/midi.svg</file>
+    <file>icons/preferences.svg</file>
+    <file>icons/switch-in.svg</file>
+    <file>icons/switch-out.svg</file>
+    <file>icons/toggle-on.svg</file>
+    <file>icons/toggle-off.svg</file>
+  </qresource>
+</RCC>

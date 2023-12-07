@@ -20,14 +20,32 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionReplayBuffer : public MMGAction {
-  public:
-  explicit MMGActionReplayBuffer() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionReplayBuffer(const QJsonObject &json_obj);
-  enum Actions { REPBUF_ON, REPBUF_OFF, REPBUF_TOGGLE_ONOFF, REPBUF_SAVE };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionReplayBuffer(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_REPBUF; }
+	enum Actions { REPBUF_ON, REPBUF_OFF, REPBUF_TOGGLE_ONOFF, REPBUF_SAVE };
+	enum Events {
+		REPBUF_STARTING,
+		REPBUF_STARTED,
+		REPBUF_STOPPING,
+		REPBUF_STOPPED,
+		REPBUF_TOGGLE_STARTING,
+		REPBUF_TOGGLE_STARTED,
+		REPBUF_SAVED
+	};
+
+	Category category() const override { return MMGACTION_REPBUF; };
+	const QString trName() const override { return "ReplayBuffer"; };
+
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override{};
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private:
+	void frontendCallback(obs_frontend_event event) const;
 };

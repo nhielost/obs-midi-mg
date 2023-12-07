@@ -18,33 +18,69 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include "mmg-action.h"
+#include "../ui/mmg-binding-display.h"
+
+#include <QThread>
+#include <QQueue>
+#include <mutex>
+
+class MMGConnectionQueue;
 
 class MMGActionMIDI : public MMGAction {
-  public:
-  explicit MMGActionMIDI() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionMIDI(const QJsonObject &json_obj);
-  enum Actions { MIDI_SENDONE };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj);
+	~MMGActionMIDI() { midi_binding->setType(MMGUtils::TYPE_NONE); };
 
-  void setLabels();
+	enum Actions { MIDI_SEND_MESSAGES };
+	enum Events { MIDI_MESSAGES_SENT };
 
-  Category category() const override { return Category::MMGACTION_MIDI; }
+	Category category() const override { return MMGACTION_MIDI; };
+	const QString trName() const override { return "MIDI"; };
 
-  private:
-  MMGUtils::MMGString device;
-  MMGUtils::MMGString type;
-  MMGUtils::MMGNumber channel;
-  MMGUtils::MMGNumber note;
-  MMGUtils::MMGNumber value;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
-  void setList2Config() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private slots:
+	void editClicked(int page);
+
+private:
+	MMGBinding *midi_binding;
+	MMGUtils::DeviceType type_check;
+
+	MMGConnectionQueue *_queue;
+	MMGBindingDisplay *binding_display = nullptr;
+
+	friend class MMGConnectionQueue;
+};
+
+class MMGConnectionQueue : public QObject {
+	Q_OBJECT
+
+public:
+	MMGConnectionQueue(MMGActionMIDI *parent);
+
+	void blog(int log_status, const QString &message) const;
+
+	void disconnectQueue();
+	void connectQueue();
+	void resetQueue();
+	void resetConnections();
+
+private slots:
+	void messageFound(const MMGSharedMessage &);
+
+private:
+	QQueue<MMGMessage *> queue;
+
+	MMGActionMIDI *action;
 };

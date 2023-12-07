@@ -1,14 +1,9 @@
 ## Announcement
-**Version 2.3.1 of this plugin contained various errors for different users that cannot be removed due to a design flaw. It has been taken down, so please use version 2.3.0 instead. I'm sorry for any inconvenience.**
-
-(However, a new version of the plugin with some *big* changes is arriving in the near future!)<br><br><br>
+**The new version 3.0.0 Beta is now available! Go check out all of the new features.**<br><br><br>
 
 # obs-midi-mg
 
 Allows MIDI devices to interact with OBS Studio.
-
-### This plugin will not work in OBS Studio versions below 28.0.0 due to its usage of Qt 6, meaning that any users using an OS below Windows 10 or MacOS 10.15 will not be able to use this plugin.
-(This may be addressed at a later date.)
 
 [![CodeFactor](https://www.codefactor.io/repository/github/nhielost/obs-midi-mg/badge)](https://www.codefactor.io/repository/github/nhielost/obs-midi-mg)
 
@@ -22,11 +17,11 @@ Connect MIDI devices and seamlessly integrate with OBS Studio! This plugin offer
 
 ## Installing
 
-Go to the [Releases page](https://github.com/nhielost/obs-midi-mg/releases) and download and install the latest release for the proper operating system. When the install process has completed, open OBS Studio and open the setup window under *Tools > obs-midi-mg Setup* to begin creating bindings.
+Go to the [Releases page](https://github.com/nhielost/obs-midi-mg/releases) and download and install the latest release for the proper operating system. When the install process has completed, open OBS Studio and open the setup window under *Tools > obs-midi-mg Setup* to begin creating Bindings.
 
 ## Help
 
-If help is needed, click the *Help* button in the plugin, or click [here](HELP.md). 
+If help is needed, click the *Help* button in the plugin, or click [here](docs/README.md). 
 
 Some users may find that they want to have multiple programs monitor the same MIDI device (for example, OBS Studio and Ableton). To do this, install a MIDI routing software such as [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) or [BOME MIDI Translator](https://www.bome.com/products/mtclassic). This will allow for virtual devices to be created, and, when configured, multiple programs can connect to these seamlessly.
 

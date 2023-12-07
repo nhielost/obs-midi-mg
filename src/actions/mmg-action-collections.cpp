@@ -20,107 +20,152 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionCollections::MMGActionCollections(const QJsonObject &json_obj)
-  : collection(json_obj, "collection", 1)
+MMGActionCollections::MMGActionCollections(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), collection(json_obj, "collection", 1)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Collections> action created.");
-}
-
-void MMGActionCollections::blog(int log_status, const QString &message) const
-{
-  global_blog(log_status, "<Collections> Action -> " + message);
+	blog(LOG_DEBUG, "Action created.");
 }
 
 void MMGActionCollections::json(QJsonObject &json_obj) const
 {
-  MMGAction::json(json_obj);
+	MMGAction::json(json_obj);
 
-  collection.json(json_obj, "collection");
-}
-
-void MMGActionCollections::execute(const MMGMessage *midi) const
-{
-  const QStringList collections = MMGActionCollections::enumerate();
-
-  if (MIDI_STRING_IS_NOT_IN_RANGE(collection, collections.size())) {
-    blog(LOG_INFO, "FAILED: MIDI value exceeds scene collection count.");
-    return;
-  }
-
-  // For new Scene Collection change (pre 28.0.0 method encounters threading errors)
-  auto set_collection = [](const char *name) {
-    char *current_collection = obs_frontend_get_current_scene_collection();
-    if (name == current_collection) {
-      bfree(current_collection);
-      return;
-    }
-    bfree(current_collection);
-    obs_queue_task(
-      OBS_TASK_UI,
-      [](void *param) {
-	auto collection_name = (char **)param;
-	obs_frontend_set_current_scene_collection(*collection_name);
-      },
-      &name, true);
-  };
-
-  if (sub() == 0) {
-    set_collection((collection.state() == MMGString::STRINGSTATE_MIDI
-		      ? collections[(int)midi->value()]
-		      : collection)
-		     .qtocs());
-  }
-
-  blog(LOG_DEBUG, "Successfully executed.");
+	collection.json(json_obj, "collection");
 }
 
 void MMGActionCollections::copy(MMGAction *dest) const
 {
-  MMGAction::copy(dest);
+	MMGAction::copy(dest);
 
-  auto casted = dynamic_cast<MMGActionCollections *>(dest);
-  if (!casted) return;
+	auto casted = dynamic_cast<MMGActionCollections *>(dest);
+	if (!casted) return;
 
-  casted->collection = collection.copy();
+	casted->collection = collection.copy();
 }
 
 void MMGActionCollections::setEditable(bool edit)
 {
-  collection.set_edit(edit);
+	collection.setEditable(edit);
 }
 
-const QStringList MMGActionCollections::enumerate()
+void MMGActionCollections::toggle()
 {
-  QStringList list;
-
-  char **collection_names = obs_frontend_get_scene_collections();
-  for (int i = 0; collection_names[i] != 0; ++i) {
-    list.append(collection_names[i]);
-  }
-  bfree(collection_names);
-
-  return list;
+	collection.toggle();
 }
 
 void MMGActionCollections::createDisplay(QWidget *parent)
 {
-  MMGAction::createDisplay(parent);
+	MMGAction::createDisplay(parent);
 
-  _display->setStr1Storage(&collection);
+	MMGStringDisplay *collection_display = display()->stringDisplays()->addNew(&collection);
+	collection_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionCollections::setSubOptions(QComboBox *sub)
+void MMGActionCollections::setComboOptions(QComboBox *sub)
 {
-  sub->addItem("Switch Scene Collections");
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << subModuleText("Switch");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionCollections::setSubConfig()
+void MMGActionCollections::setActionParams()
 {
-  _display->setStr1Visible(true);
-  _display->setStr1Description("Scene Collection");
-  QStringList options = enumerate();
-  options.append("Use Message Value");
-  _display->setStr1Options(options);
+	MMGStringDisplay *collection_display = display()->stringDisplays()->fieldAt(0);
+	collection_display->setVisible(true);
+	collection_display->setDescription(obstr("Importer.Collection"));
+	collection_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
+	collection_display->setBounds(enumerate());
+}
+
+const QStringList MMGActionCollections::enumerate()
+{
+	QStringList list;
+
+	char **collection_names = obs_frontend_get_scene_collections();
+	for (int i = 0; collection_names[i] != 0; ++i) {
+		list.append(collection_names[i]);
+	}
+	bfree(collection_names);
+
+	return list;
+}
+
+const QString MMGActionCollections::currentCollection()
+{
+	char *char_collection = obs_frontend_get_current_scene_collection();
+	QString q_collection = char_collection;
+	bfree(char_collection);
+	return q_collection;
+}
+
+void MMGActionCollections::execute(const MMGMessage *midi) const
+{
+	ACTION_ASSERT(sub() == COLLECTION_COLLECTION, "Invalid subcategory.");
+
+	QString name = collection.chooseFrom(midi, enumerate());
+	ACTION_ASSERT(name != currentCollection(), "The scene collection is already active.");
+
+	obs_queue_task(
+		OBS_TASK_UI,
+		[](void *param) {
+			auto collection_name = (QString *)param;
+			obs_frontend_set_current_scene_collection(collection_name->qtocs());
+		},
+		&name, true);
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionCollections::connectOBSSignals()
+{
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionCollections::frontendCallback);
+}
+
+void MMGActionCollections::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionCollections::frontendCallback(obs_frontend_event event) const
+{
+	MMGNumber values;
+	const QStringList collections = enumerate();
+
+	switch (sub()) {
+		case COLLECTION_CHANGING:
+			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) return;
+			values = collections.indexOf(currentCollection());
+			break;
+
+		case COLLECTION_CHANGED:
+			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) return;
+			values = collections.indexOf(currentCollection());
+			break;
+
+		case COLLECTION_TOGGLE_CHANGING:
+			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING &&
+			    event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED)
+				return;
+			break;
+
+		default:
+			return;
+	}
+
+	if (collection.chooseTo(values, collections)) return;
+	emit eventTriggered({values});
 }

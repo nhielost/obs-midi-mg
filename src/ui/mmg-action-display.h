@@ -16,67 +16,52 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#pragma once
+#ifndef MMG_ACTION_DISPLAY_H
+#define MMG_ACTION_DISPLAY_H
+
 #include "../mmg-utils.h"
 #include "mmg-number-display.h"
+#include "mmg-string-display.h"
 
 class MMGBinding;
-class MMGOBSFields;
+
+struct MMGActionFieldRequest {
+	OBSSourceAutoRelease source;
+	MMGUtils::MMGJsonObject *json;
+};
+
+using MMGOBSFieldsList = QList<class MMGOBSFields *>;
 
 class MMGActionDisplay : public QWidget {
-  Q_OBJECT
+	Q_OBJECT
 
-  public:
-  MMGActionDisplay(QWidget *parent);
+public:
+	MMGActionDisplay(QWidget *parent);
+	~MMGActionDisplay() { reset(); };
 
-  void setStr1Visible(bool visible);
-  void setStr2Visible(bool visible);
-  void setStr3Visible(bool visible);
-  void setStr1Description(const QString &desc) { label_str1->setText(desc); };
-  void setStr2Description(const QString &desc) { label_str2->setText(desc); };
-  void setStr3Description(const QString &desc) { label_str3->setText(desc); };
-  void setStr1Options(const QStringList &options);
-  void setStr2Options(const QStringList &options);
-  void setStr3Options(const QStringList &options);
-  void setStr1Storage(MMGUtils::MMGString *storage) { str1 = storage; };
-  void setStr2Storage(MMGUtils::MMGString *storage) { str2 = storage; };
-  void setStr3Storage(MMGUtils::MMGString *storage) { str3 = storage; };
+	MMGStringDisplayFields *stringDisplays() const { return string_fields; };
+	MMGNumberDisplayFields *numberDisplays() const { return number_fields; };
 
-  QWidget *scrollWidget() const { return current_scroll_widget; };
-  MMGNumberDisplayFields *numberDisplays() const { return default_scroll_widget; };
-  void setScrollWidget(QWidget *widget);
-  void resetScrollWidget() { setScrollWidget(default_scroll_widget); };
+	void setFields(QWidget *widget);
+	void reset();
 
-  const MMGBinding *parentBinding() const { return parent_binding; };
-  void setParentBinding(MMGBinding *binding) { parent_binding = binding; };
+	void setCustomOBSFields(const MMGActionFieldRequest &req);
 
-  signals:
-  void str1Changed();
-  void str2Changed();
-  void str3Changed();
+	static void clearCustomOBSFields();
 
-  void customFieldRequest(void *, MMGUtils::MMGString *);
+signals:
+	void editRequest(MMGBinding *, int);
 
-  private slots:
-  void setStr1(const QString &);
-  void setStr2(const QString &);
-  void setStr3(const QString &);
+protected:
+	QScrollArea *scroll_area;
+	QWidget *scroll_widget;
+	QVBoxLayout *layout;
 
-  protected:
-  MMGUtils::MMGString *str1 = nullptr;
-  MMGUtils::MMGString *str2 = nullptr;
-  MMGUtils::MMGString *str3 = nullptr;
+	MMGStringDisplayFields *string_fields;
+	MMGNumberDisplayFields *number_fields;
+	QWidget *fields = nullptr;
 
-  QLabel *label_str1;
-  QLabel *label_str2;
-  QLabel *label_str3;
-  QComboBox *editor_str1;
-  QComboBox *editor_str2;
-  QComboBox *editor_str3;
-
-  QScrollArea *scroll_area;
-  MMGNumberDisplayFields *default_scroll_widget;
-  QWidget *current_scroll_widget;
-
-  MMGBinding *parent_binding;
+	static MMGOBSFieldsList mmg_custom_fields;
 };
+
+#endif // MMG_ACTION_DISPLAY_H

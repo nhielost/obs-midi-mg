@@ -22,8 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "actions/mmg-action.h"
 #include "ui/mmg-fields.h"
 
-#include <obs-frontend-api.h>
-
 #include <QMessageBox>
 #include <QStandardItemModel>
 
@@ -33,399 +31,385 @@ static std::mutex custom_update;
 
 void global_blog(int log_status, const QString &message)
 {
-  blog(log_status, "[obs-midi-mg] %s", qPrintable(message));
+	blog(log_status, "[obs-midi-mg] %s", message.qtocs());
 }
 
 namespace MMGUtils {
 
 // MMGNumber
+MMGNumber::MMGNumber()
+{
+	val = 0.0;
+	lower = 0.0;
+	higher = 100.0;
+}
+
 MMGNumber::MMGNumber(const QJsonObject &json_obj, const QString &preferred, int fallback_num)
 {
-  double fallback = json_obj[num_to_str(fallback_num, "num")].toDouble();
+	double fallback = json_obj[num_to_str(fallback_num, "num")].toDouble();
 
-  if (json_obj[preferred].isObject()) {
-    // v2.3.0+ (with bounds)
-    QJsonObject number_obj = json_obj[preferred].toObject();
-    set_num(number_obj["number"].toDouble());
-    set_min(number_obj["lower"].toDouble());
-    set_max(number_obj["higher"].toDouble());
-    set_state(number_obj["state"].toInt());
-  } else if (json_obj[preferred].isDouble()) {
-    // v2.2.0+ (no bounds)
-    set_num(json_obj[preferred].toDouble());
-    short nums_state = json_obj[preferred + "_state"].toInt();
-    set_state(nums_state == 2 ? 1 : nums_state);
-    set_min(number < lower ? number : lower);
-    set_max(number > higher ? number : higher);
-  } else if (json_obj["nums_state"].isDouble()) {
-    // v2.1.0 - v2.1.1
-    set_num(fallback);
-    int nums_state = (json_obj["nums_state"].toInt() & (3 << (fallback_num * 2))) >>
-		     (fallback_num * 2);
-    set_state(nums_state == 2 ? 3 : nums_state);
-    set_min(number < lower ? number : lower);
-    set_max(number > higher ? number : higher);
-  } else {
-    // pre v2.1.0
-    set_num(fallback == -1 ? 0 : fallback);
-    set_state(fallback == -1);
-    set_min(number < lower ? number : lower);
-    set_max(number > higher ? number : higher);
-  }
-  if ((uint)num_state > 3) num_state = NUMBERSTATE_FIXED;
+	if (json_obj[preferred].isObject()) {
+		// v2.3.0+ (with bounds)
+		QJsonObject number_obj = json_obj[preferred].toObject();
+		setValue(number_obj["number"].toDouble());
+		setMin(number_obj["lower"].toDouble());
+		setMax(number_obj["higher"].toDouble());
+		setState(number_obj["state"].toInt());
+	} else if (json_obj[preferred].isDouble()) {
+		// v2.2.0+ (no bounds)
+		setValue(json_obj[preferred].toDouble());
+		short nums_state = json_obj[preferred + "_state"].toInt();
+		setState(nums_state == 2 ? 1 : nums_state);
+		setMin(val < lower ? val : lower);
+		setMax(val > higher ? val : higher);
+	} else if (json_obj["nums_state"].isDouble()) {
+		// v2.1.0 - v2.1.1
+		setValue(fallback);
+		int nums_state = (json_obj["nums_state"].toInt() & (3 << (fallback_num * 2))) >> (fallback_num * 2);
+		setState(nums_state == 2 ? 3 : nums_state);
+		setMin(val < lower ? val : lower);
+		setMax(val > higher ? val : higher);
+	} else {
+		// pre v2.1.0
+		setValue(fallback == -1 ? 0 : fallback);
+		setState(fallback == -1);
+		setMin(val < lower ? val : lower);
+		setMax(val > higher ? val : higher);
+	}
+	if ((uint)value_state > 4) value_state = STATE_FIXED;
 }
 
 void MMGNumber::json(QJsonObject &json_obj, const QString &prefix, bool use_bounds) const
 {
-  if (!use_bounds) {
-    json_obj[prefix] = number;
-    return;
-  }
-  QJsonObject number_json_obj;
-  number_json_obj["number"] = number;
-  number_json_obj["lower"] = lower;
-  number_json_obj["higher"] = higher;
-  number_json_obj["state"] = num_state;
-  json_obj[prefix] = number_json_obj;
+	if (!use_bounds) {
+		json_obj[prefix] = val;
+		return;
+	}
+	QJsonObject number_json_obj;
+	number_json_obj["number"] = val;
+	number_json_obj["lower"] = lower;
+	number_json_obj["higher"] = higher;
+	number_json_obj["state"] = value_state;
+	json_obj[prefix] = number_json_obj;
 }
 
-double MMGNumber::choose(const MMGMessage *midi, double default_value) const
+double MMGNumber::chooseFrom(const MMGMessage *midi, bool round, double default_value) const
 {
-  switch (num_state) {
-    case MMGNumber::NUMBERSTATE_MIDI:
-    case MMGNumber::NUMBERSTATE_CUSTOM:
-      return qRound((midi->value() / 127.0) * (higher - lower) + lower);
-    case MMGNumber::NUMBERSTATE_IGNORE:
-      return default_value;
-    default:
-      return number;
-  }
+	switch (value_state) {
+		case STATE_MIDI:
+		case STATE_CUSTOM:
+			return midi->value().map(*this, round);
+
+		case STATE_IGNORE:
+			return default_value;
+
+		default:
+			return val;
+	}
+}
+
+void MMGNumber::chooseOther(const MMGNumber &applied)
+{
+	switch (value_state) {
+		case STATE_MIDI:
+		case STATE_CUSTOM:
+			val = applied.map(*this);
+			break;
+
+		case STATE_IGNORE:
+			val = applied.value();
+			break;
+
+		default:
+			break;
+	}
+}
+
+double MMGNumber::map(const MMGNumber &other, bool round) const
+{
+	if (higher == lower) return other.lower;
+	double mapped = (val - lower) / (higher - lower) * (other.higher - other.lower) + other.lower;
+	return round ? qRound64(mapped) : mapped;
+}
+
+bool MMGNumber::acceptable(double value) const
+{
+	switch (value_state) {
+		case STATE_FIXED:
+		case STATE_TOGGLE:
+			return val == value;
+
+		case STATE_MIDI:
+		case STATE_CUSTOM:
+			if (lower <= higher) {
+				return num_between(value, lower, higher);
+			} else {
+				return num_between(value, higher, lower, false);
+			}
+
+		case STATE_IGNORE:
+			return true;
+
+		default:
+			return false;
+	}
 }
 // End MMGNumber
 
 // MMGString
 MMGString::MMGString(const QJsonObject &json_obj, const QString &preferred, int fallback_num)
 {
-  if (json_obj[preferred].isObject()) {
-    // v2.3.0+
-    QJsonObject string_obj = json_obj[preferred].toObject();
-    set_str(string_obj["string"].toString());
-    set_state(string_obj["state"].toInt());
-  } else if (json_obj[preferred].isString()) {
-    // v2.1.0+
-    set_str(json_obj[preferred].toString());
-    set_state(json_obj[preferred + "_state"].toInt());
-    if ((uint)str_state > 2) str_state = STRINGSTATE_FIXED;
-  } else {
-    // pre v2.1.0
-    set_str(json_obj[num_to_str(fallback_num, "str")].toString());
-    if (string == "Use Message Value") {
-      str_state = STRINGSTATE_MIDI;
-    } else if (string == "Toggle") {
-      str_state = STRINGSTATE_TOGGLE;
-    }
-  }
+	if (json_obj[preferred].isObject()) {
+		// v2.3.0+
+		QJsonObject string_obj = json_obj[preferred].toObject();
+		setValue(string_obj["string"].toString());
+		setMin(string_obj["lower"].toString());
+		setMax(string_obj["higher"].toString());
+		setState(string_obj["state"].toInt());
+	} else if (json_obj[preferred].isString()) {
+		// v2.1.0 - v2.2.0
+		setValue(json_obj[preferred].toString());
+		setState(json_obj[preferred + "_state"].toInt());
+	} else {
+		// pre v2.1.0
+		setValue(json_obj[num_to_str(fallback_num, "str")].toString());
+		if (val == mmgtr("Fields.UseMessageValue")) {
+			value_state = STATE_MIDI;
+		} else if (val == mmgtr("Fields.Toggle")) {
+			value_state = STATE_TOGGLE;
+		}
+	}
+	if (value_state > STATE_TOGGLE) value_state = STATE_FIXED;
 }
 
 void MMGString::json(QJsonObject &json_obj, const QString &prefix, bool use_state) const
 {
-  if (use_state) {
-    QJsonObject string_obj;
-    string_obj["string"] = string;
-    string_obj["state"] = (int)str_state;
-    json_obj[prefix] = string_obj;
-  } else {
-    json_obj[prefix] = string;
-  }
+	if (use_state) {
+		QJsonObject string_obj;
+		string_obj["string"] = val;
+		string_obj["lower"] = lower;
+		string_obj["higher"] = higher;
+		string_obj["state"] = (int)value_state;
+		json_obj[prefix] = string_obj;
+	} else {
+		json_obj[prefix] = val;
+	}
+}
+
+QString MMGString::chooseFrom(const MMGMessage *midi, const QStringList &midi_range) const
+{
+	if (value_state != STATE_MIDI) return val;
+	if (midi_range.isEmpty()) return "";
+
+	MMGNumber number;
+	number.setMax(midi_range.size() - 1);
+	return midi_range.value(midi->value().map(number));
+}
+
+bool MMGString::chooseTo(MMGNumber &values, const QStringList &range) const
+{
+	if (!range.isEmpty()) values.setMax(range.size() - 1);
+
+	switch (value_state) {
+		case STATE_MIDI:
+		case STATE_CUSTOM:
+			values.setState(STATE_CUSTOM);
+			return false;
+
+		default:
+			return values != range.indexOf(val);
+	}
 }
 // End MMGString
 
 // MMGTimer
 MMGTimer::MMGTimer(QObject *parent) : QTimer(parent)
 {
-  connect(this, &QTimer::timeout, this, &MMGTimer::stopTimer);
-  connect(this, &MMGTimer::stopping, this, &QTimer::stop);
-  connect(this, &MMGTimer::resetting, this, QOverload<int>::of(&QTimer::start));
+	connect(this, &QTimer::timeout, this, &MMGTimer::stopTimer);
+	connect(this, &MMGTimer::stopping, this, &QTimer::stop);
+	connect(this, &MMGTimer::resetting, this, QOverload<int>::of(&QTimer::start));
 }
 
 void MMGTimer::reset(int time)
 {
-  emit resetting(time);
-};
+	emit resetting(time);
+}
 // End MMGTimer
 
 const QByteArray json_to_str(const QJsonObject &json_obj)
 {
-  return QJsonDocument(json_obj).toJson(QJsonDocument::Compact);
+	return QJsonDocument(json_obj).toJson(QJsonDocument::Compact);
 }
 
 const QJsonObject json_from_str(const QByteArray &str)
 {
-  return QJsonDocument::fromJson(str).object();
+	return QJsonDocument::fromJson(str).object();
 }
 
-void set_message_labels(const QString &type, MMGNumberDisplay *note_display,
-			MMGNumberDisplay *value_display)
+QString mmgtr_join(const QString &header, const QString &joiner)
 {
-  if (type.contains("Note")) {
-    note_display->setVisible(true);
-    note_display->setDescription("Note #");
-    value_display->setDescription("Velocity");
-  } else if (type == "Control Change") {
-    note_display->setVisible(true);
-    note_display->setDescription("Control #");
-    value_display->setDescription("Value");
-  } else if (type == "Program Change") {
-    note_display->setVisible(false);
-    value_display->setDescription("Program #");
-  } else if (type == "Pitch Bend") {
-    note_display->setVisible(false);
-    value_display->setDescription("Pitch Adjust");
-  }
+	return mmgtr(QString("%1.%2").arg(header).arg(joiner).qtocs());
 }
 
-bool bool_from_str(const QString &str)
+QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool decider)
 {
-  return str == "True" || str == "Yes" || str == "Show" || str == "Locked";
+	return mmgtr_join(header, decider ? opt1 : opt2);
 }
 
-double num_from_str(const QString &str)
+QStringList mmgtr_all(const QString &header, const QStringList &list)
 {
-  return str.toDouble();
+	QStringList tr_list;
+	for (const QString &str : list) {
+		tr_list += mmgtr_join(header, str);
+	}
+	return tr_list;
+}
+
+QStringList obstr_all(const QString &header, const QStringList &list)
+{
+	QStringList tr_list;
+	for (const QString &str : list) {
+		tr_list += obstr((header + "." + str).qtocs());
+	}
+	return tr_list;
+}
+
+void set_message_labels(const QString &type, MMGNumberDisplay *note_display, MMGNumberDisplay *value_display)
+{
+	if (type == mmgtr("Message.Type.NoteOn") || type == mmgtr("Message.Type.NoteOff")) {
+		note_display->setVisible(true);
+		note_display->setDescription(mmgtr("Message.Note"));
+		value_display->setDescription(mmgtr("Message.Velocity"));
+	} else if (type == mmgtr("Message.Type.ControlChange")) {
+		note_display->setVisible(true);
+		note_display->setDescription(mmgtr("Message.Control"));
+		value_display->setDescription(mmgtr("Message.Value"));
+	} else if (type == mmgtr("Message.Type.ProgramChange")) {
+		note_display->setVisible(false);
+		value_display->setDescription(mmgtr("Message.Program"));
+	} else if (type == mmgtr("Message.Type.PitchBend")) {
+		note_display->setVisible(false);
+		value_display->setDescription(mmgtr("Message.PitchAdjust"));
+	}
+}
+
+bool num_between(double num, double lower, double higher, bool inclusive)
+{
+	return inclusive ? ((num >= lower) && (num <= higher)) : ((num > lower) && (num < higher));
 }
 
 QString num_to_str(int num, const QString &prefix)
 {
-  return QString::number(num).prepend(prefix);
+	return QString("%1%2").arg(prefix).arg(num);
 }
 
-void open_message_box(const QString &title, const QString &text)
+bool open_message_box(const QString &message, bool information)
 {
-  MMGPair c{title, text};
+	QString title = mmgtr_join("UI.MessageBox.Title", message);
+	QString text = mmgtr_join("UI.MessageBox.Text", message);
 
-  obs_queue_task(
-    OBS_TASK_UI,
-    [](void *param) {
-      auto content = reinterpret_cast<MMGPair *>(param);
-      QMessageBox::information(nullptr, content->key, content->val.value<QString>());
-    },
-    &c, true);
-}
-
-void transfer_bindings(short mode, const QString &dest, const QString &source)
-{
-  if (mode < 0 || mode > 2) return;
-
-  if (source == dest) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Cannot transfer bindings to the same device.");
-    return;
-  }
-
-  MMGDevice *dest_device = global()->find(dest);
-  if (!dest_device) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Destination device is invalid.");
-    return;
-  }
-
-  MMGDevice *source_device = global()->find(source);
-  if (!source_device) {
-    open_message_box("Transfer Error", "Failed to transfer bindings: Source device is invalid.");
-    return;
-  }
-
-  if (source_device == dest_device) {
-    open_message_box("Transfer Error",
-		     "Failed to transfer bindings: Cannot transfer bindings to the same device.");
-    return;
-  }
-
-  MMGDevice *source_copy = new MMGDevice;
-  source_device->copy(source_copy);
-  source_copy->setName(dest);
-
-  // REMOVE (occurs for both move and replace)
-  if (mode > 0) source_device->clear();
-
-  // REPLACE
-  if (mode == 2) dest_device->clear();
-
-  // COPY (occurs for all three modes)
-  source_copy->copy(dest_device);
-
-  // Clearing before deleting is important because it allows the
-  // destination device to take control of the pointers. If this
-  // were not the case, the copied pointers would be deleted by
-  // the this MMGDevice's destructor.
-  source_copy->clear();
-  delete source_copy;
-
-  open_message_box("Transfer Success", "Bindings successfully transferred.");
-}
-
-const vec3 get_obs_property_bounds(obs_property_t *prop)
-{
-  vec3 bounds = {0};
-  if (!prop) return bounds;
-
-  if (obs_property_get_type(prop) == OBS_PROPERTY_INT) {
-    vec3_set(&bounds, obs_property_int_min(prop), obs_property_int_max(prop),
-	     obs_property_int_step(prop));
-  } else if (obs_property_get_type(prop) == OBS_PROPERTY_FLOAT) {
-    vec3_set(&bounds, obs_property_float_min(prop), obs_property_float_max(prop),
-	     obs_property_float_step(prop));
-  }
-
-  return bounds;
-}
-
-const vec3 get_obs_property_bounds(obs_source_t *source, const QString &field)
-{
-  if (!source) return vec3();
-
-  obs_properties_t *props = obs_source_properties(source);
-  if (!props) {
-    obs_properties_destroy(props);
-    return vec3();
-  }
-  obs_property_t *prop = obs_properties_get(props, field.qtocs());
-  const vec3 bounds = get_obs_property_bounds(prop);
-  obs_properties_destroy(props);
-  return bounds;
-}
-
-const QList<MMGPair> get_obs_property_options(obs_property_t *prop)
-{
-  QList<MMGPair> options;
-
-  for (size_t i = 0; i < obs_property_list_item_count(prop); ++i) {
-    MMGPair strs;
-
-    strs.key = obs_property_list_item_name(prop, i);
-
-    switch (obs_property_list_format(prop)) {
-      case OBS_COMBO_FORMAT_FLOAT:
-	strs.val = obs_property_list_item_float(prop, i);
-	break;
-      case OBS_COMBO_FORMAT_INT:
-	strs.val = obs_property_list_item_int(prop, i);
-	break;
-      case OBS_COMBO_FORMAT_STRING:
-	strs.val = obs_property_list_item_string(prop, i);
-	break;
-      default:
-	break;
-    }
-
-    options.append(strs);
-  }
-
-  return options;
-}
-
-const QList<MMGPair> get_obs_property_options(obs_source_t *source, const QString &field)
-{
-  if (!source) return QList<MMGPair>();
-
-  obs_properties_t *props = obs_source_properties(source);
-  if (!props) {
-    obs_properties_destroy(props);
-    return QList<MMGPair>();
-  }
-  obs_property_t *prop = obs_properties_get(props, field.qtocs());
-  const QList<MMGPair> options = get_obs_property_options(prop);
-  obs_properties_destroy(props);
-  return options;
-}
-
-void debug_json(const QJsonValue &val)
-{
-  qDebug("%s", val.toVariant().toString().qtocs());
-}
-
-uint argb_abgr(uint rgb)
-{
-  return (rgb & 0xFF000000) | ((rgb & 0xFF0000) >> 16) | (rgb & 0xFF00) | ((rgb & 0xFF) << 16);
-}
-
-void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json,
-			      const MMGMessage *midi)
-{
-  if (!source) return;
-
-  std::lock_guard guard(custom_update);
-
-  OBSDataAutoRelease source_data = obs_source_get_settings(source);
-  QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
-  QJsonObject final_json;
-
-  for (const QString &key : action_json.keys()) {
-    QJsonObject key_obj = action_json[key].toObject();
-    switch (key_obj["state"].toInt()) {
-      case 1:
-	// MIDI
-	if (key_obj.contains("number")) {
-	  // Number Field
-	  final_json[key] =
-	    (midi->value() / 127.0) * (key_obj["higher"].toDouble() - key_obj["lower"].toDouble()) +
-	    key_obj["lower"].toDouble();
-	} else if (key_obj.contains("value")) {
-	  // String Fields
-	  QList<MMGPair> options = get_obs_property_options(source, key);
-	  if (midi->value() >= options.size()) break;
-	  final_json[key] = QJsonValue::fromVariant(options[(int)midi->value()].val);
-	} else if (key_obj.contains("string")) {
-	  // Text and Path Fields
-	  QString str = action_json[key].toString();
-	  str.replace("${type}", midi->type());
-	  str.replace("${channel}", num_to_str(midi->channel()));
-	  str.replace("${note}", num_to_str(midi->note()));
-	  str.replace("${value}", num_to_str(midi->value()));
-	  str.replace("${control}", num_to_str(midi->note()));
-	  final_json[key] = str;
-	}
-	break;
-
-      case 2:
-	// TOGGLE (and CUSTOM)
-	if (key_obj.contains("number")) {
-	  // Number Field
-	  final_json[key] =
-	    (midi->value() / 127.0) * (key_obj["higher"].toDouble() - key_obj["lower"].toDouble()) +
-	    key_obj["lower"].toDouble();
+	if (information) {
+		QMessageBox::information(nullptr, title, text);
+		return true;
 	} else {
-	  // Boolean Field
-	  final_json[key] = !source_json[key].toBool();
+		return QMessageBox::question(nullptr, title, text, QMessageBox::Ok | QMessageBox::Cancel,
+					     QMessageBox::Ok) == QMessageBox::Ok;
 	}
-	break;
+}
 
-      case 3:
-	// IGNORE
-	break;
+void enable_combo_option(QComboBox *combo, int index, bool enable)
+{
+	qobject_cast<QStandardItemModel *>(combo->model())->item(index)->setEnabled(enable);
+}
 
-      default:
-	// NORMAL
-	if (key_obj.contains("number")) {
-	  // Number Field
-	  final_json[key] = key_obj["number"];
-	} else if (key_obj.contains("value")) {
-	  // String Fields
-	  final_json[key] = key_obj["value"];
-	} else if (key_obj.contains("color")) {
-	  // Color Field
-	  final_json[key] = key_obj["color"];
-	} else if (key_obj.contains("string")) {
-	  // Text and Path Fields
-	  final_json[key] = key_obj["string"];
-	} else {
-	  // Font Field
-	  final_json[key] = key_obj;
+void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi)
+{
+	if (!source) return;
+
+	std::lock_guard guard(custom_update);
+
+	OBSDataAutoRelease source_data = obs_source_get_settings(source);
+	QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
+	QJsonObject final_json;
+
+	for (const QString &key : action_json.keys()) {
+		QJsonObject key_obj = action_json[key].toObject();
+		switch (key_obj["state"].toInt()) {
+			case STATE_MIDI:
+				if (key_obj.contains("value")) {
+					// String Field
+					QVariantList options = MMGOBSStringField::propertyValues(source, key);
+					MMGNumber number;
+					number.setState(STATE_CUSTOM);
+					number.setMax(options.size() - 1);
+					final_json[key] =
+						QJsonValue::fromVariant(options.value(number.chooseFrom(midi, true)));
+				} else if (key_obj.contains("string")) {
+					// Text and Path Fields
+					QString str = key_obj["string"].toString();
+					str.replace("${type}", midi->type());
+					str.replace("${channel}", num_to_str(midi->channel()));
+					str.replace("${note}", num_to_str(midi->note()));
+					str.replace("${control}", num_to_str(midi->note()));
+					str.replace("${value}", num_to_str(midi->value()));
+					str.replace("${velocity}", num_to_str(midi->value()));
+					final_json[key] = str;
+				}
+				break;
+
+			case STATE_CUSTOM:
+				if (key_obj.contains("number")) {
+					// Number Field
+					final_json[key] = (midi->value() / 127.0) * (key_obj["higher"].toDouble() -
+										     key_obj["lower"].toDouble()) +
+							  key_obj["lower"].toDouble();
+				}
+				break;
+
+			case STATE_IGNORE:
+				break;
+
+			case STATE_TOGGLE:
+				if (key_obj.contains("lower")) {
+					// Number and String Fields
+					if (key_obj["lower"] == source_json[key]) {
+						final_json[key] = key_obj["higher"];
+					} else {
+						final_json[key] = key_obj["lower"];
+					}
+				} else {
+					// Boolean Field
+					final_json[key] = !source_json[key].toBool();
+				}
+				break;
+
+			default:
+				// NORMAL
+				if (key_obj.contains("number")) {
+					// Number Field
+					final_json[key] = key_obj["number"];
+				} else if (key_obj.contains("value")) {
+					// String and Boolean Fields
+					final_json[key] = key_obj["value"];
+				} else if (key_obj.contains("color")) {
+					// Color Field
+					final_json[key] = key_obj["color"];
+				} else if (key_obj.contains("string")) {
+					// Text and Path Fields
+					final_json[key] = key_obj["string"];
+				} else {
+					// Font Field
+					final_json[key] = key_obj;
+				}
+				break;
+		}
 	}
-	break;
-    }
-  }
-  obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(json_to_str(final_json))));
+	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(json_to_str(final_json))));
+}
+
+QList<MMGNumber> obs_source_custom_updated(obs_source_t *, const QJsonObject &)
+{
+	return QList<MMGNumber>();
 }
 
 }

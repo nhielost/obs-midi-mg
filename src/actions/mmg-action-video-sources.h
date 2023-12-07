@@ -19,59 +19,102 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
+struct ActionTransform {
+	obs_transform_info ti = {0};
+	obs_sceneitem_crop crop = {0};
+	obs_blending_type blend_type;
+	obs_scale_type scale_type;
+};
+
 class MMGActionVideoSources : public MMGAction {
-  public:
-  explicit MMGActionVideoSources() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionVideoSources(const QJsonObject &json_obj);
-  enum Actions {
-    SOURCE_VIDEO_POSITION,
-    SOURCE_VIDEO_DISPLAY,
-    SOURCE_VIDEO_LOCKED,
-    SOURCE_VIDEO_CROP,
-    SOURCE_VIDEO_ALIGNMENT,
-    SOURCE_VIDEO_SCALE,
-    SOURCE_VIDEO_SCALEFILTER,
-    SOURCE_VIDEO_ROTATION,
-    SOURCE_VIDEO_BOUNDING_BOX_TYPE,
-    SOURCE_VIDEO_BOUNDING_BOX_SIZE,
-    SOURCE_VIDEO_BOUNDING_BOX_ALIGN,
-    SOURCE_VIDEO_BLEND_MODE,
-    SOURCE_VIDEO_SCREENSHOT,
-    SOURCE_VIDEO_CUSTOM
-  };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionVideoSources(MMGActionManager *parent, const QJsonObject &json_obj);
+	~MMGActionVideoSources() { delete at; };
 
-  Category category() const override { return Category::MMGACTION_SOURCE_VIDEO; }
+	enum Actions {
+		SOURCE_VIDEO_POSITION,
+		SOURCE_VIDEO_DISPLAY,
+		SOURCE_VIDEO_LOCKED,
+		SOURCE_VIDEO_CROP,
+		SOURCE_VIDEO_ALIGNMENT,
+		SOURCE_VIDEO_SCALE,
+		SOURCE_VIDEO_SCALEFILTER,
+		SOURCE_VIDEO_ROTATION,
+		SOURCE_VIDEO_BOUNDING_BOX_TYPE,
+		SOURCE_VIDEO_BOUNDING_BOX_SIZE,
+		SOURCE_VIDEO_BOUNDING_BOX_ALIGN,
+		SOURCE_VIDEO_BLEND_MODE,
+		SOURCE_VIDEO_SCREENSHOT,
+		SOURCE_VIDEO_CUSTOM
+	};
+	enum Events {
+		SOURCE_VIDEO_MOVED,
+		SOURCE_VIDEO_DISPLAY_CHANGED,
+		SOURCE_VIDEO_LOCK_CHANGED,
+		SOURCE_VIDEO_CROPPED,
+		SOURCE_VIDEO_ALIGNED,
+		SOURCE_VIDEO_SCALED,
+		SOURCE_VIDEO_SCALEFILTER_CHANGED,
+		SOURCE_VIDEO_ROTATED,
+		SOURCE_VIDEO_BOUNDING_BOX_TYPE_CHANGED,
+		SOURCE_VIDEO_BOUNDING_BOX_RESIZED,
+		SOURCE_VIDEO_BOUNDING_BOX_ALIGNED,
+		SOURCE_VIDEO_BLEND_MODE_CHANGED,
+		SOURCE_VIDEO_SCREENSHOT_TAKEN,
+		SOURCE_VIDEO_CUSTOM_CHANGED
+	};
 
-  static const QStringList enumerate();
-  static const vec2 obsResolution();
-  const vec2 sourceResolution() const;
+	Category category() const override { return MMGACTION_SOURCE_VIDEO; };
+	const QString trName() const override { return "VideoSources"; };
 
-  private:
-  MMGUtils::MMGString parent_scene;
-  MMGUtils::MMGString source;
-  MMGUtils::MMGString action;
-  MMGUtils::MMGString json_str;
-  MMGUtils::MMGNumber nums[4];
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
-  void setList2Config() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
 
-  const MMGUtils::MMGNumber &num1() const { return nums[0]; };
-  const MMGUtils::MMGNumber &num2() const { return nums[1]; };
-  const MMGUtils::MMGNumber &num3() const { return nums[2]; };
-  const MMGUtils::MMGNumber &num4() const { return nums[3]; };
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
 
-  static const QStringList alignment_options;
-  static const QStringList boundingbox_options;
-  static const QStringList scalefilter_options;
-  static const QStringList blendmode_options;
+	static const QStringList enumerate();
+	static const QStringList alignmentOptions();
+	static const QStringList boundingBoxOptions();
+	static const QStringList scaleFilterOptions();
+	static const QStringList blendModeOptions();
+	static const vec2 obsResolution();
+
+	const vec2 sourceResolution() const;
+	void updateTransform() const;
+	uint32_t convertAlignment(bool to_align, uint32_t value) const;
+
+private:
+	MMGUtils::MMGString parent_scene;
+	MMGUtils::MMGString source;
+	MMGUtils::MMGString action;
+	MMGUtils::MMGNumber nums[4];
+	MMGUtils::MMGJsonObject *_json;
+
+	const MMGUtils::MMGNumber &num1() const { return nums[0]; };
+	const MMGUtils::MMGNumber &num2() const { return nums[1]; };
+	const MMGUtils::MMGNumber &num3() const { return nums[2]; };
+	const MMGUtils::MMGNumber &num4() const { return nums[3]; };
+
+	const MMGSourceSignal *active_source_signal = nullptr;
+
+	ActionTransform *at = nullptr;
+
+private slots:
+	void onList1Change();
+	void onList2Change();
+
+	void sourceStateCallback(void *sceneitem, bool enabled) const;
+	void sourceTransformCallback(void *sceneitem) const;
+	void frontendCallback(obs_frontend_event event) const;
+	void sourceDataCallback(void *_source) const;
 };

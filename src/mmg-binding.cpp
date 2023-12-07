@@ -17,191 +17,335 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-binding.h"
-#include "mmg-action-include.h"
 #include "mmg-config.h"
+#include "mmg-midi.h"
 
-qulonglong MMGBinding::next_default = 0;
+using namespace MMGUtils;
 
-MMGBinding::MMGBinding()
+#define SHORT_ENUMERATE(kind, statement) \
+	for (auto kind : _##kind##s)     \
+	statement
+
+// MMGBinding
+MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj) : QObject(parent)
 {
-  _name = get_next_default_name();
-  setEnabled(true);
-  _message = new MMGMessage;
-  _action = new MMGActionNone;
-  blog(LOG_DEBUG, "Empty binding created.");
+	thread = new MMGBindingThread(this);
+
+	_name = json_obj["name"].toString(mmgtr("Binding.Untitled"));
+	_enabled = json_obj["enabled"].toBool(true);
+	_type = (DeviceType)json_obj["type"].toInt();
+
+	for (const QJsonValue &device_name : json_obj["devices"].toArray())
+		_devices += manager(device)->find(device_name.toString());
+	SHORT_ENUMERATE(device, device->addConnection(this));
+
+	for (const QJsonValue &message_name : json_obj["messages"].toArray())
+		_messages += manager(message)->find(message_name.toString());
+	SHORT_ENUMERATE(message, message->addConnection(this));
+
+	for (const QJsonValue &action_name : json_obj["actions"].toArray())
+		_actions += manager(action)->find(action_name.toString());
+	SHORT_ENUMERATE(action, action->addConnection(this));
+
+	if (json_obj.contains("settings")) {
+		_settings = new MMGBindingSettings(nullptr, json_obj["settings"].toObject());
+	} else {
+		_settings = new MMGBindingSettings(nullptr);
+		auto casted_settings = dynamic_cast<MMGBindingSettings *>(manager(setting)->at(1));
+		if (casted_settings) casted_settings->copy(_settings);
+	}
+	_settings->setParent(this);
 }
 
-MMGBinding::MMGBinding(const QJsonObject &obj) : _name(obj["name"].toString())
+void MMGBinding::setType(DeviceType type)
 {
-  if (_name.isEmpty()) _name = get_next_default_name();
-  setEnabled(obj["enabled"].toBool(true));
-  _message = new MMGMessage(obj["message"].toObject());
-  setCategory(obj["action"].toObject());
-  blog(LOG_DEBUG, "Binding created.");
+	if (_type == type) return;
+
+	_type = type;
+	setUsedDevices({});
+	setUsedMessages({});
+	setUsedActions({});
 }
 
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
-  binding_obj["name"] = _name;
-  binding_obj["enabled"] = _enabled;
-  QJsonObject msg;
-  _message->json(msg);
-  binding_obj["message"] = msg;
-  QJsonObject act;
-  _action->json(act);
-  binding_obj["action"] = act;
+	binding_obj["name"] = _name;
+	binding_obj["enabled"] = _enabled;
+	binding_obj["type"] = type();
+
+	QJsonArray device_arr;
+	SHORT_ENUMERATE(device, device_arr += device->name());
+	binding_obj["devices"] = device_arr;
+
+	QJsonArray message_arr;
+	SHORT_ENUMERATE(message, message_arr += message->name());
+	binding_obj["messages"] = message_arr;
+
+	QJsonArray action_arr;
+	SHORT_ENUMERATE(action, action_arr += action->name());
+	binding_obj["actions"] = action_arr;
+
+	QJsonObject settings_obj;
+	_settings->json(settings_obj);
+	binding_obj["settings"] = settings_obj;
 }
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-  global_blog(log_status, "Binding {" + _name + "} -> " + message);
-}
-
-QString MMGBinding::get_next_default_name()
-{
-  return QVariant(++MMGBinding::next_default).toString().prepend("Untitled Binding ");
-}
-
-void MMGBinding::execute(const MMGSharedMessage &incoming)
-{
-  if (!_message->acceptable(incoming.get())) {
-    blog(LOG_DEBUG, "Message received is not acceptable.");
-  } else {
-    _action->execute(incoming.get());
-    _message->toggle();
-  }
+	global_blog(log_status, QString("[Bindings] <%1> %2").arg(_name).arg(message));
 }
 
 void MMGBinding::copy(MMGBinding *dest)
 {
-  if (!_name.contains("Untitled Binding")) dest->setName(_name);
-  _message->copy(dest->message());
-  dest->setCategory((int)_action->category());
-  _action->copy(dest->action());
+	dest->setName(_name);
+	dest->setUsedDevices(_devices);
+	dest->setUsedMessages(_messages);
+	dest->setUsedActions(_actions);
+	dest->setEnabled(_enabled);
+	dest->_settings->copy(_settings);
 }
 
-void MMGBinding::setEnabled(bool enabled)
+void MMGBinding::setEnabled(bool val)
 {
-  _enabled = enabled;
-
-  if (enabled) {
-    connect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
-  } else {
-    disconnect(input_device().get(), &MMGMIDIIn::messageReceived, this, &MMGBinding::execute);
-  }
+	setConnected(false);
+	_enabled = val;
+	setConnected(true);
 }
 
-void MMGBinding::setCategory(int index)
+void MMGBinding::setUsedDevices(const MMGDeviceList &devices)
 {
-  delete _action;
-  switch ((MMGAction::Category)index) {
-    case MMGAction::MMGACTION_STREAM:
-      _action = new MMGActionStream();
-      break;
-    case MMGAction::MMGACTION_RECORD:
-      _action = new MMGActionRecord();
-      break;
-    case MMGAction::MMGACTION_VIRCAM:
-      _action = new MMGActionVirtualCam();
-      break;
-    case MMGAction::MMGACTION_REPBUF:
-      _action = new MMGActionReplayBuffer();
-      break;
-    case MMGAction::MMGACTION_STUDIOMODE:
-      _action = new MMGActionStudioMode();
-      break;
-    case MMGAction::MMGACTION_SCENE:
-      _action = new MMGActionScenes();
-      break;
-    case MMGAction::MMGACTION_SOURCE_VIDEO:
-      _action = new MMGActionVideoSources();
-      break;
-    case MMGAction::MMGACTION_SOURCE_AUDIO:
-      _action = new MMGActionAudioSources();
-      break;
-    case MMGAction::MMGACTION_SOURCE_MEDIA:
-      _action = new MMGActionMediaSources();
-      break;
-    case MMGAction::MMGACTION_TRANSITION:
-      _action = new MMGActionTransitions();
-      break;
-    case MMGAction::MMGACTION_FILTER:
-      _action = new MMGActionFilters();
-      break;
-    case MMGAction::MMGACTION_HOTKEY:
-      _action = new MMGActionHotkeys();
-      break;
-    case MMGAction::MMGACTION_PROFILE:
-      _action = new MMGActionProfiles();
-      break;
-    case MMGAction::MMGACTION_COLLECTION:
-      _action = new MMGActionCollections();
-      break;
-    case MMGAction::MMGACTION_MIDI:
-      _action = new MMGActionMIDI();
-      break;
-    case MMGAction::MMGACTION_INTERNAL:
-      _action = new MMGActionInternal();
-      break;
-    default:
-      _action = new MMGActionNone();
-      break;
-  }
+	setConnected(false);
+	SHORT_ENUMERATE(device, device->removeConnection(this));
+
+	_devices = devices;
+
+	setConnected(true);
+	SHORT_ENUMERATE(device, device->addConnection(this));
 }
 
-void MMGBinding::setCategory(const QJsonObject &json_obj)
+void MMGBinding::setUsedMessages(const MMGMessageList &messages)
 {
-  switch ((MMGAction::Category)json_obj["category"].toInt()) {
-    case MMGAction::MMGACTION_STREAM:
-      _action = new MMGActionStream(json_obj);
-      break;
-    case MMGAction::MMGACTION_RECORD:
-      _action = new MMGActionRecord(json_obj);
-      break;
-    case MMGAction::MMGACTION_VIRCAM:
-      _action = new MMGActionVirtualCam(json_obj);
-      break;
-    case MMGAction::MMGACTION_REPBUF:
-      _action = new MMGActionReplayBuffer(json_obj);
-      break;
-    case MMGAction::MMGACTION_STUDIOMODE:
-      _action = new MMGActionStudioMode(json_obj);
-      break;
-    case MMGAction::MMGACTION_SCENE:
-      _action = new MMGActionScenes(json_obj);
-      break;
-    case MMGAction::MMGACTION_SOURCE_VIDEO:
-      _action = new MMGActionVideoSources(json_obj);
-      break;
-    case MMGAction::MMGACTION_SOURCE_AUDIO:
-      _action = new MMGActionAudioSources(json_obj);
-      break;
-    case MMGAction::MMGACTION_SOURCE_MEDIA:
-      _action = new MMGActionMediaSources(json_obj);
-      break;
-    case MMGAction::MMGACTION_TRANSITION:
-      _action = new MMGActionTransitions(json_obj);
-      break;
-    case MMGAction::MMGACTION_FILTER:
-      _action = new MMGActionFilters(json_obj);
-      break;
-    case MMGAction::MMGACTION_HOTKEY:
-      _action = new MMGActionHotkeys(json_obj);
-      break;
-    case MMGAction::MMGACTION_PROFILE:
-      _action = new MMGActionProfiles(json_obj);
-      break;
-    case MMGAction::MMGACTION_COLLECTION:
-      _action = new MMGActionCollections(json_obj);
-      break;
-    case MMGAction::MMGACTION_MIDI:
-      _action = new MMGActionMIDI(json_obj);
-      break;
-    case MMGAction::MMGACTION_INTERNAL:
-      _action = new MMGActionInternal(json_obj);
-      break;
-    default:
-      _action = new MMGActionNone();
-      break;
-  }
+	SHORT_ENUMERATE(message, message->removeConnection(this));
+
+	_messages = messages;
+
+	SHORT_ENUMERATE(message, message->addConnection(this));
 }
+
+void MMGBinding::setUsedActions(const MMGActionList &actions)
+{
+	setConnected(false);
+	SHORT_ENUMERATE(action, action->removeConnection(this));
+
+	_actions = actions;
+
+	setConnected(true);
+	SHORT_ENUMERATE(action, action->addConnection(this));
+}
+
+void MMGBinding::replaceAction(MMGAction *action)
+{
+	auto sender_action = dynamic_cast<MMGAction *>(sender());
+	if (!sender_action) return;
+
+	setConnected(false);
+
+	if (action->type() != type()) {
+		_actions.removeOne(sender_action);
+		sender_action->removeConnection(this);
+	} else {
+		_actions[_actions.indexOf(sender_action)] = action;
+		action->addConnection(this);
+	}
+
+	setConnected(true);
+}
+
+void MMGBinding::setConnected(bool _connected)
+{
+	if (_connected && (!_enabled || connected)) return;
+
+	switch (_type) {
+		case TYPE_INPUT:
+		default:
+			for (MMGDevice *device : _devices) {
+				if (_connected) {
+					connect(device, &MMGMIDIPort::messageReceived, this, &MMGBinding::executeInput,
+						Qt::UniqueConnection);
+				} else {
+					disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
+				}
+			}
+			break;
+
+		case TYPE_OUTPUT:
+			for (MMGAction *action : _actions) {
+				if (_connected) {
+					connect(action, &MMGAction::eventTriggered, this, &MMGBinding::executeOutput);
+					action->connectOBSSignals();
+				} else {
+					disconnect(action, &MMGAction::eventTriggered, this, nullptr);
+					action->disconnectOBSSignals();
+				}
+			}
+			break;
+	}
+
+	connected = _connected;
+}
+
+void MMGBinding::executeInput(const MMGSharedMessage &incoming) const
+{
+	MMGBindingThread *exec_thread = _settings->resetBehavior() ? thread->createNew() : thread;
+	exec_thread->restart(incoming.get());
+}
+
+void MMGBinding::executeOutput(const QList<MMGNumber> &values) const
+{
+	MMGBindingThread *exec_thread = _settings->resetBehavior() ? thread->createNew() : thread;
+	exec_thread->restart(values);
+}
+// End MMGBinding
+
+// MMGBindingThread
+short MMGBindingThread::thread_count = 0;
+
+MMGBindingThread::MMGBindingThread(MMGBinding *parent) : QThread(parent), binding(parent)
+{
+	incoming_message = new MMGMessage(this);
+	applied_message = new MMGMessage(this);
+}
+
+void MMGBindingThread::blog(int log_status, const QString &message) const
+{
+	binding->blog(log_status, message);
+}
+
+void MMGBindingThread::run()
+{
+	thread_count++;
+	locked = true;
+	mutex.lock();
+
+	binding->type() == TYPE_OUTPUT ? sendMessages() : doActions();
+
+	mutex.unlock();
+	locked = false;
+	thread_count--;
+}
+
+void MMGBindingThread::sendMessages()
+{
+	if (binding->_messages.isEmpty()) {
+		blog(LOG_INFO, "FAILED: No messages to send!");
+		return;
+	}
+	if (incoming_values.isEmpty()) {
+		blog(LOG_INFO, "FAILED: Values not found. Report this as a bug.");
+		return;
+	}
+
+	int i;
+	MMGNumber used_value;
+
+	for (MMGDevice *device : binding->_devices) {
+		for (i = 0; i < binding->_messages.size(); ++i) {
+			// if (mutex.try_lock_for(binding->getChronoTime())) return;
+			if (mutex.try_lock()) return;
+
+			binding->_messages[i]->copy(applied_message);
+
+			used_value = incoming_values.size() < i ? incoming_values[i] : incoming_values.last();
+			applied_message->applyValues(used_value);
+
+			device->sendMessage(applied_message);
+		}
+	}
+
+	for (MMGMessage *message : binding->_messages)
+		message->toggle();
+	binding->_actions[0]->toggle();
+}
+
+void MMGBindingThread::doActions()
+{
+	if (binding->_messages.isEmpty()) {
+		blog(LOG_INFO, "FAILED: No message to check for!");
+		return;
+	}
+
+	MMGMessage *checked_message = binding->_messages[0];
+	if (!checked_message->acceptable(incoming_message)) {
+		blog(LOG_DEBUG, "Message received is not acceptable.");
+		return;
+	}
+
+	checked_message->copy(applied_message);
+	applied_message->type() = incoming_message->type().value();
+	applied_message->channel() = incoming_message->channel().value();
+	applied_message->note() = incoming_message->note().value();
+	applied_message->value() = incoming_message->value().value();
+
+	for (MMGAction *action : binding->_actions) {
+		// if (mutex.try_lock_for(binding->getChronoTime())) return;
+		if (mutex.try_lock()) return;
+		action->execute(applied_message);
+	}
+
+	checked_message->toggle();
+	for (MMGAction *action : binding->_actions)
+		action->toggle();
+}
+
+void MMGBindingThread::restart(const MMGMessage *msg)
+{
+	if (locked) {
+		mutex.unlock();
+		wait();
+	}
+	msg->copy(incoming_message);
+	start();
+}
+
+void MMGBindingThread::restart(const QList<MMGNumber> &values)
+{
+	if (locked) {
+		mutex.unlock();
+		wait();
+	}
+	incoming_values = values;
+	start();
+}
+
+MMGBindingThread *MMGBindingThread::createNew() const
+{
+	if (thread_count > 0xff) {
+		global_blog(LOG_INFO, "Thread count exceeded - the provided function will not execute.");
+		return nullptr;
+	}
+
+	auto custom_thread = new MMGBindingThread(binding);
+	connect(custom_thread, &QThread::finished, &QObject::deleteLater);
+	return custom_thread;
+}
+// End MMGBindingThread
+
+// MMGBindingManager
+MMGBinding *MMGBindingManager::add(const QJsonObject &json_obj)
+{
+	return MMGManager::add(new MMGBinding(this, json_obj));
+}
+
+bool MMGBindingManager::filter(DeviceType type, MMGBinding *check) const
+{
+	return type == TYPE_NONE || check->type() == type;
+}
+
+void MMGBindingManager::resetConnections()
+{
+	for (MMGBinding *binding : _list) {
+		binding->setConnected(false);
+		binding->setConnected(true);
+	}
+}
+// End MMGBindingManager

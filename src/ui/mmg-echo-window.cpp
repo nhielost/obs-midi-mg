@@ -16,559 +16,695 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#include <obs-frontend-api.h>
-
-#include <QListWidget>
-#include <QStandardItemModel>
-#include <QEvent>
-#include <QLayout>
-#include <QFileDialog>
-#include <QDesktopServices>
-
 #include "mmg-echo-window.h"
 #include "../mmg-config.h"
-#include "../mmg-midiin.h"
-#include "../mmg-midiout.h"
-#include "../actions/mmg-action-midi.h"
+
+#include <QButtonGroup>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QDesktopServices>
 
 using namespace MMGUtils;
 
-#define COMBOBOX_ITEM_STATE(list, index, state) \
-  qobject_cast<QStandardItemModel *>(ui->list->model())->item(index)->setEnabled(state);
+#define MANAGER_SWITCH(_enum, macro)       \
+	switch (_enum) {                   \
+		case 0:                    \
+			macro(binding);    \
+			break;             \
+		case 1:                    \
+			macro(device);     \
+			break;             \
+		case 2:                    \
+			macro(message);    \
+			break;             \
+		case 3:                    \
+			macro(action);     \
+			break;             \
+		case 4:                    \
+			macro(preference); \
+			break;             \
+		default:                   \
+			break;             \
+	}
 
-MMGEchoWindow::MMGEchoWindow(QWidget *parent)
-  : QDialog(parent, Qt::Dialog), ui(new Ui::MMGEchoWindow)
+MMGEchoWindow::MMGEchoWindow(QWidget *parent) : QDialog(parent, Qt::Dialog), ui(new Ui::MMGEchoWindow)
 {
-  setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-  ui->setupUi(this);
-  ui->label_version->setText(OBS_MIDIMG_VERSION);
+	setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+	ui->setupUi(this);
+	ui->label_version->setText(OBS_MIDIMG_VERSION);
 
-  channel_display = new MMGNumberDisplay(ui->message_frame);
-  channel_display->setDisplayMode(MMGNumberDisplay::MODE_THIN);
-  channel_display->move(250, 70);
-  channel_display->setDescription("Channel");
-  channel_display->setBounds(1, 16);
+	type_display = new MMGStringDisplay(ui->message_frame);
+	type_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	type_display->move(10, 10);
+	type_display->setDescription(mmgtr("Message.Type.Text"));
+	type_display->setBounds(MMGMessage::acceptedTypes());
+	type_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
 
-  note_display = new MMGNumberDisplay(ui->message_frame);
-  note_display->setDisplayMode(MMGNumberDisplay::MODE_THIN);
-  note_display->move(250, 120);
-  note_display->setDescription("Note");
-  note_display->setBounds(0, 127);
+	channel_display = new MMGNumberDisplay(ui->message_frame);
+	channel_display->move(10, 120);
+	channel_display->setDescription(mmgtr("Message.Channel"));
+	channel_display->setBounds(1, 16);
+	channel_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
 
-  value_display = new MMGNumberDisplay(ui->message_frame);
-  value_display->setDisplayMode(MMGNumberDisplay::MODE_DEFAULT);
-  value_display->move(250, 170);
-  value_display->setDescription("Velocity");
-  value_display->setBounds(0, 127);
-  value_display->setOptions(MMGNumberDisplay::OPTIONS_MIDI_CUSTOM);
+	note_display = new MMGNumberDisplay(ui->message_frame);
+	note_display->move(10, 210);
+	note_display->setDescription(mmgtr("Message.Note"));
+	note_display->setBounds(0, 127);
+	note_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
 
-  connect_ui_signals();
+	value_display = new MMGNumberDisplay(ui->message_frame);
+	value_display->move(10, 300);
+	value_display->setDescription(mmgtr("Message.Velocity"));
+	value_display->setBounds(0, 127);
+	value_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
+	value_display->lower();
+
+	main_binding_display = new MMGBindingDisplay(ui->binding_frame, true);
+	main_binding_display->setFixedSize(350, 320);
+
+	devices_display = new MMGManagerDisplay<MMGDevice>(ui->device_page, manager(device));
+	devices_display->setGeometry(10, 10, 341, 461);
+	devices_display->setItemsEditable(false);
+
+	bindings_display = new MMGManagerDisplay<MMGBinding>(ui->binding_page, manager(binding));
+	bindings_display->setGeometry(10, 10, 341, 461);
+
+	messages_display = new MMGManagerDisplay<MMGMessage>(ui->message_page, manager(message));
+	messages_display->setGeometry(10, 10, 341, 461);
+
+	actions_display = new MMGManagerDisplay<MMGAction>(ui->action_page, manager(action));
+	actions_display->setGeometry(10, 10, 341, 461);
+
+	preferences_display = new MMGManagerDisplay<MMGSettings>(ui->preferences_page, manager(setting));
+	preferences_display->setGeometry(10, 10, 341, 461);
+	preferences_display->setItemsEditable(false);
+
+	QButtonGroup *pages_button_group = new QButtonGroup(this);
+	pages_button_group->addButton(ui->button_binding_display, 0);
+	pages_button_group->addButton(ui->button_device_display, 1);
+	pages_button_group->addButton(ui->button_message_display, 2);
+	pages_button_group->addButton(ui->button_action_display, 3);
+	pages_button_group->addButton(ui->button_preferences, 4);
+	connect(pages_button_group, &QButtonGroup::idClicked, this, &MMGEchoWindow::onScreenChange);
+
+	ui->button_confirm->setVisible(false);
+	ui->label_binding_selection_notice->setVisible(false);
+	ui->scroll_binding_contents->setWidget(main_binding_display);
+	ui->editor_binding_contents->setVisible(false);
+
+	connect(midi(), &MMGMIDI::messageListened, this, &MMGEchoWindow::updateMessage);
+
+	translate();
+	connectUISignals();
 }
 
-void MMGEchoWindow::show_window()
+void MMGEchoWindow::displayWindow()
 {
-  global()->refresh();
+	bindings_display->displayAll();
+	devices_display->displayAll();
+	messages_display->displayAll();
+	actions_display->displayAll();
+	preferences_display->displayAll();
+	ui->button_binding_display->setChecked(true);
+	onScreenChange(0);
 
-  QString current_device_name = global()->activeDeviceName();
-
-  ui->editor_transfer_source->clear();
-  ui->editor_transfer_dest->clear();
-  ui->editor_transfer_mode->setCurrentIndex(0);
-  ui->editor_devices->clear();
-  on_transfer_mode_change(0);
-  for (const QString &name : global()->allDeviceNames()) {
-    ui->editor_devices->addItem(name);
-    ui->editor_transfer_source->addItem(name);
-    ui->editor_transfer_dest->addItem(name);
-  }
-
-  ui->editor_devices->setCurrentText(current_device_name);
-
-  ui->editor_structure->clearSelection();
-  switch_structure_pane(1);
-  ui->button_preferences->setChecked(false);
-  ui->pages->setCurrentIndex(0);
-
-  setVisible(true);
+	setVisible(true);
 }
 
 void MMGEchoWindow::reject()
 {
-  if (ui->button_listen_once->isChecked() || ui->button_listen_continuous->isChecked()) {
-    ui->button_listen_once->setChecked(false);
-    ui->button_listen_continuous->setChecked(false);
-  }
+	if (ui->button_listen_once->isChecked() || ui->button_listen_continuous->isChecked()) {
+		ui->button_listen_once->setChecked(false);
+		ui->button_listen_continuous->setChecked(false);
+	}
 
-  global()->save();
+	config()->save();
 
-  QDialog::reject();
+	QDialog::reject();
 }
 
-void MMGEchoWindow::connect_ui_signals()
+void MMGEchoWindow::connectUISignals()
 {
-  // Message Display Connections
-  connect(ui->editor_type, &QComboBox::currentTextChanged, this,
-	  &MMGEchoWindow::on_message_type_change);
-  connect(ui->button_listen_continuous, &QAbstractButton::toggled, this,
-	  &MMGEchoWindow::on_message_listen_continuous);
-  connect(ui->button_listen_once, &QAbstractButton::toggled, this,
-	  &MMGEchoWindow::on_message_listen_once);
-  connect(ui->editor_type_toggle, &QCheckBox::toggled, this,
-	  &MMGEchoWindow::on_message_type_toggle);
-  connect(ui->editor_value_toggle, &QCheckBox::toggled, this,
-	  &MMGEchoWindow::on_message_value_toggle);
+	// Device Display Connections
+	connect(devices_display, &MMGListWidget::selected, this, &MMGEchoWindow::deviceShow);
+	connect(ui->button_in_enable, &QAbstractButton::toggled, this, &MMGEchoWindow::onDeviceInputActiveChange);
+	connect(ui->button_thru, &QAbstractButton::toggled, this, &MMGEchoWindow::onDeviceThruStateChange);
+	connect(ui->editor_thru, &QComboBox::currentTextChanged, this, &MMGEchoWindow::onDeviceThruChange);
+	connect(ui->button_out_enable, &QAbstractButton::toggled, this, &MMGEchoWindow::onDeviceOutputActiveChange);
 
-  // Action Display Connections
-  connect(ui->editor_cat, &QComboBox::currentIndexChanged, this,
-	  &MMGEchoWindow::on_action_cat_change);
-  connect(ui->editor_sub, &QComboBox::currentIndexChanged, this,
-	  &MMGEchoWindow::on_action_sub_change);
+	// Message Display Connections
+	connect(messages_display, &MMGListWidget::selected, this, &MMGEchoWindow::messageShow);
+	connect(type_display, &MMGStringDisplay::stringChanged, this, &MMGEchoWindow::onMessageTypeChange);
+	connect(ui->button_listen_continuous, &QAbstractButton::toggled, this, &MMGEchoWindow::onListenContinuousClick);
+	connect(ui->button_listen_once, &QAbstractButton::toggled, this, &MMGEchoWindow::onListenOnceClick);
 
-  // UI Movement Buttons
-  connect(ui->button_add, &QPushButton::clicked, this, &MMGEchoWindow::on_add_click);
-  connect(ui->button_duplicate, &QPushButton::clicked, this, &MMGEchoWindow::on_copy_click);
-  connect(ui->button_remove, &QPushButton::clicked, this, &MMGEchoWindow::on_remove_click);
+	// Action Display Connections
+	connect(actions_display, &MMGListWidget::selected, this, &MMGEchoWindow::actionShow);
+	connect(ui->editor_cat, &QComboBox::currentIndexChanged, this, &MMGEchoWindow::onActionCategoryChange);
+	connect(ui->button_action_switch, &QAbstractButton::toggled, this, &MMGEchoWindow::onActionSwitch);
+	connect(ui->editor_sub, &QComboBox::currentIndexChanged, this, &MMGEchoWindow::onActionSubChange);
 
-  // Device Connections
-  connect(ui->editor_devices, &QComboBox::currentTextChanged, this,
-	  &MMGEchoWindow::on_device_change);
+	// Binding Display Connections
+	connect(bindings_display, &MMGListWidget::selected, this, &MMGEchoWindow::bindingShow);
+	connect(bindings_display, &MMGListWidget::itemMoved, manager(binding), &MMGBindingManager::resetConnections);
+	connect(ui->button_binding_enable, &QAbstractButton::toggled, this, &MMGEchoWindow::onBindingActiveChange);
+	connect(ui->button_binding_switch, &QAbstractButton::toggled, this, &MMGEchoWindow::onBindingSwitch);
+	connect(main_binding_display, &MMGBindingDisplay::edited, this, &MMGEchoWindow::onBindingFieldEdit);
 
-  // Preferences Connections
-  connect(ui->button_preferences, &QAbstractButton::toggled, this,
-	  &MMGEchoWindow::on_preferences_click);
-  connect(ui->editor_global_enable, &QCheckBox::toggled, this, &MMGEchoWindow::on_active_change);
-  connect(ui->editor_midi_thru_toggle, &QCheckBox::toggled, this,
-	  &MMGEchoWindow::on_midi_thru_change);
-  connect(ui->editor_midi_thru_device, &QComboBox::currentTextChanged, this,
-	  &MMGEchoWindow::on_midi_thru_device_change);
-  connect(ui->button_export, &QPushButton::clicked, this, &MMGEchoWindow::export_bindings);
-  connect(ui->button_import, &QPushButton::clicked, this, &MMGEchoWindow::import_bindings);
-  connect(ui->button_help_advanced, &QPushButton::clicked, this, &MMGEchoWindow::i_need_help);
-  connect(ui->button_bug_report, &QPushButton::clicked, this, &MMGEchoWindow::report_a_bug);
-  connect(ui->button_update_check, &QPushButton::clicked, this, &MMGEchoWindow::on_update_check);
+	// Preferences Connections
+	connect(preferences_display, &MMGListWidget::selected, this, &MMGEchoWindow::preferenceShow);
 
-  connect(ui->editor_transfer_mode, &QComboBox::currentIndexChanged, this,
-	  &MMGEchoWindow::on_transfer_mode_change);
-  connect(ui->button_binding_transfer, &QPushButton::clicked, this,
-	  &MMGEchoWindow::on_transfer_bindings_click);
+	connect(ui->button_export, &QPushButton::clicked, this, &MMGEchoWindow::exportBindings);
+	connect(ui->button_import, &QPushButton::clicked, this, &MMGEchoWindow::importBindings);
+	connect(ui->button_help_advanced, &QPushButton::clicked, this, &MMGEchoWindow::openHelp);
+	connect(ui->button_bug_report, &QPushButton::clicked, this, &MMGEchoWindow::reportBug);
+	connect(ui->button_update_check, &QPushButton::clicked, this, &MMGEchoWindow::checkForUpdates);
 
-  // List Widget Connections
-  connect(ui->editor_structure, &QListWidget::itemClicked, this,
-	  &MMGEchoWindow::on_list_selection_change);
-  connect(ui->editor_structure, &QListWidget::itemChanged, this,
-	  &MMGEchoWindow::on_list_widget_state_change);
-  connect(ui->editor_structure->model(), &QAbstractItemModel::rowsMoved, this,
-	  &MMGEchoWindow::on_binding_drag);
-
-  // Listening Buttons
-  connect(input_device().get(), &MMGMIDIIn::messageListened, this, &MMGEchoWindow::listen_update);
+	// Upper Button Connections
+	connect(ui->button_add, &QPushButton::clicked, this, &MMGEchoWindow::onAddClick);
+	connect(ui->button_duplicate, &QPushButton::clicked, this, &MMGEchoWindow::onCopyClick);
+	connect(ui->button_remove, &QPushButton::clicked, this, &MMGEchoWindow::onRemoveClick);
+	connect(ui->button_confirm, &QPushButton::clicked, this, &MMGEchoWindow::onConfirmClick);
 }
 
-void MMGEchoWindow::set_message_view()
+void MMGEchoWindow::translate()
 {
-  current_message->setEditable(false);
+	ui->button_add->setToolTip(mmgtr("UI.Buttons.Create"));
+	ui->button_duplicate->setToolTip(mmgtr("UI.Buttons.Copy"));
+	ui->button_remove->setToolTip(mmgtr("UI.Buttons.Delete"));
 
-  channel_display->setStorage(current_message->channel());
-  note_display->setStorage(current_message->note());
-  value_display->setStorage(current_message->value(), true);
-  value_display->setBounds(0, 127);
+	ui->button_binding_display->setToolTip(mmgtr("UI.Buttons.Bindings"));
+	ui->button_device_display->setToolTip(mmgtr("UI.Buttons.Devices"));
+	ui->button_message_display->setToolTip(mmgtr("UI.Buttons.Messages"));
+	ui->button_action_display->setToolTip(mmgtr("UI.Buttons.Actions"));
+	ui->button_preferences->setToolTip(mmgtr("UI.Buttons.Preferences"));
 
-  ui->editor_type->setCurrentText(*current_message->type());
-  on_message_type_change(*current_message->type());
+	ui->label_binding_selection_notice->setText(mmgtr("UI.SelectionNotice"));
 
-  ui->editor_type_toggle->setChecked(current_message->type()->state() ==
-				     MMGString::STRINGSTATE_TOGGLE);
-  on_message_type_toggle(current_message->type()->state() == MMGString::STRINGSTATE_TOGGLE);
+	ui->label_thru->setText(mmgtr("Device.Thru.Label"));
 
-  ui->editor_value_toggle->setChecked(current_message->value()->state() ==
-				      MMGNumber::NUMBERSTATE_IGNORE);
-  on_message_value_toggle(current_message->value()->state() == MMGNumber::NUMBERSTATE_IGNORE);
+	ui->button_listen_once->setText(mmgtr("UI.Listen.Once"));
+	ui->button_listen_continuous->setText(mmgtr("UI.Listen.Continuous"));
 
-  current_message->setEditable(true);
+	ui->label_cat->setText(mmgtr("Actions.Category"));
+	ui->label_sub->setText(mmgtr("Actions.Name"));
+	ui->editor_cat->clear();
+	ui->editor_cat->addItems(
+		mmgtr_all("Actions.Titles", {"None", "Streaming", "Recording", "VirtualCamera", "ReplayBuffer",
+					     "StudioMode", "Scenes", "VideoSources", "AudioSources", "MediaSources",
+					     "Transitions", "Filters", "Hotkeys", "Profiles", "Collections", "MIDI"}));
+
+	ui->label_device_edit->setText(mmgtr("UI.Buttons.Devices"));
+
+	ui->button_export->setToolTip(mmgtr("UI.Buttons.Export"));
+	ui->button_import->setToolTip(mmgtr("UI.Buttons.Import"));
+	ui->button_help_advanced->setToolTip(mmgtr("UI.Buttons.Help"));
+	ui->button_bug_report->setToolTip(mmgtr("UI.Buttons.BugReport"));
+	ui->label_author->setText(QString(mmgtr("Preferences.Creator")).arg(mmgtr("Plugin.Author")));
+	ui->button_update_check->setText(mmgtr("Preferences.Updates"));
 }
 
-void MMGEchoWindow::set_action_view()
+void MMGEchoWindow::onAddClick()
 {
-  // Preparations (turn off action editing)
-  current_action->setEditable(false);
-  ui->editor_cat->blockSignals(true);
-  ui->editor_sub->blockSignals(true);
-
-  // Set category (and add sub list)
-  ui->editor_cat->setCurrentIndex((int)current_action->category());
-  on_action_cat_change((int)current_action->category());
-
-  // Set subcategory view
-  ui->editor_sub->setCurrentIndex(current_action->sub());
-  on_action_sub_change(current_action->sub());
-
-  // Turn on action editing
-  current_action->setEditable(true);
-  ui->editor_cat->blockSignals(false);
-  ui->editor_sub->blockSignals(false);
+#define ON_ADD(which) which##s_display->addNew()
+	MANAGER_SWITCH(ui->pages->currentIndex(), ON_ADD);
+#undef ON_ADD
 }
 
-void MMGEchoWindow::set_preferences_view()
+void MMGEchoWindow::onCopyClick()
 {
-  ui->editor_global_enable->setChecked(global()->preferences()->active());
-
-  ui->editor_midi_thru_device->blockSignals(true);
-  ui->editor_midi_thru_toggle->setChecked(!global()->preferences()->thruDevice().isEmpty());
-  ui->editor_midi_thru_device->setEnabled(!global()->preferences()->thruDevice().isEmpty());
-  ui->editor_midi_thru_device->clear();
-  ui->editor_midi_thru_device->addItems(output_device()->outputDeviceNames());
-  ui->editor_midi_thru_device->setCurrentText(global()->preferences()->thruDevice());
-  ui->editor_midi_thru_device->blockSignals(false);
+#define ON_COPY(which) which##s_display->copy()
+	MANAGER_SWITCH(ui->pages->currentIndex(), ON_COPY);
+#undef ON_COPY
 }
 
-void MMGEchoWindow::on_device_change(const QString &name)
+void MMGEchoWindow::onRemoveClick()
 {
-  if (name.isEmpty()) return;
-  current_device = global()->find(name);
-  global()->setActiveDeviceName(name);
-  switch_structure_pane(1);
+	if (!open_message_box("PermanentRemove", false)) return;
+
+#define ON_REMOVE(which) which##s_display->remove()
+	MANAGER_SWITCH(ui->pages->currentIndex(), ON_REMOVE);
+#undef ON_REMOVE
 }
 
-void MMGEchoWindow::on_message_type_change(const QString &type)
+void MMGEchoWindow::onConfirmClick()
 {
-  ui->editor_type_toggle->setVisible(false);
-  ui->editor_value_toggle->setVisible(false);
+	binding_edit = false;
+	ui->button_confirm->setVisible(false);
+	ui->label_binding_selection_notice->setVisible(false);
 
-  current_message->type()->set_str(type);
+	ui->button_add->setEnabled(true);
+	ui->button_binding_display->setEnabled(true);
+	ui->button_device_display->setEnabled(true);
+	ui->button_message_display->setEnabled(true);
+	ui->button_action_display->setEnabled(true);
+	ui->button_preferences->setEnabled(true);
 
-  if (current_action) {
-    // Slightly hacky, but it works without adding unnecessary functions
-    if (current_action->category() == MMGAction::MMGACTION_MIDI) {
-      auto midi_action = dynamic_cast<MMGActionMIDI *>(current_action);
-      midi_action->setLabels();
-    }
-  }
+	switch (ui->pages->currentIndex()) {
+		case 1:
+			current_binding->setUsedDevices(devices_display->selectedValues());
+			devices_display->setSelectionMode(QAbstractItemView::SingleSelection);
+			devices_display->setFilterType(TYPE_NONE);
+			devices_display->displayAll();
+			break;
 
-  set_message_labels(type, note_display, value_display);
+		case 2:
+			current_binding->setUsedMessages(messages_display->selectedValues());
+			messages_display->setSelectionMode(QAbstractItemView::SingleSelection);
+			messages_display->setFilterType(TYPE_NONE);
+			messages_display->setItemsEditable(true);
+			break;
 
-  if (type == "Note On" || type == "Note Off") {
-    ui->editor_type_toggle->setVisible(true);
-    ui->editor_value_toggle->setVisible(true);
-    return;
-  }
-  ui->editor_type_toggle->setChecked(false);
-  ui->editor_value_toggle->setChecked(false);
+		case 3:
+			current_binding->setUsedActions(actions_display->selectedValues());
+			actions_display->setSelectionMode(QAbstractItemView::SingleSelection);
+			actions_display->setFilterType(TYPE_NONE);
+			actions_display->setItemsEditable(true);
+			break;
+
+		case 4:
+			preferences_display->setFilterType(TYPE_NONE);
+			preferences_display->displayAll();
+			break;
+
+		default:
+			break;
+	}
+
+	if (!manager(binding)->list().contains(current_binding)) {
+		// Action Request Binding (those are not registered in the manager)
+		ui->button_action_display->click();
+		current_binding = nullptr;
+	} else {
+		// Normal Binding Access
+		ui->button_binding_display->click();
+	}
 }
 
-void MMGEchoWindow::on_message_listen_once(bool toggled)
+void MMGEchoWindow::onScreenChange(int page)
 {
-  ui->button_listen_once->setText(toggled ? "Cancel..." : "Listen Once...");
-  if (listening_mode == 2) {
-    ui->button_listen_continuous->blockSignals(true);
-    ui->button_listen_continuous->setChecked(false);
-    ui->button_listen_continuous->blockSignals(false);
-    on_message_listen_continuous(0);
-  }
-  input_device()->setListening(toggled);
-  listening_mode = toggled;
+	ui->pages->setCurrentIndex(page);
+	ui->button_add->setEnabled(true);
+	ui->button_duplicate->setEnabled(false);
+	ui->button_remove->setEnabled(false);
+	QString name;
+
+#define ON_TYPE_SET(which) \
+	which##Show();     \
+	name = #which
+	MANAGER_SWITCH(page, ON_TYPE_SET);
+#undef ON_TYPE_SET
+
+	if (binding_edit) return;
+	name[0] = name[0].toUpper();
+	name = QString("UI.Buttons.%1s").arg(name);
+	ui->label_header->setText(mmgtr(name.qtocs()));
 }
 
-void MMGEchoWindow::on_message_listen_continuous(bool toggled)
+void MMGEchoWindow::deviceShow()
 {
-  ui->button_listen_continuous->setText(toggled ? "Cancel..." : "Listen Continuous...");
-  if (listening_mode == 1) {
-    ui->button_listen_once->blockSignals(true);
-    ui->button_listen_once->setChecked(false);
-    ui->button_listen_once->blockSignals(false);
-    on_message_listen_once(0);
-  }
-  input_device()->setListening(toggled);
-  listening_mode = toggled ? 2 : 0;
+	ui->button_add->setEnabled(false);
+	ui->button_duplicate->setEnabled(false);
+	ui->button_remove->setEnabled(false);
+
+	current_device = devices_display->currentValue();
+	ui->device_frame->setVisible(!!current_device && !binding_edit);
+	if (!current_device || binding_edit) return;
+
+	MMGNoEdit no_edit_device(current_device);
+	QSignalBlocker blocker_in_enable(ui->button_in_enable);
+	QSignalBlocker blocker_thru(ui->button_thru);
+	QSignalBlocker blocker_thru_val(ui->editor_thru);
+	QSignalBlocker blocker_out_enable(ui->button_out_enable);
+
+	ui->button_in_enable->setEnabled(current_device->isCapable(TYPE_INPUT));
+	ui->button_in_enable->setChecked(current_device->isActive(TYPE_INPUT));
+	onDeviceInputActiveChange(current_device->isActive(TYPE_INPUT));
+
+	ui->editor_thru->clear();
+	for (MMGDevice *device : *manager(device))
+		if (device->isCapable(TYPE_OUTPUT)) ui->editor_thru->addItem(device->name());
+
+	bool thru_enabled = current_device->isActive(TYPE_INPUT) && !current_device->thru().isEmpty();
+	ui->button_thru->setChecked(thru_enabled);
+	onDeviceThruStateChange(thru_enabled);
+	ui->editor_thru->setCurrentText(current_device->thru());
+
+	ui->button_out_enable->setEnabled(current_device->isCapable(TYPE_OUTPUT));
+	ui->button_out_enable->setChecked(current_device->isActive(TYPE_OUTPUT));
+	onDeviceOutputActiveChange(current_device->isActive(TYPE_OUTPUT));
 }
 
-void MMGEchoWindow::listen_update(const MMGSharedMessage &incoming)
+void MMGEchoWindow::deviceBindingEdit()
 {
-  if (!incoming) return;
-  if (listening_mode < 1) return;
-  // Check the validity of the message type (whether it is one of the five
-  // supported types)
-  if (ui->editor_type->findText(*incoming->type()) == -1) return;
-  if (listening_mode == 1) {
-    ui->button_listen_once->setText("Listen Once...");
-    ui->button_listen_once->setChecked(false);
-    input_device()->setListening(false);
-  }
-  incoming->copy(current_message);
-  set_message_view();
+	ui->label_header->setText(QString(mmgtr("UI.Select")).arg(mmgtr("Device.Name")));
+
+	devices_display->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	devices_display->setFilterType(current_binding->type());
+	devices_display->displayAll();
+
+	devices_display->selectValues(current_binding->usedDevices());
 }
 
-void MMGEchoWindow::on_message_type_toggle(bool toggled)
+void MMGEchoWindow::onDeviceInputActiveChange(bool toggled)
 {
-  current_message->type()->set_state(toggled << 1);
+	current_device->setActive(TYPE_INPUT, toggled);
+	toggled = current_device->isPortOpen(TYPE_INPUT);
+	ui->button_in_enable->setChecked(toggled);
+	ui->label_in_connect->setText(current_device->status(TYPE_INPUT));
+
+	ui->button_thru->setVisible(toggled);
+	ui->label_thru->setVisible(toggled);
+	ui->editor_thru->setVisible(toggled && ui->button_thru->isChecked());
 }
 
-void MMGEchoWindow::on_message_value_toggle(bool toggled)
+void MMGEchoWindow::onDeviceOutputActiveChange(bool toggled)
 {
-  value_display->setLCDMode(
-    toggled ? 3 : (current_message->value()->state() == 3 ? 1 : current_message->value()->state()));
-  current_message->value()->set_num(toggled ? 127 : 0);
-  value_display->setDisabled(toggled);
+	current_device->setActive(TYPE_OUTPUT, toggled);
+	toggled = current_device->isPortOpen(TYPE_OUTPUT);
+	ui->button_out_enable->setChecked(toggled);
+	ui->label_out_connect->setText(current_device->status(TYPE_OUTPUT));
 }
 
-void MMGEchoWindow::on_action_cat_change(int index)
+void MMGEchoWindow::onDeviceThruStateChange(bool toggled)
 {
-  if (!ui->editor_cat->signalsBlocked()) current_binding->setCategory(index);
-  current_action = current_binding->action();
-  change_sub_options();
+	ui->button_thru->setIcon(QIcon(QString(":/icons/toggle-%1.svg").arg(toggled ? "on" : "off")));
+	ui->editor_thru->setVisible(toggled);
+
+	if (ui->editor_thru->signalsBlocked()) return;
+	current_device->setThru(toggled ? ui->editor_thru->currentText() : "");
 }
 
-void MMGEchoWindow::change_sub_options()
+void MMGEchoWindow::onDeviceThruChange(const QString &device)
 {
-  ui->editor_sub->clear();
-  current_action->setSubOptions(ui->editor_sub);
+	current_device->setThru(device);
 }
 
-void MMGEchoWindow::on_action_sub_change(int index)
+void MMGEchoWindow::messageShow()
 {
-  current_action->setSub(index);
+	current_message = messages_display->currentValue();
+	bool enable_frame = !!current_message && !binding_edit;
+	ui->message_frame->setVisible(enable_frame);
+	ui->button_duplicate->setEnabled(enable_frame);
+	ui->button_remove->setEnabled(enable_frame);
+	if (!enable_frame) return;
 
-  if (current_action->display() == nullptr) {
-    current_action->createDisplay(ui->action_display_editor);
+	MMGNoEdit no_edit_message(current_message);
 
-    // Custom Fields Request System
-    connect(current_action->display(), &MMGActionDisplay::customFieldRequest, this,
-	    &MMGEchoWindow::custom_field_request);
-
-    ui->action_display_editor->addWidget(current_action->display());
-  }
-
-  current_action->display()->setParent(ui->action_display_editor);
-  current_action->display()->setParentBinding(current_binding);
-  current_action->setSubConfig();
-  ui->action_display_editor->setCurrentWidget(current_action->display());
+	type_display->setStorage(&current_message->type());
+	channel_display->setStorage(&current_message->channel());
+	note_display->setStorage(&current_message->note());
+	value_display->setStorage(&current_message->value());
+	onMessageTypeChange();
 }
 
-void MMGEchoWindow::custom_field_request(void *ptr, MMGString *action_json)
+void MMGEchoWindow::messageBindingEdit()
 {
-  obs_source_t *source = static_cast<obs_source_t *>(ptr);
-  if (source == nullptr) return;
+	ui->label_header->setText(QString(mmgtr("UI.Select")).arg(mmgtr("Message.Name")));
 
-  QWidget *parent = current_action->display()->scrollWidget()->parentWidget();
-  bool prev_fields_json_match = !current_fields ||
-				current_fields->jsonDestination()->str() != action_json->str();
+	messages_display->setSelectionMode(current_binding->type() == TYPE_OUTPUT ? QAbstractItemView::ExtendedSelection
+										  : QAbstractItemView::SingleSelection);
+	messages_display->setFilterType(current_binding->type());
+	messages_display->displayAll();
 
-  for (MMGOBSFields *fields : custom_fields) {
-    if (fields->match(source)) {
-      current_fields = fields;
-      fields->setParent(parent);
-      fields->setJsonDestination(action_json, prev_fields_json_match);
-      current_action->display()->setScrollWidget(fields);
-      return;
-    }
-  }
-  MMGOBSFields *new_fields = new MMGOBSFields(parent, source);
-  new_fields->setJsonDestination(action_json, prev_fields_json_match);
-  current_fields = new_fields;
-  custom_fields.append(new_fields);
-  current_action->display()->setScrollWidget(new_fields);
+	messages_display->selectValues(current_binding->usedMessages());
 }
 
-void MMGEchoWindow::on_add_click()
+void MMGEchoWindow::onMessageTypeChange()
 {
-  add_widget_item(current_device->add());
+	set_message_labels(current_message->type(), note_display, value_display);
 }
 
-void MMGEchoWindow::on_copy_click()
+void MMGEchoWindow::onListenOnceClick(bool toggled)
 {
-  add_widget_item(current_device->copy(current_binding));
+	ui->button_listen_once->setText(mmgtr_two("UI.Listen", "Cancel", "Once", toggled));
+	if (listening_mode == 2) {
+		QSignalBlocker blocker_continuous(ui->button_listen_continuous);
+		ui->button_listen_continuous->setChecked(false);
+		ui->button_listen_continuous->setText(mmgtr("UI.Listen.Continuous"));
+	}
+	midi()->setListening(toggled);
+	listening_mode = toggled;
+	global_blog(LOG_DEBUG, toggled ? "Single listen activated." : "Listening deactivated.");
 }
 
-void MMGEchoWindow::on_remove_click()
+void MMGEchoWindow::onListenContinuousClick(bool toggled)
 {
-  QListWidgetItem *current = ui->editor_structure->currentItem();
-  if (!current) return;
-  if (current->text() != current_binding->name())
-    current_binding = current_device->find(current->text());
-
-  current_device->remove(current_binding);
-  delete current_binding;
-  current_binding = nullptr;
-  current_message = nullptr;
-  current_action = nullptr;
-
-  delete current;
-
-  current = ui->editor_structure->currentItem();
-  if (!current) {
-    on_list_selection_change(nullptr);
-    return;
-  }
-
-  on_list_selection_change(current);
+	ui->button_listen_continuous->setText(mmgtr_two("UI.Listen", "Cancel", "Continuous", toggled));
+	if (listening_mode == 1) {
+		QSignalBlocker blocker_once(ui->button_listen_once);
+		ui->button_listen_once->setChecked(false);
+		ui->button_listen_once->setText(mmgtr("UI.Listen.Once"));
+	}
+	midi()->setListening(toggled);
+	listening_mode = toggled ? 2 : 0;
+	global_blog(LOG_DEBUG, toggled ? "Continuous listen activated." : "Listening deactivated.");
 }
 
-void MMGEchoWindow::on_preferences_click(bool toggle)
+void MMGEchoWindow::updateMessage(const MMGSharedMessage &incoming)
 {
-  switch_structure_pane(1 + toggle);
-  ui->button_preferences->setText(toggle ? "Return to Bindings..." : "Preferences...");
-  ui->editor_devices->setDisabled(toggle);
-  set_preferences_view();
+	if (!incoming) return;
+	if (listening_mode < 1) return;
+	// Check the validity of the message type (whether it is one of the five
+	// supported types)
+	if (MMGMessage::acceptedTypes().indexOf(incoming->type()) == -1) return;
+	if (listening_mode == 1) {
+		ui->button_listen_once->setText(mmgtr("UI.Listen.Once"));
+		ui->button_listen_once->setChecked(false);
+		midi()->setListening(false);
+	}
+	current_message = messages_display->currentValue();
+	QString name = current_message->name();
+
+	incoming->copy(current_message);
+	current_message->setName(name);
+	current_message->value().setMax(127);
+
+	messageShow();
 }
 
-void MMGEchoWindow::on_list_widget_state_change(QListWidgetItem *widget_item)
+void MMGEchoWindow::actionShow()
 {
-  if (!widget_item) return;
+	current_action = actions_display->currentValue();
+	bool enable_frame = !!current_action && !binding_edit;
+	ui->action_frame->setVisible(enable_frame);
+	ui->button_duplicate->setEnabled(enable_frame);
+	ui->button_remove->setEnabled(enable_frame);
+	if (!enable_frame) return;
 
-  if (ui->editor_structure->currentRow() != ui->editor_structure->row(widget_item)) {
-    ui->editor_structure->setCurrentItem(widget_item);
-    on_list_selection_change(widget_item);
-  }
+	MMGNoEdit no_edit_action(current_action);
+	QSignalBlocker blocker_switch(ui->button_action_switch);
+	QSignalBlocker blocker_cat(ui->editor_cat);
+	QSignalBlocker blocker_sub(ui->editor_sub);
 
-  if (current_binding->name() != widget_item->text()) {
-    QString name{widget_item->text()};
-    if (!!current_device->find(name)) {
-      ui->editor_structure->currentItem()->setText(current_binding->name());
-      return;
-    }
-    current_binding->setName(name);
-  }
+	ui->editor_cat->setCurrentIndex((int)current_action->category());
 
-  current_binding->setEnabled((bool)widget_item->checkState());
+	ui->button_action_switch->setChecked((bool)current_action->type());
+	onActionSwitch((bool)current_action->type());
+
+	ui->editor_sub->setCurrentIndex(current_action->sub());
+	onActionSubChange(current_action->sub());
 }
 
-void MMGEchoWindow::on_list_selection_change(QListWidgetItem *widget_item)
+void MMGEchoWindow::actionBindingEdit()
 {
-  if (!widget_item) {
-    // No selection
-    ui->button_duplicate->setEnabled(false);
-    ui->button_remove->setEnabled(false);
-    ui->pages->setCurrentIndex(0);
-    return;
-  }
+	ui->label_header->setText(QString(mmgtr("UI.Select")).arg(mmgtr("Actions.Name")));
 
-  ui->button_add->setEnabled(true);
-  ui->button_duplicate->setEnabled(true);
-  ui->button_remove->setEnabled(true);
+	actions_display->setSelectionMode(current_binding->type() == TYPE_INPUT ? QAbstractItemView::ExtendedSelection
+										: QAbstractItemView::SingleSelection);
+	actions_display->setFilterType(current_binding->type());
+	actions_display->displayAll();
 
-  current_binding = current_device->find(widget_item->text());
-  current_message = current_binding->message();
-  current_action = current_binding->action();
-
-  set_message_view();
-  set_action_view();
-  ui->pages->setCurrentIndex(1);
+	actions_display->selectValues(current_binding->usedActions());
 }
 
-void MMGEchoWindow::switch_structure_pane(int page)
+void MMGEchoWindow::onActionCategoryChange(int index)
 {
-  ui->editor_structure->clear();
-  ui->button_add->setEnabled(false);
-  ui->button_duplicate->setEnabled(false);
-  ui->button_remove->setEnabled(false);
-  ui->pages->setCurrentIndex(page);
+	QJsonObject json_obj;
+	json_obj["category"] = index;
+	manager(action)->changeActionCategory(current_action, json_obj);
+	actions_display->updateData();
 
-  if (page != 1) return;
-
-  ui->button_add->setEnabled(true);
-  if (!current_device) return;
-  for (MMGBinding *const binding_el : current_device->bindings()) {
-    add_widget_item(binding_el);
-  }
-  on_list_selection_change(nullptr);
+	onActionSubUpdate();
 }
 
-void MMGEchoWindow::add_widget_item(const MMGBinding *binding) const
+void MMGEchoWindow::onActionSwitch(bool toggled)
 {
-  QListWidgetItem *new_item = new QListWidgetItem;
-  new_item->setFlags((Qt::ItemFlag)0b110111);
-  new_item->setCheckState((Qt::CheckState)(binding->enabled() ? 2 : 0));
-  new_item->setText(binding->name());
-  ui->editor_structure->addItem(new_item);
+	if (!ui->button_action_switch->signalsBlocked()) {
+		QSignalBlocker blocker_action_switch(ui->button_action_switch);
+		ui->button_action_switch->setChecked(!toggled);
+		if (!open_message_box("ActionSwitch", false)) return;
+		ui->button_action_switch->setChecked(toggled);
+	}
+
+	current_action->setType((DeviceType)toggled);
+	ui->button_action_switch->setIcon(QIcon(toggled ? ":/icons/switch-out.svg" : ":/icons/switch-in.svg"));
+
+	onActionSubUpdate();
 }
 
-void MMGEchoWindow::on_binding_drag(const QModelIndex &parent, int start, int end,
-				    const QModelIndex &dest, int row) const
+void MMGEchoWindow::onActionSubUpdate()
 {
-  Q_UNUSED(parent);
-  Q_UNUSED(end);
-  Q_UNUSED(dest);
-  current_device->move(start, row);
+	ui->editor_sub->clear();
+	current_action->setComboOptions(ui->editor_sub);
 }
 
-void MMGEchoWindow::on_active_change(bool toggle)
+void MMGEchoWindow::onActionSubChange(int index)
 {
-  global()->preferences()->setActive(toggle);
+	if (index < 0) return;
+
+	current_action->setSub(index);
+
+	if (!current_action->display()) {
+		current_action->createDisplay(ui->action_display_editor);
+		connect(current_action->display(), &MMGActionDisplay::editRequest, this,
+			&MMGEchoWindow::onActionEditRequest);
+		ui->action_display_editor->addWidget(current_action->display());
+	}
+
+	current_action->display()->setParent(ui->action_display_editor);
+	current_action->setActionParams();
+	ui->action_display_editor->setCurrentWidget(current_action->display());
 }
 
-void MMGEchoWindow::on_midi_thru_change(bool toggle)
+void MMGEchoWindow::onActionEditRequest(MMGBinding *binding, int page)
 {
-  global()->preferences()->setThruDevice(toggle ? ui->editor_midi_thru_device->currentText() : "");
-  ui->editor_midi_thru_device->setEnabled(toggle);
+	if (!sender() || !binding) return;
+
+	current_binding = binding;
+	onBindingFieldEdit(page);
 }
 
-void MMGEchoWindow::on_midi_thru_device_change(const QString &device)
+void MMGEchoWindow::bindingShow()
 {
-  global()->preferences()->setThruDevice(device);
+	current_binding = bindings_display->currentValue();
+	ui->binding_frame->setVisible(!!current_binding);
+	ui->button_duplicate->setEnabled(!!current_binding);
+	ui->button_remove->setEnabled(!!current_binding);
+	if (!current_binding) return;
+
+	QSignalBlocker blocker_binding_enable(ui->button_binding_enable);
+	QSignalBlocker blocker_binding_switch(ui->button_binding_switch);
+	main_binding_display->setStorage(current_binding);
+
+	ui->button_binding_enable->setChecked(current_binding->enabled());
+	onBindingActiveChange(current_binding->enabled());
+
+	ui->button_binding_switch->setChecked((bool)current_binding->type());
+	onBindingSwitch((bool)current_binding->type());
 }
 
-void MMGEchoWindow::export_bindings()
+void MMGEchoWindow::onBindingActiveChange(bool toggled)
 {
-  QString filepath = QFileDialog::getSaveFileName(this, tr("Save Bindings..."),
-						  MMGConfig::filepath(), "JSON Files (*.json)");
-  if (!filepath.isNull()) global()->save(filepath);
+	current_binding->setEnabled(toggled);
+	ui->label_binding_enable->setText(mmgtr_two("Plugin", "Enabled", "Disabled", toggled));
 }
 
-void MMGEchoWindow::import_bindings()
+void MMGEchoWindow::onBindingSwitch(bool toggled)
 {
-  QString filepath =
-    QFileDialog::getOpenFileName(this, tr("Open Bindings File..."), "", "JSON Files (*.json)");
-  if (!filepath.isNull()) {
-    global()->load(filepath);
-    show_window();
-  }
+	if (!ui->button_binding_switch->signalsBlocked()) {
+		QSignalBlocker blocker_binding_switch(ui->button_binding_switch);
+		ui->button_binding_switch->setChecked(!toggled);
+		if (!open_message_box("BindingSwitch", false)) return;
+	}
+
+	ui->label_binding_switch->setText(mmgtr_two("Binding", "Output", "Input", toggled));
+	ui->button_binding_switch->setIcon(QIcon(toggled ? ":/icons/switch-out.svg" : ":/icons/switch-in.svg"));
+
+	if (ui->button_binding_switch->signalsBlocked()) return;
+	current_binding->setType((DeviceType)toggled);
+	bindings_display->updateData();
+	bindingShow();
 }
 
-void MMGEchoWindow::i_need_help() const
+void MMGEchoWindow::onBindingFieldEdit(int page)
 {
-  QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/blob/master/HELP.md"));
+	if (page < 1) return;
+
+	ui->button_confirm->setVisible(true);
+	ui->label_binding_selection_notice->setVisible(true);
+
+	ui->button_binding_display->setEnabled(false);
+	ui->button_device_display->setEnabled(false);
+	ui->button_message_display->setEnabled(false);
+	ui->button_action_display->setEnabled(false);
+	ui->button_preferences->setEnabled(false);
+
+	binding_edit = true;
+
+#define ON_BINDING_EDIT(which)                     \
+	which##s_display->setItemsEditable(false); \
+	which##BindingEdit()
+	MANAGER_SWITCH(page, ON_BINDING_EDIT);
+#undef ON_BINDING_EDIT
+
+	onScreenChange(page);
+
+	ui->button_add->setEnabled(false);
+	ui->button_duplicate->setEnabled(false);
+	ui->button_remove->setEnabled(false);
 }
 
-void MMGEchoWindow::report_a_bug() const
+void MMGEchoWindow::preferenceShow()
 {
-  QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/issues"));
+	ui->button_add->setEnabled(false);
+
+	MMGSettings *current_settings = binding_edit ? current_binding->settings()
+						     : preferences_display->currentValue();
+	ui->preferences_frame->setVisible(!!current_settings);
+	if (!current_settings) return;
+
+	MMGNoEdit no_edit_settings(manager(setting));
+
+	if (!current_settings->display()) current_settings->createDisplay(this);
+	ui->scroll_preferences->takeWidget();
+	ui->scroll_preferences->setWidget(current_settings->display());
 }
 
-void MMGEchoWindow::on_transfer_mode_change(short index)
+void MMGEchoWindow::preferenceBindingEdit()
 {
-  switch (index) {
-    case 0:
-      ui->label_transfer_dest->setText("to");
-      ui->label_transfer_source->setText("from");
-      ui->button_binding_transfer->setText("Copy...");
-      break;
-    case 1:
-      ui->label_transfer_dest->setText("to");
-      ui->label_transfer_source->setText("from");
-      ui->button_binding_transfer->setText("Move...");
-      break;
-    case 2:
-      ui->label_transfer_dest->setText("in");
-      ui->label_transfer_source->setText("with");
-      ui->button_binding_transfer->setText("Replace...");
-      break;
-    default:
-      break;
-  }
+	ui->label_binding_selection_notice->setVisible(false);
+
+	ui->label_header->setText(mmgtr("Preferences.Binding.Header"));
+
+	preferences_display->setFilterType(current_binding->type());
+	preferences_display->displayAll();
+
+	preferenceShow();
 }
 
-void MMGEchoWindow::on_transfer_bindings_click()
+void MMGEchoWindow::exportBindings()
 {
-  transfer_bindings(ui->editor_transfer_mode->currentIndex(),
-		    ui->editor_transfer_dest->currentText(),
-		    ui->editor_transfer_source->currentText());
+	QString filepath = QFileDialog::getSaveFileName(this, mmgtr("UI.Filesystem.ExportTitle"), MMGConfig::filepath(),
+							mmgtr("UI.Filesystem.FileType"));
+	if (!filepath.isNull()) config()->save(filepath);
 }
 
-void MMGEchoWindow::on_update_check()
+void MMGEchoWindow::importBindings()
 {
-  QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/releases"));
+	QString filepath = QFileDialog::getOpenFileName(this, mmgtr("UI.Filesystem.ImportTitle"), "",
+							mmgtr("UI.Filesystem.FileType"));
+	if (filepath.isNull()) return;
+	config()->load(filepath);
+	displayWindow();
+}
+
+void MMGEchoWindow::openHelp() const
+{
+	QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/blob/master/docs/README.md"));
+}
+
+void MMGEchoWindow::reportBug() const
+{
+	QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/issues"));
+}
+
+void MMGEchoWindow::checkForUpdates() const
+{
+	QDesktopServices::openUrl(QUrl("https://github.com/nhielost/obs-midi-mg/releases"));
 }
 
 MMGEchoWindow::~MMGEchoWindow()
 {
-  delete ui;
+	delete ui;
 }

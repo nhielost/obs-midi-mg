@@ -20,42 +20,90 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-MMGActionVirtualCam::MMGActionVirtualCam(const QJsonObject &json_obj)
+MMGActionVirtualCam::MMGActionVirtualCam(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj)
 {
-  subcategory = json_obj["sub"].toInt();
-
-  blog(LOG_DEBUG, "<Virtual Camera> action created.");
+	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionVirtualCam::blog(int log_status, const QString &message) const
+void MMGActionVirtualCam::setComboOptions(QComboBox *sub)
 {
-  global_blog(log_status, "<Virtual Camera> Action -> " + message);
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+			opts << obstr_all("Basic.Main", {"StartVirtualCam", "StopVirtualCam"})
+			     << subModuleText("Toggle");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Started", "Stopped", "Toggle"});
+			break;
+
+		default:
+			break;
+	}
+
+	sub->addItems(opts);
 }
 
-void MMGActionVirtualCam::execute(const MMGMessage *midi) const
+void MMGActionVirtualCam::execute(const MMGMessage *) const
 {
-  Q_UNUSED(midi);
-  switch (sub()) {
-    case MMGActionVirtualCam::VIRCAM_ON:
-      if (!obs_frontend_virtualcam_active()) obs_frontend_start_virtualcam();
-      break;
-    case MMGActionVirtualCam::VIRCAM_OFF:
-      if (obs_frontend_virtualcam_active()) obs_frontend_stop_virtualcam();
-      break;
-    case MMGActionVirtualCam::VIRCAM_TOGGLE_ONOFF:
-      if (obs_frontend_virtualcam_active()) {
-	obs_frontend_stop_virtualcam();
-      } else {
-	obs_frontend_start_virtualcam();
-      }
-      break;
-    default:
-      break;
-  }
-  blog(LOG_DEBUG, "Successfully executed.");
+	switch (sub()) {
+		case VIRCAM_ON:
+			if (!obs_frontend_virtualcam_active()) obs_frontend_start_virtualcam();
+			break;
+
+		case VIRCAM_OFF:
+			if (obs_frontend_virtualcam_active()) obs_frontend_stop_virtualcam();
+			break;
+
+		case VIRCAM_TOGGLE_ONOFF:
+			if (obs_frontend_virtualcam_active()) {
+				obs_frontend_stop_virtualcam();
+			} else {
+				obs_frontend_start_virtualcam();
+			}
+			break;
+
+		default:
+			break;
+	}
+
+	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionVirtualCam::setSubOptions(QComboBox *sub)
+void MMGActionVirtualCam::connectOBSSignals()
 {
-  sub->addItems({"Start Virtual Camera", "Stop Virtual Camera", "Toggle Virtual Camera"});
+	disconnectOBSSignals();
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionVirtualCam::frontendCallback);
+}
+
+void MMGActionVirtualCam::disconnectOBSSignals()
+{
+	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
+}
+
+void MMGActionVirtualCam::frontendCallback(obs_frontend_event event) const
+{
+	switch (sub()) {
+		case VIRCAM_STARTED:
+			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED) return;
+			break;
+
+		case VIRCAM_STOPPED:
+			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED) return;
+			break;
+
+		case VIRCAM_TOGGLE_STARTED:
+			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED &&
+			    event != OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED)
+				return;
+			break;
+
+		default:
+			return;
+	}
+
+	emit eventTriggered();
 }

@@ -20,42 +20,66 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionTransitions : public MMGAction {
-  public:
-  explicit MMGActionTransitions();
-  explicit MMGActionTransitions(const QJsonObject &json_obj);
+	Q_OBJECT
 
-  enum Actions {
-    TRANSITION_CURRENT,
-    TRANSITION_SOURCE_SHOW,
-    TRANSITION_SOURCE_HIDE,
-    TRANSITION_TBAR_ACTIVATE,
-    TRANSITION_TBAR_RELEASE,
-    TRANSITION_CUSTOM
-  };
+public:
+	MMGActionTransitions(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+	enum Actions {
+		TRANSITION_CURRENT,
+		TRANSITION_SOURCE_SHOW,
+		TRANSITION_SOURCE_HIDE,
+		TRANSITION_TBAR_ACTIVATE,
+		TRANSITION_TBAR_TOGGLE,
+		TRANSITION_CUSTOM
+	};
+	enum Events {
+		TRANSITION_CURRENT_CHANGED,
+		TRANSITION_CURRENT_DURATION_CHANGED,
+		TRANSITION_STARTED,
+		TRANSITION_STOPPED,
+		TRANSITION_TOGGLE_STARTED,
+		TRANSITION_TBAR_CHANGED,
+		TRANSITION_CUSTOM_CHANGED
+	};
 
-  Category category() const override { return Category::MMGACTION_TRANSITION; }
+	Category category() const override { return MMGACTION_TRANSITION; };
+	const QString trName() const override { return "Transitions"; };
 
-  static const QStringList enumerate();
-  obs_source_t *sourceByName() const;
-  bool transitionFixed() const;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  private:
-  MMGUtils::MMGString transition;
-  MMGUtils::MMGString parent_scene;
-  MMGUtils::MMGString source;
-  MMGUtils::MMGString json_str;
-  MMGUtils::MMGNumber num;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
-  void setList2Config() override;
-  void setList3Config() override;
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QStringList enumerate();
+	static const QString currentTransition();
+	static obs_source_t *sourceByName(const QString &name);
+	bool transitionFixed() const;
+
+private:
+	MMGUtils::MMGString transition;
+	MMGUtils::MMGString parent_scene;
+	MMGUtils::MMGString source;
+	MMGUtils::MMGNumber num;
+	MMGUtils::MMGJsonObject *_json;
+
+	const MMGSourceSignal *active_source_signal = nullptr;
+
+private slots:
+	void onList1Change();
+	void onList2Change();
+	void onList3Change();
+
+	void frontendCallback(obs_frontend_event event);
+	void transitionStartCallback();
+	void transitionStopCallback();
+	void sourceDataCallback(void *_source);
 };

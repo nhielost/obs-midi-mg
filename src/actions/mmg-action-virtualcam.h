@@ -20,14 +20,24 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionVirtualCam : public MMGAction {
-  public:
-  explicit MMGActionVirtualCam() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionVirtualCam(const QJsonObject &json_obj);
-  enum Actions { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionVirtualCam(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_VIRCAM; }
+	enum Actions { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
+	enum Events { VIRCAM_STARTED, VIRCAM_STOPPED, VIRCAM_TOGGLE_STARTED };
+
+	Category category() const override { return MMGACTION_VIRCAM; };
+	const QString trName() const override { return "VirtualCamera"; };
+
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override{};
+
+	void execute(const MMGMessage *) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+private slots:
+	void frontendCallback(obs_frontend_event event) const;
 };

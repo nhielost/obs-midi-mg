@@ -20,31 +20,46 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-action.h"
 
 class MMGActionFilters : public MMGAction {
-  public:
-  explicit MMGActionFilters() { blog(LOG_DEBUG, "Empty action created."); };
-  explicit MMGActionFilters(const QJsonObject &json_obj);
-  enum Actions { FILTER_SHOW, FILTER_HIDE, FILTER_TOGGLE_SHOWHIDE, FILTER_REORDER, FILTER_CUSTOM };
+	Q_OBJECT
 
-  void blog(int log_status, const QString &message) const override;
-  void execute(const MMGMessage *midi) const override;
-  void json(QJsonObject &json_obj) const override;
-  void copy(MMGAction *dest) const override;
-  void setEditable(bool edit) override;
-  void createDisplay(QWidget *parent) override;
-  void setSubOptions(QComboBox *sub) override;
+public:
+	MMGActionFilters(MMGActionManager *parent, const QJsonObject &json_obj);
 
-  Category category() const override { return Category::MMGACTION_FILTER; }
+	enum Actions { FILTER_SHOW, FILTER_HIDE, FILTER_TOGGLE_SHOWHIDE, FILTER_REORDER, FILTER_CUSTOM };
+	enum Events { FILTER_SHOWN, FILTER_HIDDEN, FILTER_TOGGLE_SHOWN, FILTER_REORDERED, FILTER_CUSTOM_CHANGED };
 
-  static const QStringList enumerate(const QString &source = "");
-  static const QStringList enumerate_eligible();
+	Category category() const override { return MMGACTION_FILTER; };
+	const QString trName() const override { return "Filters"; };
 
-  private:
-  MMGUtils::MMGString source;
-  MMGUtils::MMGString filter;
-  MMGUtils::MMGNumber num;
-  MMGUtils::MMGString json_str;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+	void setEditable(bool edit) override;
+	void toggle() override;
 
-  void setSubConfig() override;
-  void setList1Config() override;
-  void setList2Config() override;
+	void createDisplay(QWidget *parent) override;
+	void setComboOptions(QComboBox *sub) override;
+	void setActionParams() override;
+
+	void execute(const MMGMessage *midi) const override;
+	void connectOBSSignals() override;
+	void disconnectOBSSignals() override;
+
+	static const QStringList enumerate(const QString &source);
+	static const QStringList enumerateEligible();
+
+private:
+	MMGUtils::MMGString source;
+	MMGUtils::MMGString filter;
+	MMGUtils::MMGNumber num;
+	MMGUtils::MMGJsonObject *_json;
+
+	const MMGSourceSignal *active_source_signal = nullptr;
+
+private slots:
+	void onList1Change();
+	void onList2Change();
+
+	void filterEnableCallback(bool enable);
+	void filterReorderCallback();
+	void sourceDataCallback(void *_source);
 };

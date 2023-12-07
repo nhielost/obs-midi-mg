@@ -44,11 +44,11 @@ BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakStringLiterals: false  # apparently unpredictable
-ColumnLimit: 100
+ColumnLimit: 120
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-ConstructorInitializerIndentWidth: 2
-ContinuationIndentWidth: 2
+ConstructorInitializerIndentWidth: 8
+ContinuationIndentWidth: 8
 Cpp11BracedListStyle: true
 DerivePointerAlignment: false
 DisableFormat: false
@@ -57,16 +57,17 @@ ForEachMacros:
   - 'json_object_foreach'
   - 'json_object_foreach_safe'
   - 'json_array_foreach'
+  - 'HASH_ITER'
 IncludeBlocks: Preserve
 IndentCaseLabels: true
 IndentPPDirectives: None
-IndentWidth: 2
+IndentWidth: 8
 IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: true
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
 #ObjCBinPackProtocolList: Auto  # requires clang-format 7
-ObjCBlockIndentWidth: 2
+ObjCBlockIndentWidth: 8
 ObjCSpaceAfterProperty: true
 ObjCSpaceBeforeProtocolList: true
 

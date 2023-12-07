@@ -20,43 +20,71 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #define MMG_MESSAGE_H
 
 #include "mmg-utils.h"
+#include "mmg-manager.h"
 
-class MMGMessage {
-  public:
-  explicit MMGMessage();
+class MMGBinding;
 
-  explicit MMGMessage(const libremidi::message &message);
-  explicit MMGMessage(const QJsonObject &obj);
+class MMGMessage : public QObject {
+	Q_OBJECT
 
-  void json(QJsonObject &message_obj) const;
-  void blog(int log_status, const QString &message) const;
+public:
+	MMGMessage(QObject *parent = nullptr);
+	MMGMessage(const QJsonObject &json_obj);
+	MMGMessage(const libremidi::message &message);
 
-  MMGUtils::MMGString *type() { return &_type; };
-  const MMGUtils::MMGString &type() const { return _type; };
-  MMGUtils::MMGNumber *channel() { return &_channel; };
-  const MMGUtils::MMGNumber &channel() const { return _channel; };
-  MMGUtils::MMGNumber *note() { return &_note; };
-  const MMGUtils::MMGNumber &note() const { return _note; };
-  MMGUtils::MMGNumber *value() { return &_value; };
-  const MMGUtils::MMGNumber &value() const { return _value; };
+	const QString &name() const { return _name; };
+	void setName(const QString &name) { _name = name; };
 
-  bool acceptable(const MMGMessage *test) const;
-  void copy(MMGMessage *dest) const;
-  void setEditable(bool edit);
-  void toggle();
+	MMGUtils::MMGNumber &channel() { return _channel; };
+	MMGUtils::MMGString &type() { return _type; };
+	MMGUtils::MMGNumber &note() { return _note; };
+	MMGUtils::MMGNumber &value() { return _value; };
+	const MMGUtils::MMGNumber &channel() const { return _channel; };
+	const MMGUtils::MMGString &type() const { return _type; };
+	const MMGUtils::MMGNumber &note() const { return _note; };
+	const MMGUtils::MMGNumber &value() const { return _value; };
 
-  static QString get_midi_type(const libremidi::message &mess);
-  static int get_midi_note(const libremidi::message &mess);
-  static int get_midi_value(const libremidi::message &mess);
+	void blog(int log_status, const QString &message) const;
+	void json(QJsonObject &message_obj) const;
+	void copy(MMGMessage *dest) const;
+	void setEditable(bool edit);
+	void toggle();
 
-  private:
-  MMGUtils::MMGNumber _channel;
-  MMGUtils::MMGString _type;
-  MMGUtils::MMGNumber _note;
-  MMGUtils::MMGNumber _value;
+	bool acceptable(const MMGMessage *test) const;
+	void applyValues(const MMGUtils::MMGNumber &applied);
+
+	void addConnection(MMGBinding *binding);
+	void removeConnection(MMGBinding *binding);
+
+	static QString getType(const libremidi::message &mess);
+	static int getNote(const libremidi::message &mess);
+	static int getValue(const libremidi::message &mess);
+	static const QStringList acceptedTypes();
+
+signals:
+	void deleting(MMGMessage *);
+
+private:
+	QString _name;
+
+	MMGUtils::MMGNumber _channel;
+	MMGUtils::MMGString _type;
+	MMGUtils::MMGNumber _note;
+	MMGUtils::MMGNumber _value;
+
+	void setRanges();
 };
 
+using MMGMessageList = QList<MMGMessage *>;
 using MMGSharedMessage = QSharedPointer<MMGMessage>;
 Q_DECLARE_METATYPE(MMGSharedMessage);
+
+class MMGMessageManager : public MMGManager<MMGMessage> {
+
+public:
+	MMGMessageManager(QObject *parent) : MMGManager(parent){};
+
+	MMGMessage *add(const QJsonObject &json_obj = QJsonObject()) override;
+};
 
 #endif // MMG_MESSAGE_H
