@@ -59,7 +59,7 @@ runs:
       id: codesign
       env:
         MACOS_SIGNING_IDENTITY: ${{ inputs.codesignIdentity }}
-        MACOS_SIGNING_IDENTITY_INSTALLER: ${{ inputs.installerIdentity}}
+        MACOS_SIGNING_IDENTITY_INSTALLER: ${{ inputs.installerIdentity }}
         MACOS_SIGNING_CERT: ${{ inputs.codesignCertificate }}
         MAOCS_SIGNING_CERT_PASSWORD: ${{ inputs.certificatePassword }}
         MACOS_KEYCHAIN_PASSWORD: ${{ inputs.keychainPassword }}
@@ -139,7 +139,6 @@ runs:
     - name: Notarization 🧑‍💼
       shell: zsh --no-rcs --errexit --pipefail {0}
       id: notarization
-      if: ${{ fromJSON(steps.codesign.outputs.haveCodesignIdent) }}
       env:
           MACOS_NOTARIZATION_USERNAME: ${{ inputs.notarizationUser }}
           MACOS_NOTARIZATION_PASSWORD: ${{ inputs.notarizationPassword }}
