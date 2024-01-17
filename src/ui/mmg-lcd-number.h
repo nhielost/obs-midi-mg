@@ -47,6 +47,9 @@ public:
 
 protected:
 	void wheelEvent(QWheelEvent *) override;
+	void mouseDoubleClickEvent(QMouseEvent *) override;
+	void keyPressEvent(QKeyEvent *) override;
+	void focusOutEvent(QFocusEvent *) override;
 
 signals:
 	void numberChanged(double);
@@ -70,6 +73,11 @@ private:
 
 	bool _time_format = false;
 
+	QTimer *blinking_timer;
+	QString edit_string;
+	QString original_value;
+	bool blink_press = false;
+
 	double adj_step() const { return _step * step_mult; };
 
 private slots:
@@ -81,4 +89,5 @@ private slots:
 	void initAutoRepeat();
 	void autoRepeat();
 	void autoRepeatCancel();
+	void blink();
 };
