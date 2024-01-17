@@ -29,15 +29,16 @@ public:
 	T *find(const QString &name) const;
 	void move(int from, int to);
 	void remove(T *source);
-	void clear();
+	void clear(bool full = true);
 
 	void load(const QJsonArray &json_arr);
 	void json(const QString &key, QJsonObject &json_obj) const;
 	void setUniqueName(T *source, qulonglong count = 2);
-	virtual bool filter(MMGUtils::DeviceType, T *) const { return true; };
+	const QStringList names() const;
 
-	const QList<T *> &list() const { return _list; };
 	T *at(qsizetype i) const { return _list.value(i); };
+	qsizetype size() const { return _list.size(); };
+
 	auto begin() const { return _list.begin(); };
 	auto end() const { return _list.end(); };
 

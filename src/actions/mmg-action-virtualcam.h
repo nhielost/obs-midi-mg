@@ -30,9 +30,7 @@ public:
 
 	Category category() const override { return MMGACTION_VIRCAM; };
 	const QString trName() const override { return "VirtualCamera"; };
-
-	void setComboOptions(QComboBox *sub) override;
-	void setActionParams() override{};
+	const QStringList subNames() const override;
 
 	void execute(const MMGMessage *) const override;
 	void connectOBSSignals() override;

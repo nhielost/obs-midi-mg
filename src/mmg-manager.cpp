@@ -25,7 +25,8 @@ template<class T> T *MMGManager<T>::add(T *new_t)
 {
 	if (!new_t) return nullptr;
 	_list.append(new_t);
-	if (find(new_t->name()) != new_t) setUniqueName(new_t);
+	new_t->setParent(this);
+	if (!new_t->objectName().isEmpty() && find(new_t->objectName()) != new_t) setUniqueName(new_t);
 	return new_t;
 }
 
@@ -37,14 +38,14 @@ template<class T> T *MMGManager<T>::copy(T *source)
 template<class T> T *MMGManager<T>::copy(T *source, T *dest)
 {
 	source->copy(dest);
-	if (find(dest->name()) != dest) setUniqueName(dest);
+	if (!dest->objectName().isEmpty() && find(dest->objectName()) != dest) setUniqueName(dest);
 	return dest;
 }
 
 template<class T> T *MMGManager<T>::find(const QString &name) const
 {
 	for (T *value : _list) {
-		if (value->name() == name) return value;
+		if (value->objectName() == name) return value;
 	}
 	return nullptr;
 }
@@ -57,12 +58,21 @@ template<class T> void MMGManager<T>::move(int from, int to)
 
 template<class T> void MMGManager<T>::setUniqueName(T *source, qulonglong count)
 {
-	QString new_name = QString("%1 (%2)").arg(source->name()).arg(count);
+	QString new_name = QString("%1 (%2)").arg(source->objectName()).arg(count);
 	if (find(new_name)) {
 		setUniqueName(source, ++count);
 		return;
 	}
-	source->setName(new_name);
+	source->setObjectName(new_name);
+}
+
+template<class T> const QStringList MMGManager<T>::names() const
+{
+	QStringList names;
+	for (T *val : _list) {
+		names += val->objectName();
+	}
+	return names;
 }
 
 template<class T> void MMGManager<T>::remove(T *source)
@@ -71,10 +81,11 @@ template<class T> void MMGManager<T>::remove(T *source)
 	delete source;
 }
 
-template<class T> void MMGManager<T>::clear()
+template<class T> void MMGManager<T>::clear(bool full)
 {
 	qDeleteAll(_list);
 	_list.clear();
+	if (!full) add();
 }
 
 template<class T> void MMGManager<T>::load(const QJsonArray &json_arr)
@@ -82,6 +93,7 @@ template<class T> void MMGManager<T>::load(const QJsonArray &json_arr)
 	for (const QJsonValue &value : json_arr) {
 		add(value.toObject());
 	}
+	if (size() < 1) add();
 }
 
 template<class T> void MMGManager<T>::json(const QString &key, QJsonObject &json_obj) const

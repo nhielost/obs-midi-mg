@@ -22,30 +22,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 // MMGActionMIDI
-MMGActionMIDI::MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
+MMGActionMIDI::MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj), messages(new MMGMessageManager(this)), _queue(new MMGConnectionQueue(this))
 {
-	midi_binding = new MMGBinding(nullptr, json_obj);
-	midi_binding->setParent(this);
-
-	MMGDeviceList devices = midi_binding->usedDevices();
-	MMGMessageList messages = midi_binding->usedMessages();
-	midi_binding->setType(TYPE_OUTPUT);
-	type_check = type();
-	midi_binding->setUsedDevices(devices);
-	midi_binding->setUsedMessages(messages);
-
-	_queue = new MMGConnectionQueue(this);
-
 	if (json_obj.contains("device")) {
-		QJsonObject message_obj = json_obj;
-		MMGDevice *device = manager(device)->find(json_obj["device"].toString());
-		if (device) midi_binding->setUsedDevices({device});
-	}
-
-	if (json_obj.contains("channel")) {
-		QJsonObject message_obj = json_obj;
-		message_obj["name"] = mmgtr("Actions.Composite.MIDIMessageName");
-		midi_binding->setUsedMessages({manager(message)->add(message_obj)});
+		messages->add(json_obj);
+	} else {
+		messages->load(json_obj["messages"].toArray());
 	}
 
 	blog(LOG_DEBUG, "Action created.");
@@ -55,17 +38,7 @@ void MMGActionMIDI::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
 
-	QJsonArray devices_array;
-	for (MMGDevice *device : midi_binding->usedDevices())
-		devices_array += device->name();
-
-	json_obj["devices"] = devices_array;
-
-	QJsonArray messages_array;
-	for (MMGMessage *message : midi_binding->usedMessages())
-		messages_array += message->name();
-
-	json_obj["messages"] = messages_array;
+	messages->json("messages", json_obj);
 }
 
 void MMGActionMIDI::copy(MMGAction *dest) const
@@ -75,61 +48,38 @@ void MMGActionMIDI::copy(MMGAction *dest) const
 	auto casted = dynamic_cast<MMGActionMIDI *>(dest);
 	if (!casted) return;
 
-	midi_binding->copy(casted->midi_binding);
+	casted->messages->clear();
+	for (MMGMessage *message : *messages)
+		message->copy(casted->messages->add());
 }
 
 void MMGActionMIDI::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	binding_display = new MMGBindingDisplay(display(), false);
-	binding_display->layout()->setContentsMargins(10, 10, 10, 10);
-	binding_display->setStorage(midi_binding);
-	connect(binding_display, &MMGBindingDisplay::edited, this, &MMGActionMIDI::editClicked);
-	display()->setFields(binding_display);
-}
-
-void MMGActionMIDI::editClicked(int page)
-{
-	emit display()->editRequest(midi_binding, page);
-}
-
-void MMGActionMIDI::setComboOptions(QComboBox *sub)
-{
-	sub->addItems(subModuleTextList({"Message"}));
+	message_display = new MMGMessageDisplay(display());
+	display()->setFields(message_display);
 }
 
 void MMGActionMIDI::setActionParams()
 {
-	if (type() != type_check) { // To clear on type change
-		midi_binding->setType(TYPE_INPUT);
-		midi_binding->setType(TYPE_OUTPUT);
-	}
-	type_check = type();
-	binding_display->display();
+	message_display->setStorage(messages->at(0));
+	//message_display->display();
 }
 
 void MMGActionMIDI::execute(const MMGMessage *midi) const
 {
 	QScopedPointer<MMGMessage> sent_message(new MMGMessage);
 
-	for (MMGDevice *device : midi_binding->usedDevices()) {
-		if (!device->isActive(TYPE_OUTPUT)) {
-			blog(LOG_INFO, QString("Output device <%1> is not connected. (Is the output device enabled?)")
-					       .arg(device->name()));
-			continue;
-		}
+	for (MMGMessage *message : *messages) {
+		message->copy(sent_message.data());
 
-		for (MMGMessage *message : midi_binding->usedMessages()) {
-			message->copy(sent_message.data());
+		if (sent_message->type().state() == STATE_MIDI) sent_message->type() = midi->type();
+		sent_message->channel().chooseOther(midi->channel());
+		sent_message->note().chooseOther(midi->note());
+		sent_message->value().chooseOther(midi->value());
 
-			if (sent_message->type().state() == STATE_MIDI) sent_message->type() = midi->type();
-			sent_message->channel().chooseOther(midi->channel());
-			sent_message->note().chooseOther(midi->note());
-			sent_message->value().chooseOther(midi->value());
-
-			device->sendMessage(sent_message.data());
-		}
+		sent_message->send();
 	}
 
 	blog(LOG_DEBUG, "Successfully executed.");
@@ -163,21 +113,21 @@ void MMGConnectionQueue::connectQueue()
 	resetQueue();
 	if (queue.isEmpty()) return;
 
-	for (MMGDevice *device : action->midi_binding->usedDevices())
-		connect(device, &MMGMIDIPort::messageReceived, this, &MMGConnectionQueue::messageFound);
+	connect(action->messages->at(0)->device(), &MMGMIDIPort::messageReceived, this,
+		&MMGConnectionQueue::messageFound);
 }
 
 void MMGConnectionQueue::disconnectQueue()
 {
-	for (MMGDevice *device : action->midi_binding->usedDevices())
-		disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
+	if (queue.isEmpty()) return;
+	disconnect(queue.head()->device(), &MMGMIDIPort::messageReceived, this, nullptr);
 }
 
 void MMGConnectionQueue::resetQueue()
 {
 	queue.clear();
 
-	for (MMGMessage *message : action->midi_binding->usedMessages())
+	for (MMGMessage *message : *action->messages)
 		queue.enqueue(message);
 }
 
@@ -189,8 +139,9 @@ void MMGConnectionQueue::resetConnections()
 
 void MMGConnectionQueue::messageFound(const MMGSharedMessage &incoming)
 {
-	MMGMessage *message = manager(message)->find(queue.head()->name());
+	MMGMessage *message = queue.head();
 	if (!message) {
+		disconnectQueue();
 		queue.dequeue();
 		messageFound(incoming); // Try the next message
 		return;
@@ -198,8 +149,11 @@ void MMGConnectionQueue::messageFound(const MMGSharedMessage &incoming)
 
 	if (!message->acceptable(incoming.get())) return;
 
-	queue.dequeue();
 	message->toggle();
+	disconnectQueue();
+
+	message = queue.dequeue();
+	connect(message->device(), &MMGMIDIPort::messageReceived, this, &MMGConnectionQueue::messageFound);
 
 	if (queue.isEmpty()) {
 		emit action->eventTriggered();

@@ -23,6 +23,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-manager.h"
 
 class MMGBinding;
+class MMGMIDIPort;
 
 class MMGMessage : public QObject {
 	Q_OBJECT
@@ -30,10 +31,10 @@ class MMGMessage : public QObject {
 public:
 	MMGMessage(QObject *parent = nullptr);
 	MMGMessage(const QJsonObject &json_obj);
-	MMGMessage(const libremidi::message &message);
+	MMGMessage(MMGMIDIPort *device, const libremidi::message &message);
 
-	const QString &name() const { return _name; };
-	void setName(const QString &name) { _name = name; };
+	MMGMIDIPort *device() const { return _device; };
+	void setDevice(MMGMIDIPort *device);
 
 	MMGUtils::MMGNumber &channel() { return _channel; };
 	MMGUtils::MMGString &type() { return _type; };
@@ -52,32 +53,30 @@ public:
 
 	bool acceptable(const MMGMessage *test) const;
 	void applyValues(const MMGUtils::MMGNumber &applied);
-
-	void addConnection(MMGBinding *binding);
-	void removeConnection(MMGBinding *binding);
+	void send();
+	bool valueOnlyType() const;
 
 	static QString getType(const libremidi::message &mess);
 	static int getNote(const libremidi::message &mess);
 	static int getValue(const libremidi::message &mess);
 	static const QStringList acceptedTypes();
 
-signals:
-	void deleting(MMGMessage *);
-
 private:
-	QString _name;
-
 	MMGUtils::MMGNumber _channel;
 	MMGUtils::MMGString _type;
 	MMGUtils::MMGNumber _note;
 	MMGUtils::MMGNumber _value;
 
+	MMGMIDIPort *_device = nullptr;
+
 	void setRanges();
 };
 
 using MMGMessageList = QList<MMGMessage *>;
-using MMGSharedMessage = QSharedPointer<MMGMessage>;
+using MMGSharedMessage = std::shared_ptr<MMGMessage>;
 Q_DECLARE_METATYPE(MMGSharedMessage);
+QDataStream &operator<<(QDataStream &out, const MMGMessage *&obj);
+QDataStream &operator>>(QDataStream &in, MMGMessage *&obj);
 
 class MMGMessageManager : public MMGManager<MMGMessage> {
 

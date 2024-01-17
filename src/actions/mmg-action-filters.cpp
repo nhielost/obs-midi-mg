@@ -36,6 +36,11 @@ MMGActionFilters::MMGActionFilters(MMGActionManager *parent, const QJsonObject &
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionFilters::subNames() const
+{
+	return subModuleTextList({"Show", "Hide", "ToggleDisplay", "Reorder", "Custom"});
+}
+
 void MMGActionFilters::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -82,11 +87,6 @@ void MMGActionFilters::createDisplay(QWidget *parent)
 	display()->connect(filter_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
 
 	display()->numberDisplays()->addNew(&num);
-}
-
-void MMGActionFilters::setComboOptions(QComboBox *sub)
-{
-	sub->addItems(subModuleTextList({"Show", "Hide", "ToggleDisplay", "Reorder", "Custom"}));
 }
 
 void MMGActionFilters::setActionParams()

@@ -18,7 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include "mmg-action.h"
-#include "../ui/mmg-binding-display.h"
+#include "../ui/mmg-message-display.h"
 
 #include <QThread>
 #include <QQueue>
@@ -31,34 +31,29 @@ class MMGActionMIDI : public MMGAction {
 
 public:
 	MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj);
-	~MMGActionMIDI() { midi_binding->setType(MMGUtils::TYPE_NONE); };
 
 	enum Actions { MIDI_SEND_MESSAGES };
 	enum Events { MIDI_MESSAGES_SENT };
 
 	Category category() const override { return MMGACTION_MIDI; };
 	const QString trName() const override { return "MIDI"; };
+	const QStringList subNames() const override { return {subModuleText("Message")}; };
 
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
 
 	void createDisplay(QWidget *parent) override;
-	void setComboOptions(QComboBox *sub) override;
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
 	void connectOBSSignals() override;
 	void disconnectOBSSignals() override;
 
-private slots:
-	void editClicked(int page);
-
 private:
-	MMGBinding *midi_binding;
-	MMGUtils::DeviceType type_check;
-
+	MMGMessageManager *messages;
 	MMGConnectionQueue *_queue;
-	MMGBindingDisplay *binding_display = nullptr;
+
+	MMGMessageDisplay *message_display = nullptr;
 
 	friend class MMGConnectionQueue;
 };

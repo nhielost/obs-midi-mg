@@ -30,7 +30,7 @@ class MMGAction : public QObject {
 
 public:
 	MMGAction(MMGActionManager *parent, const QJsonObject &json_obj);
-	virtual ~MMGAction() { emit deleting(this); };
+	virtual ~MMGAction() = default;
 
 	enum Category {
 		MMGACTION_NONE,
@@ -53,9 +53,7 @@ public:
 
 	virtual Category category() const = 0;
 	virtual const QString trName() const = 0;
-
-	const QString &name() const { return _name; };
-	void setName(const QString &name) { _name = name; };
+	virtual const QStringList subNames() const = 0;
 
 	MMGUtils::DeviceType type() const { return _type; };
 	void setType(MMGUtils::DeviceType type);
@@ -72,14 +70,11 @@ public:
 	virtual void createDisplay(QWidget *parent) { _display = new MMGActionDisplay(parent); };
 	MMGActionDisplay *display() const { return _display; };
 
-	virtual void setComboOptions(QComboBox *sub) = 0;
-	virtual void setActionParams() = 0;
+	virtual void setComboOptions(QComboBox *sub) { sub->addItems(subNames()); };
+	virtual void setActionParams(){};
 
 	const QString subModuleText(const QString &footer) const;
 	const QStringList subModuleTextList(const QStringList &footer_list) const;
-
-	void addConnection(MMGBinding *binding);
-	void removeConnection(MMGBinding *binding);
 
 	virtual void execute(const MMGMessage *midi) const = 0;
 
@@ -87,20 +82,19 @@ public:
 	virtual void disconnectOBSSignals() = 0;
 
 signals:
-	void deleting(MMGAction *);
 	void replacing(MMGAction *);
 
 	void executed() const;
 	void eventTriggered(const QList<MMGUtils::MMGNumber> &values = {MMGUtils::MMGNumber()}) const;
 
 private:
-	QString _name;
-
 	MMGUtils::DeviceType _type;
 	short subcategory = 0;
 	MMGActionDisplay *_display = nullptr;
 };
 using MMGActionList = QList<MMGAction *>;
+QDataStream &operator<<(QDataStream &out, const MMGAction *&obj);
+QDataStream &operator>>(QDataStream &in, MMGAction *&obj);
 
 class MMGActionManager : public MMGManager<MMGAction> {
 
@@ -110,7 +104,6 @@ public:
 	MMGAction *add(const QJsonObject &json_obj = QJsonObject()) override;
 	MMGAction *copy(MMGAction *action) override;
 
-	bool filter(MMGUtils::DeviceType type, MMGAction *check) const override;
 	void changeActionCategory(MMGAction *&action, const QJsonObject &json_obj = QJsonObject());
 };
 

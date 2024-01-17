@@ -36,9 +36,7 @@ public:
 
 	Category category() const override { return MMGACTION_STREAM; };
 	const QString trName() const override { return "Streaming"; };
-
-	void setComboOptions(QComboBox *sub) override;
-	void setActionParams() override{};
+	const QStringList subNames() const override;
 
 	void execute(const MMGMessage *) const override;
 	void connectOBSSignals() override;

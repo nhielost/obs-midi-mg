@@ -74,11 +74,6 @@ void MMGActionHotkeys::createDisplay(QWidget *parent)
 	hotkey_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionHotkeys::setComboOptions(QComboBox *sub)
-{
-	sub->addItem(subModuleText("Activate"));
-}
-
 void MMGActionHotkeys::setActionParams()
 {
 	display()->stringDisplays()->hideAll();

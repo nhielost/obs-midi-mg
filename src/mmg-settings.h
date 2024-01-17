@@ -20,97 +20,18 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #define MMG_SETTINGS_H
 
 #include "mmg-utils.h"
-#include "mmg-manager.h"
-
-class MMGBinding;
-class MMGSettingsManager;
 
 class MMGSettings : public QObject {
 
 public:
-	MMGSettings(MMGSettingsManager *parent);
+	MMGSettings(QObject *parent);
 
-	virtual QString name() const = 0;
-	void setName(const QString &){};
-
-	virtual void json(QJsonObject &json_obj) const = 0;
-	virtual void copy(MMGSettings *){};
-	bool isEditable() const { return *editable; };
-
-	virtual void createDisplay(QWidget *parent) { _display = new QWidget(parent); };
-	QWidget *display() const { return _display; };
+	void json(const QString &key, QJsonObject &json_obj) const;
+	void load(const QJsonObject &json_obj);
+	//bool isEditable() const { return editable; };
 
 private:
-	const bool *editable;
-	QWidget *_display = nullptr;
-};
-
-class MMGGeneralSettings : public MMGSettings {
-	Q_OBJECT
-
-public:
-	MMGGeneralSettings(MMGSettingsManager *parent, const QJsonObject &json_obj = QJsonObject());
-
-	QString name() const override { return mmgtr("Preferences.General"); };
-	void json(QJsonObject &json_obj) const override;
-	void createDisplay(QWidget *parent) override;
-};
-
-class MMGBindingSettings : public MMGSettings {
-	Q_OBJECT
-
-public:
-	MMGBindingSettings(MMGSettingsManager *parent, const QJsonObject &json_obj = QJsonObject());
-
-	enum ResetBehavior { BEHAVIOR_RESET, BEHAVIOR_NO_RESET };
-
-	QString name() const override { return mmgtr("Preferences.Binding"); };
-	void json(QJsonObject &json_obj) const override;
-	void copy(MMGSettings *dest) override;
-	void createDisplay(QWidget *parent) override;
-
-	ResetBehavior resetBehavior() const { return (ResetBehavior)resetBehaviorOptions().indexOf(reset_behavior); };
-
-	static const QStringList resetBehaviorOptions();
-
-signals:
-	void resetBehaviorChanged();
-
-private slots:
-	void setLabel();
-
-private:
-	MMGUtils::MMGString reset_behavior;
-
-	QLabel *reset_behavior_desc;
-};
-
-class MMGMessageLogSettings : public MMGSettings {
-	Q_OBJECT
-
-public:
-	MMGMessageLogSettings(MMGSettingsManager *parent) : MMGSettings(parent){};
-
-	QString name() const override { return mmgtr("Preferences.Log"); };
-	void json(QJsonObject &) const override;
-	void createDisplay(QWidget *parent) override;
-};
-
-class MMGSettingsManager : public MMGManager<MMGSettings> {
-
-public:
-	MMGSettingsManager(QObject *parent) : MMGManager(parent){};
-
-	const bool &isEditable() const { return editable; };
-	void setEditable(bool edit) { editable = edit; };
-	bool filter(MMGUtils::DeviceType type, MMGSettings *) const override { return type == MMGUtils::TYPE_NONE; };
-
-	MMGSettings *add(const QJsonObject &json_obj = QJsonObject()) override;
-
-	static uint visiblePanes() { return 2; };
-
-private:
-	bool editable = true;
+	//bool editable = true;
 };
 
 #endif // MMG_SETTINGS_H

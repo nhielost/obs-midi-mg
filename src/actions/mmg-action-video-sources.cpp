@@ -41,6 +41,13 @@ MMGActionVideoSources::MMGActionVideoSources(MMGActionManager *parent, const QJs
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionVideoSources::subNames() const
+{
+	return subModuleTextList({"Move", "Display", "Locking", "Crop", "Align", "Scale", "ScaleFiltering", "Rotate",
+				  "BoundingBoxType", "BoundingBoxSize", "BoundingBoxAlign", "BlendingMode",
+				  "Screenshot", "Custom"});
+}
+
 void MMGActionVideoSources::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -108,13 +115,6 @@ void MMGActionVideoSources::createDisplay(QWidget *parent)
 	display()->numberDisplays()->addNew(&nums[1]);
 	display()->numberDisplays()->addNew(&nums[2]);
 	display()->numberDisplays()->addNew(&nums[3]);
-}
-
-void MMGActionVideoSources::setComboOptions(QComboBox *sub)
-{
-	sub->addItems(subModuleTextList({"Move", "Display", "Locking", "Crop", "Align", "Scale", "ScaleFiltering",
-					 "Rotate", "BoundingBoxType", "BoundingBoxSize", "BoundingBoxAlign",
-					 "BlendingMode", "Screenshot", "Custom"}));
 }
 
 void MMGActionVideoSources::setActionParams()

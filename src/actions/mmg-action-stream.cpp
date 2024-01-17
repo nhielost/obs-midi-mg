@@ -25,12 +25,13 @@ MMGActionStream::MMGActionStream(MMGActionManager *parent, const QJsonObject &js
 	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionStream::setComboOptions(QComboBox *sub)
+const QStringList MMGActionStream::subNames() const
 {
 	QStringList opts;
 
 	switch (type()) {
 		case TYPE_INPUT:
+		default:
 			opts << obstr_all("Basic.Main", {"StartStreaming", "StopStreaming"}) << subModuleText("Toggle");
 			break;
 
@@ -38,12 +39,9 @@ void MMGActionStream::setComboOptions(QComboBox *sub)
 			opts << subModuleTextList(
 				{"Starting", "Started", "Stopping", "Stopped", "ToggleStarting", "ToggleStarted"});
 			break;
-
-		default:
-			break;
 	}
 
-	sub->addItems(opts);
+	return opts;
 }
 
 void MMGActionStream::execute(const MMGMessage *) const

@@ -41,11 +41,7 @@ public:
 	bool isActive(MMGUtils::DeviceType type) const;
 	void setActive(MMGUtils::DeviceType type, bool active);
 
-	void addConnection(MMGBinding *binding);
-	void removeConnection(MMGBinding *binding);
-
-signals:
-	void deleting(MMGDevice *device);
+	void checkCapable();
 
 private:
 	uint _active : 2 = 0;
@@ -61,8 +57,6 @@ public:
 
 	MMGDevice *add(const QJsonObject &json_obj = QJsonObject()) override;
 	MMGDevice *add(const QString &name);
-
-	bool filter(MMGUtils::DeviceType type, MMGDevice *check) const override;
 
 	const QStringList capableDevices(MMGUtils::DeviceType) const;
 };

@@ -22,87 +22,68 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-#define SHORT_ENUMERATE(kind, statement) \
-	for (auto kind : _##kind##s)     \
-	statement
-
 // MMGBinding
-MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj) : QObject(parent)
+MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
+	: QObject(parent), _messages(new MMGMessageManager(this)), _actions(new MMGActionManager(this))
 {
 	thread = new MMGBindingThread(this);
 
-	_name = json_obj["name"].toString(mmgtr("Binding.Untitled"));
+	setObjectName(json_obj["name"].toString(mmgtr("Binding.Untitled")));
 	_enabled = json_obj["enabled"].toBool(true);
 	_type = (DeviceType)json_obj["type"].toInt();
+	reset_mode = json_obj["reset_mode"].toInt();
 
-	for (const QJsonValue &device_name : json_obj["devices"].toArray())
-		_devices += manager(device)->find(device_name.toString());
-	SHORT_ENUMERATE(device, device->addConnection(this));
+	_messages->load(json_obj["messages"].toArray());
+	_actions->load(json_obj["actions"].toArray());
 
-	for (const QJsonValue &message_name : json_obj["messages"].toArray())
-		_messages += manager(message)->find(message_name.toString());
-	SHORT_ENUMERATE(message, message->addConnection(this));
-
-	for (const QJsonValue &action_name : json_obj["actions"].toArray())
-		_actions += manager(action)->find(action_name.toString());
-	SHORT_ENUMERATE(action, action->addConnection(this));
-
-	if (json_obj.contains("settings")) {
-		_settings = new MMGBindingSettings(nullptr, json_obj["settings"].toObject());
-	} else {
-		_settings = new MMGBindingSettings(nullptr);
-		auto casted_settings = dynamic_cast<MMGBindingSettings *>(manager(setting)->at(1));
-		if (casted_settings) casted_settings->copy(_settings);
-	}
-	_settings->setParent(this);
+	setEnabled(_enabled);
 }
 
 void MMGBinding::setType(DeviceType type)
 {
 	if (_type == type) return;
 
+	setConnected(false);
 	_type = type;
-	setUsedDevices({});
-	setUsedMessages({});
-	setUsedActions({});
+
+	_messages->clear(false);
+	_actions->clear(false);
+	_actions->at(0)->setType(type);
+
+	setConnected(true);
 }
 
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
-	binding_obj["name"] = _name;
+	binding_obj["name"] = objectName();
 	binding_obj["enabled"] = _enabled;
-	binding_obj["type"] = type();
+	binding_obj["type"] = _type;
+	binding_obj["reset_mode"] = reset_mode;
 
-	QJsonArray device_arr;
-	SHORT_ENUMERATE(device, device_arr += device->name());
-	binding_obj["devices"] = device_arr;
-
-	QJsonArray message_arr;
-	SHORT_ENUMERATE(message, message_arr += message->name());
-	binding_obj["messages"] = message_arr;
-
-	QJsonArray action_arr;
-	SHORT_ENUMERATE(action, action_arr += action->name());
-	binding_obj["actions"] = action_arr;
-
-	QJsonObject settings_obj;
-	_settings->json(settings_obj);
-	binding_obj["settings"] = settings_obj;
+	_messages->json("messages", binding_obj);
+	_actions->json("actions", binding_obj);
 }
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, QString("[Bindings] <%1> %2").arg(_name).arg(message));
+	global_blog(log_status, QString("[Bindings] <%1> %2").arg(objectName()).arg(message));
 }
 
 void MMGBinding::copy(MMGBinding *dest)
 {
-	dest->setName(_name);
-	dest->setUsedDevices(_devices);
-	dest->setUsedMessages(_messages);
-	dest->setUsedActions(_actions);
+	dest->setObjectName(objectName());
+	dest->reset_mode = reset_mode;
+	dest->_type = _type;
+
+	QJsonObject json_obj;
+	dest->_messages->clear();
+	dest->_actions->clear();
+	_messages->json("messages", json_obj);
+	_actions->json("actions", json_obj);
+	dest->_messages->load(json_obj["messages"].toArray());
+	dest->_actions->load(json_obj["actions"].toArray());
+
 	dest->setEnabled(_enabled);
-	dest->_settings->copy(_settings);
 }
 
 void MMGBinding::setEnabled(bool val)
@@ -112,81 +93,32 @@ void MMGBinding::setEnabled(bool val)
 	setConnected(true);
 }
 
-void MMGBinding::setUsedDevices(const MMGDeviceList &devices)
-{
-	setConnected(false);
-	SHORT_ENUMERATE(device, device->removeConnection(this));
-
-	_devices = devices;
-
-	setConnected(true);
-	SHORT_ENUMERATE(device, device->addConnection(this));
-}
-
-void MMGBinding::setUsedMessages(const MMGMessageList &messages)
-{
-	SHORT_ENUMERATE(message, message->removeConnection(this));
-
-	_messages = messages;
-
-	SHORT_ENUMERATE(message, message->addConnection(this));
-}
-
-void MMGBinding::setUsedActions(const MMGActionList &actions)
-{
-	setConnected(false);
-	SHORT_ENUMERATE(action, action->removeConnection(this));
-
-	_actions = actions;
-
-	setConnected(true);
-	SHORT_ENUMERATE(action, action->addConnection(this));
-}
-
-void MMGBinding::replaceAction(MMGAction *action)
-{
-	auto sender_action = dynamic_cast<MMGAction *>(sender());
-	if (!sender_action) return;
-
-	setConnected(false);
-
-	if (action->type() != type()) {
-		_actions.removeOne(sender_action);
-		sender_action->removeConnection(this);
-	} else {
-		_actions[_actions.indexOf(sender_action)] = action;
-		action->addConnection(this);
-	}
-
-	setConnected(true);
-}
-
 void MMGBinding::setConnected(bool _connected)
 {
 	if (_connected && (!_enabled || connected)) return;
 
+	MMGMIDIPort *device = messages(0)->device();
+
 	switch (_type) {
 		case TYPE_INPUT:
 		default:
-			for (MMGDevice *device : _devices) {
-				if (_connected) {
-					connect(device, &MMGMIDIPort::messageReceived, this, &MMGBinding::executeInput,
-						Qt::UniqueConnection);
-				} else {
-					disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
-				}
+			if (!device) break;
+			if (_connected) {
+				connect(device, &MMGMIDIPort::messageReceived, this, &MMGBinding::executeInput,
+					Qt::UniqueConnection);
+			} else {
+				disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
 			}
+			device->incConnection(_connected);
 			break;
 
 		case TYPE_OUTPUT:
-			for (MMGAction *action : _actions) {
-				if (_connected) {
-					connect(action, &MMGAction::eventTriggered, this, &MMGBinding::executeOutput);
-					action->connectOBSSignals();
-				} else {
-					disconnect(action, &MMGAction::eventTriggered, this, nullptr);
-					action->disconnectOBSSignals();
-				}
+			if (_connected) {
+				connect(actions(0), &MMGAction::eventTriggered, this, &MMGBinding::executeOutput);
+				actions(0)->connectOBSSignals();
+			} else {
+				disconnect(actions(0), &MMGAction::eventTriggered, this, nullptr);
+				actions(0)->disconnectOBSSignals();
 			}
 			break;
 	}
@@ -196,14 +128,29 @@ void MMGBinding::setConnected(bool _connected)
 
 void MMGBinding::executeInput(const MMGSharedMessage &incoming) const
 {
-	MMGBindingThread *exec_thread = _settings->resetBehavior() ? thread->createNew() : thread;
+	if (!messages(0)->acceptable(incoming.get())) {
+		blog(LOG_DEBUG, "Message received is not acceptable.");
+		return;
+	}
+
+	MMGBindingThread *exec_thread = reset_mode ? thread->createNew() : thread;
 	exec_thread->restart(incoming.get());
 }
 
 void MMGBinding::executeOutput(const QList<MMGNumber> &values) const
 {
-	MMGBindingThread *exec_thread = _settings->resetBehavior() ? thread->createNew() : thread;
+	MMGBindingThread *exec_thread = reset_mode ? thread->createNew() : thread;
 	exec_thread->restart(values);
+}
+
+QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj)
+{
+	return out << (const QObject *&)obj;
+}
+
+QDataStream &operator>>(QDataStream &in, MMGBinding *&obj)
+{
+	return in >> (QObject *&)obj;
 }
 // End MMGBinding
 
@@ -236,7 +183,7 @@ void MMGBindingThread::run()
 
 void MMGBindingThread::sendMessages()
 {
-	if (binding->_messages.isEmpty()) {
+	if (binding->_messages->size() < 1) {
 		blog(LOG_INFO, "FAILED: No messages to send!");
 		return;
 	}
@@ -248,52 +195,37 @@ void MMGBindingThread::sendMessages()
 	int i;
 	MMGNumber used_value;
 
-	for (MMGDevice *device : binding->_devices) {
-		for (i = 0; i < binding->_messages.size(); ++i) {
-			// if (mutex.try_lock_for(binding->getChronoTime())) return;
-			if (mutex.try_lock()) return;
+	for (i = 0; i < binding->_messages->size(); ++i) {
+		if (mutex.try_lock()) return;
 
-			binding->_messages[i]->copy(applied_message);
+		binding->messages(i)->copy(applied_message);
 
-			used_value = incoming_values.size() < i ? incoming_values[i] : incoming_values.last();
-			applied_message->applyValues(used_value);
+		used_value = incoming_values.size() < i ? incoming_values[i] : incoming_values.last();
+		applied_message->applyValues(used_value);
 
-			device->sendMessage(applied_message);
-		}
+		applied_message->send();
 	}
 
-	for (MMGMessage *message : binding->_messages)
+	for (MMGMessage *message : *binding->_messages)
 		message->toggle();
-	binding->_actions[0]->toggle();
+	binding->actions(0)->toggle();
 }
 
 void MMGBindingThread::doActions()
 {
-	if (binding->_messages.isEmpty()) {
-		blog(LOG_INFO, "FAILED: No message to check for!");
-		return;
-	}
-
-	MMGMessage *checked_message = binding->_messages[0];
-	if (!checked_message->acceptable(incoming_message)) {
-		blog(LOG_DEBUG, "Message received is not acceptable.");
-		return;
-	}
-
-	checked_message->copy(applied_message);
+	incoming_message->copy(applied_message);
 	applied_message->type() = incoming_message->type().value();
 	applied_message->channel() = incoming_message->channel().value();
 	applied_message->note() = incoming_message->note().value();
 	applied_message->value() = incoming_message->value().value();
 
-	for (MMGAction *action : binding->_actions) {
-		// if (mutex.try_lock_for(binding->getChronoTime())) return;
+	for (MMGAction *action : *binding->_actions) {
 		if (mutex.try_lock()) return;
 		action->execute(applied_message);
 	}
 
-	checked_message->toggle();
-	for (MMGAction *action : binding->_actions)
+	binding->messages(0)->toggle();
+	for (MMGAction *action : *binding->_actions)
 		action->toggle();
 }
 
@@ -331,14 +263,35 @@ MMGBindingThread *MMGBindingThread::createNew() const
 // End MMGBindingThread
 
 // MMGBindingManager
+MMGBindingManager::MMGBindingManager(QObject *parent, const QJsonObject &json_obj) : MMGManager(parent)
+{
+	setObjectName(json_obj["name"].toString(mmgtr("Collection.Untitled")));
+
+	for (const QJsonValue &val : json_obj["bindings"].toArray())
+		add(val.toObject());
+
+	if (size() < 1) add();
+}
+
 MMGBinding *MMGBindingManager::add(const QJsonObject &json_obj)
 {
 	return MMGManager::add(new MMGBinding(this, json_obj));
 }
 
-bool MMGBindingManager::filter(DeviceType type, MMGBinding *check) const
+void MMGBindingManager::copy(MMGBindingManager *dest)
 {
-	return type == TYPE_NONE || check->type() == type;
+	dest->setObjectName(objectName());
+
+	dest->clear();
+	for (MMGBinding *binding : _list) {
+		dest->copy(binding);
+	}
+}
+
+void MMGBindingManager::json(QJsonObject &json_obj) const
+{
+	json_obj["name"] = objectName();
+	MMGManager::json("bindings", json_obj);
 }
 
 void MMGBindingManager::resetConnections()
@@ -348,4 +301,21 @@ void MMGBindingManager::resetConnections()
 		binding->setConnected(true);
 	}
 }
+
+QDataStream &operator<<(QDataStream &out, const MMGBindingManager *&obj)
+{
+	return out << (const QObject *&)obj;
+}
+
+QDataStream &operator>>(QDataStream &in, MMGBindingManager *&obj)
+{
+	return in >> (QObject *&)obj;
+}
 // End MMGBindingManager
+
+// MMGCollections
+MMGBindingManager *MMGCollections::add(const QJsonObject &json_obj)
+{
+	return MMGManager::add(new MMGBindingManager(this, json_obj));
+}
+// End MMGCollections

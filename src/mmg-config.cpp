@@ -24,15 +24,16 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+// MMGConfig
 MMGConfig::MMGConfig()
-	: _devices(new MMGDeviceManager(this)),
-	  _messages(new MMGMessageManager(this)),
-	  _actions(new MMGActionManager(this)),
-	  _bindings(new MMGBindingManager(this)),
-	  _settings(new MMGSettingsManager(this)),
+	: _collections(new MMGCollections(this)),
+	  _devices(new MMGDeviceManager(this)),
+	  _settings(new MMGSettings(this)),
 
 	  _signals(new MMGSignals(this)),
-	  _midi(nullptr)
+	  _midi(nullptr),
+
+	  old_config(new MMGOldConfig(this))
 {
 }
 
@@ -54,8 +55,7 @@ void MMGConfig::load(const QString &path_str)
 
 	blog(LOG_INFO, "Loading configuration...");
 
-	auto default_path = obs_module_config_path(filepath().qtocs());
-	QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
+	QFile file(filepath(path_str));
 	file.open(QFile::ReadOnly | QFile::Text);
 	QByteArray config_contents;
 	if (file.exists()) {
@@ -66,10 +66,9 @@ void MMGConfig::load(const QString &path_str)
 		config_contents = "{}";
 	}
 	file.close();
-	bfree(default_path);
 
 	QJsonParseError parse_err;
-	QJsonDocument doc = QJsonDocument::fromJson(config_contents, &parse_err);
+	QJsonObject doc = QJsonDocument::fromJson(config_contents, &parse_err).object();
 	if (parse_err.error != QJsonParseError::NoError) {
 		blog(LOG_INFO,
 		     "Configuration file data could not be loaded correctly. Reason: " + parse_err.errorString());
@@ -77,100 +76,14 @@ void MMGConfig::load(const QString &path_str)
 		blog(LOG_INFO, "Configuration file data loaded. Extracting...");
 	}
 
-	if (doc["config"].isArray()) {
-		// 2.0.0 - 2.3.1 JSON file
-		blog(LOG_INFO, "Old file data extraction detected. Converting...");
+	old_config->load(doc);
 
-		QMap<MMGBinding *, QJsonObject> internal_action_objs;
+	_devices->load(doc["devices"].toArray());
+	_collections->load(doc["collections"].toArray());
+	_settings->load(doc["preferences"].toObject());
 
-		for (const QJsonValue &device_obj : doc["config"].toArray()) {
-			QString device_name = device_obj["name"].toString();
-			QStringList split = device_name.split(" ");
+	old_config->postLoad();
 
-			if (bool ok; split.last().toUInt(&ok) >= 0 && ok) {
-				split.removeLast();
-				device_name = split.join(" ");
-			}
-
-			for (const QJsonValue &binding_obj : device_obj["bindings"].toArray()) {
-				MMGBinding *binding = _bindings->add(binding_obj.toObject());
-				if (_bindings->find(binding->name()) != binding) _bindings->setUniqueName(binding);
-
-				MMGDevice *device = _devices->find(device_name);
-				if (device) binding->setUsedDevices({device});
-
-				MMGMessage *message = _messages->add(binding_obj["message"].toObject());
-				message->setName(QString("[%1] %2").arg(device_name).arg(message->name()));
-				if (_messages->find(message->name()) != message) _messages->setUniqueName(message);
-				binding->setUsedMessages({message});
-
-				QJsonObject action_obj = binding_obj["action"].toObject();
-				if (action_obj["category"].toInt() == 16) {
-					internal_action_objs[binding] = action_obj;
-				} else {
-					MMGAction *action = _actions->add(action_obj);
-					action->setName(QString("[%1] %2").arg(device_name).arg(action->name()));
-					if (_actions->find(action->name()) != action) _actions->setUniqueName(action);
-					binding->setUsedActions({action});
-				}
-			}
-		}
-
-		for (MMGBinding *binding : internal_action_objs.keys()) {
-			QJsonObject internal_action_obj = internal_action_objs[binding];
-			MMGActionList actions;
-			MMGAction *action;
-
-			if (internal_action_obj.contains("str1")) {
-				for (int i = 0; i < 3; ++i) {
-					action = _actions->find(
-						internal_action_obj[num_to_str(i + 1, "str")].toString());
-					if (action) actions += action;
-				}
-			} else if (internal_action_obj.contains("action1")) {
-				for (int i = 0; i < 3; ++i) {
-					action = _actions->find(
-						internal_action_obj[num_to_str(i + 1, "action")].toString());
-					if (action) actions += action;
-				}
-			} else if (internal_action_obj.contains("actions")) {
-				for (const QJsonValue &value : internal_action_obj["actions"].toArray()) {
-					action = _actions->find(value["name"].toString());
-					if (action) actions += action;
-				}
-			}
-
-			binding->setUsedActions(actions);
-		}
-
-		blog(LOG_INFO, "Conversion complete.");
-	} else if (doc["config"].isObject()) {
-		// post 3.0.0 JSON file
-		QJsonObject config_obj = doc["config"].toObject();
-		_devices->load(config_obj["devices"].toArray());
-		_messages->load(config_obj["messages"].toArray());
-		_actions->load(config_obj["actions"].toArray());
-		// Bindings must load last to get memory from other managers
-		_bindings->load(config_obj["bindings"].toArray());
-	}
-
-	// Load input device from pre v2.3.0 versions
-	auto device = _devices->find(doc["active_device"].toString());
-	if (device) device->setActive(TYPE_INPUT, true);
-
-	// Load settings
-	if (doc["preferences"].isObject()) {
-		QJsonObject preferences = doc["preferences"].toObject();
-		if (preferences["thru_device"].isString() && device)
-			device->setThru(preferences["thru_device"].toString());
-	}
-	QJsonArray settings_default_arr;
-	for (uint i = 0; i < MMGSettingsManager::visiblePanes(); ++i)
-		settings_default_arr += QJsonObject();
-	_settings->load(doc["settings"].toArray(settings_default_arr));
-
-	//finish:
-	blog(LOG_INFO, "Configuration file data extraction complete.");
 	blog(LOG_INFO, "Configuration loading complete.");
 }
 
@@ -178,19 +91,14 @@ void MMGConfig::save(const QString &path_str) const
 {
 	QJsonObject save_obj;
 
-	QJsonObject config_obj;
-	_devices->json("devices", config_obj);
-	_bindings->json("bindings", config_obj);
-	_messages->json("messages", config_obj);
-	_actions->json("actions", config_obj);
-	save_obj["config"] = config_obj;
-
-	_settings->json("settings", save_obj);
+	_devices->json("devices", save_obj);
+	_collections->json("collections", save_obj);
+	_settings->json("preferences", save_obj);
 
 	save_obj["savedate"] = QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss-zzz");
+	save_obj["version"] = OBS_MIDIMG_VERSION;
 
-	auto default_path = obs_module_config_path(filepath().qtocs());
-	QFile file(!path_str.isEmpty() ? qPrintable(path_str) : default_path);
+	QFile file(filepath(path_str));
 	file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
 	qlonglong result = file.write(json_to_str(save_obj));
 	if (result < 0) {
@@ -199,18 +107,128 @@ void MMGConfig::save(const QString &path_str) const
 		blog(LOG_INFO, QString("Configuration successfully saved to %1.").arg(file.fileName()));
 	}
 	file.close();
-	bfree(default_path);
 }
 
 void MMGConfig::clearAllData()
 {
-	_messages->clear();
-	_actions->clear();
-	_bindings->clear();
-	_settings->clear();
+	_collections->clear();
 }
 
-QString MMGConfig::filepath()
+QString MMGConfig::filepath(const QString &path_str)
 {
-	return "obs-midi-mg-config.json";
+	auto default_path = obs_module_config_path("obs-midi-mg-config.json");
+	QString full_path = !path_str.isEmpty() ? path_str : QString(default_path);
+	bfree(default_path);
+	return full_path;
 }
+// End MMGConfig
+
+// MMGOldConfig
+void MMGOldConfig::load(QJsonObject &doc)
+{
+	if (!doc["config"].isArray()) return;
+
+	// 2.0.0 - 2.3.1 JSON file (before 2.0.0 is not supported)
+	blog(LOG_INFO, "Old file data detected. Converting...");
+
+	QJsonArray device_array;
+	QJsonArray collection_array;
+
+	for (const QJsonValue &device_val : doc["config"].toArray()) {
+		QJsonObject collection_obj;
+
+		// Get Proper Device Name and Setup
+		QString device_name = device_val["name"].toString();
+		cleanDeviceName(device_name);
+
+		QJsonObject device_obj;
+		device_obj["name"] = device_name;
+		if (doc["active_device"].toString().contains(device_name)) {
+			device_obj["active"] = 1;
+			device_obj["thru"] = doc["preferences"][QString("thru_device")].toString();
+		}
+		device_array += device_obj;
+		collection_obj["name"] = device_name;
+
+		// Get Bindings
+		QJsonArray binding_array;
+
+		for (const QJsonValue &binding_val : device_val["bindings"].toArray()) {
+			QJsonObject binding_obj = binding_val.toObject();
+
+			QJsonArray message_array;
+			binding_obj["message"].toObject()["device"] = device_name;
+			message_array += binding_obj["message"];
+			binding_obj["messages"] = message_array;
+
+			QJsonArray action_array;
+			QJsonObject action_obj = binding_obj["action"].toObject();
+			if (action_obj["category"].toInt() == 16) {
+				if (action_obj.contains("actions")) {
+					for (const QJsonValue &action_val : action_obj["actions"].toArray()) {
+						QJsonObject internal_obj;
+						internal_obj["name"] = action_val["action"];
+						action_array += internal_obj;
+					}
+				} else {
+					for (int i = 0; i < 3; ++i) {
+						QJsonObject internal_obj;
+						internal_obj["name"] =
+							action_obj[(action_obj.contains("str1") ? "str" : "action") +
+								   QString::number(i + 1)];
+						action_array += internal_obj;
+					}
+				}
+				old_internal_bindings.insert(device_name, binding_obj["name"].toString());
+			} else {
+				action_array += action_obj;
+			}
+			binding_obj["actions"] = action_array;
+
+			binding_array += binding_obj;
+		}
+		collection_obj["bindings"] = binding_array;
+
+		collection_array += collection_obj;
+	}
+
+	doc["devices"] = device_array;
+	doc["collections"] = collection_array;
+
+	blog(LOG_INFO, "Conversion completed successfully.");
+}
+
+void MMGOldConfig::postLoad()
+{
+	for (const QString &collection_name : old_internal_bindings.keys()) {
+		MMGBindingManager *collection = manager(collection)->find(collection_name);
+		if (!collection) continue;
+
+		for (const QString &binding_name : old_internal_bindings.values(collection_name)) {
+			MMGBinding *binding = collection->find(binding_name);
+			if (!binding) continue;
+
+			QStringList action_list = binding->actions()->names();
+			binding->actions()->clear();
+			for (const QString &action : action_list) {
+				MMGBinding *internal_action_binding = collection->find(action);
+				if (!internal_action_binding) continue;
+
+				binding->actions()->copy(internal_action_binding->actions(0))->setObjectName(action);
+			}
+		}
+	}
+
+	old_internal_bindings.clear();
+}
+
+void MMGOldConfig::cleanDeviceName(QString &device_name) const
+{
+	QStringList split = device_name.split(" ");
+
+	if (bool ok; split.last().toUInt(&ok) >= 0 && ok) {
+		split.removeLast();
+		device_name = split.join(" ");
+	}
+}
+// End MMGOldConfig

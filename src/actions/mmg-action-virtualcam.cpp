@@ -26,12 +26,13 @@ MMGActionVirtualCam::MMGActionVirtualCam(MMGActionManager *parent, const QJsonOb
 	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionVirtualCam::setComboOptions(QComboBox *sub)
+const QStringList MMGActionVirtualCam::subNames() const
 {
 	QStringList opts;
 
 	switch (type()) {
 		case TYPE_INPUT:
+		default:
 			opts << obstr_all("Basic.Main", {"StartVirtualCam", "StopVirtualCam"})
 			     << subModuleText("Toggle");
 			break;
@@ -39,12 +40,9 @@ void MMGActionVirtualCam::setComboOptions(QComboBox *sub)
 		case TYPE_OUTPUT:
 			opts << subModuleTextList({"Started", "Stopped", "Toggle"});
 			break;
-
-		default:
-			break;
 	}
 
-	sub->addItems(opts);
+	return opts;
 }
 
 void MMGActionVirtualCam::execute(const MMGMessage *) const

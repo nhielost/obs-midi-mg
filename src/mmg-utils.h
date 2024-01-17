@@ -36,8 +36,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 void global_blog(int log_status, const QString &message);
 
+QDataStream &operator<<(QDataStream &out, const QObject *&obj);
+QDataStream &operator>>(QDataStream &in, QObject *&obj);
+
 class MMGMessage;
-class MMGNumberDisplay;
 
 namespace MMGUtils {
 
@@ -167,8 +169,6 @@ QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool d
 QStringList mmgtr_all(const QString &header, const QStringList &list);
 QStringList obstr_all(const QString &header, const QStringList &list);
 
-void set_message_labels(const QString &type, MMGNumberDisplay *note_display, MMGNumberDisplay *value_display);
-
 const QByteArray json_to_str(const QJsonObject &json_obj);
 const QJsonObject json_from_str(const QByteArray &str);
 
@@ -176,6 +176,7 @@ bool num_between(double num, double lower, double higher, bool inclusive = true)
 QString num_to_str(int num, const QString &prefix = "");
 
 void enable_combo_option(QComboBox *combo, int index, bool enable);
+QIcon mmg_icon(const QString &icon_name);
 
 bool open_message_box(const QString &message, bool information = true);
 

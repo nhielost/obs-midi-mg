@@ -49,6 +49,27 @@ MMGActionTransitions::MMGActionTransitions(MMGActionManager *parent, const QJson
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionTransitions::subNames() const
+{
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+		default:
+			opts << subModuleTextList(
+				{"CurrentChange", "SourceShow", "SourceHide", "TBarChange", "TBarToggle"});
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"CurrentChange", "DurationChange", "Started", "Stopped",
+						   "ToggleStarted", "TBarChange"});
+			break;
+	}
+
+	opts << subModuleText("Custom");
+	return opts;
+}
+
 void MMGActionTransitions::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -101,29 +122,6 @@ void MMGActionTransitions::createDisplay(QWidget *parent)
 	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList3Change(); });
 
 	display()->numberDisplays()->addNew(&num);
-}
-
-void MMGActionTransitions::setComboOptions(QComboBox *sub)
-{
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-			opts << subModuleTextList(
-				{"CurrentChange", "SourceShow", "SourceHide", "TBarChange", "TBarToggle"});
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"CurrentChange", "DurationChange", "Started", "Stopped",
-						   "ToggleStarted", "TBarChange"});
-			break;
-
-		default:
-			break;
-	}
-
-	opts << subModuleText("Custom");
-	sub->addItems(opts);
 }
 
 void MMGActionTransitions::setActionParams()
