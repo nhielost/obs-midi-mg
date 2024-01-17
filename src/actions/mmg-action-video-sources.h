@@ -68,6 +68,7 @@ public:
 
 	Category category() const override { return MMGACTION_SOURCE_VIDEO; };
 	const QString trName() const override { return "VideoSources"; };
+	const QStringList subNames() const override;
 
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
@@ -75,7 +76,6 @@ public:
 	void toggle() override;
 
 	void createDisplay(QWidget *parent) override;
-	void setComboOptions(QComboBox *sub) override;
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;

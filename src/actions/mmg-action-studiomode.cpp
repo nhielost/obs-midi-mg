@@ -27,6 +27,25 @@ MMGActionStudioMode::MMGActionStudioMode(MMGActionManager *parent, const QJsonOb
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionStudioMode::subNames() const
+{
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+		default:
+			opts << subModuleTextList(
+				{"Activate", "Deactivate", "ToggleActivate", "PreviewChange", "Transition"});
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Activate", "Deactivate", "ToggleActivate", "PreviewChange"});
+			break;
+	}
+
+	return opts;
+}
+
 void MMGActionStudioMode::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -60,27 +79,6 @@ void MMGActionStudioMode::createDisplay(QWidget *parent)
 
 	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&scene);
 	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-}
-
-void MMGActionStudioMode::setComboOptions(QComboBox *sub)
-{
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-			opts << subModuleTextList(
-				{"Activate", "Deactivate", "ToggleActivate", "PreviewChange", "Transition"});
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Activate", "Deactivate", "ToggleActivate", "PreviewChange"});
-			break;
-
-		default:
-			break;
-	}
-
-	sub->addItems(opts);
 }
 
 void MMGActionStudioMode::setActionParams()

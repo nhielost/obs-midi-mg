@@ -34,6 +34,19 @@ void global_blog(int log_status, const QString &message)
 	blog(log_status, "[obs-midi-mg] %s", message.qtocs());
 }
 
+QDataStream &operator<<(QDataStream &out, const QObject *&obj)
+{
+	return out << *(quint64 *)(&obj);
+}
+
+QDataStream &operator>>(QDataStream &in, QObject *&obj)
+{
+	quint64 data;
+	in >> data;
+	obj = *(QObject **)(&data);
+	return in;
+}
+
 namespace MMGUtils {
 
 // MMGNumber
@@ -274,25 +287,6 @@ QStringList obstr_all(const QString &header, const QStringList &list)
 	return tr_list;
 }
 
-void set_message_labels(const QString &type, MMGNumberDisplay *note_display, MMGNumberDisplay *value_display)
-{
-	if (type == mmgtr("Message.Type.NoteOn") || type == mmgtr("Message.Type.NoteOff")) {
-		note_display->setVisible(true);
-		note_display->setDescription(mmgtr("Message.Note"));
-		value_display->setDescription(mmgtr("Message.Velocity"));
-	} else if (type == mmgtr("Message.Type.ControlChange")) {
-		note_display->setVisible(true);
-		note_display->setDescription(mmgtr("Message.Control"));
-		value_display->setDescription(mmgtr("Message.Value"));
-	} else if (type == mmgtr("Message.Type.ProgramChange")) {
-		note_display->setVisible(false);
-		value_display->setDescription(mmgtr("Message.Program"));
-	} else if (type == mmgtr("Message.Type.PitchBend")) {
-		note_display->setVisible(false);
-		value_display->setDescription(mmgtr("Message.PitchAdjust"));
-	}
-}
-
 bool num_between(double num, double lower, double higher, bool inclusive)
 {
 	return inclusive ? ((num >= lower) && (num <= higher)) : ((num > lower) && (num < higher));
@@ -320,6 +314,11 @@ bool open_message_box(const QString &message, bool information)
 void enable_combo_option(QComboBox *combo, int index, bool enable)
 {
 	qobject_cast<QStandardItemModel *>(combo->model())->item(index)->setEnabled(enable);
+}
+
+QIcon mmg_icon(const QString &icon_name)
+{
+	return QIcon(QString(":/icons/%1.svg").arg(icon_name));
 }
 
 void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi)

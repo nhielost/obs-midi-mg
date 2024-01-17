@@ -30,9 +30,7 @@ public:
 
 	Category category() const override { return MMGACTION_NONE; };
 	const QString trName() const override { return "None"; };
-
-	void setComboOptions(QComboBox *sub) override { sub->addItem(mmgtr("Actions.Titles.None")); };
-	void setActionParams() override{};
+	const QStringList subNames() const override { return {mmgtr("Actions.Titles.None")}; };
 
 	void execute(const MMGMessage *) const override { blog(LOG_DEBUG, "Successfully executed."); };
 	void connectOBSSignals() override{};

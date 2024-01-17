@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22...3.26)
+cmake_minimum_required(VERSION 3.22...3.28)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 
@@ -73,12 +73,10 @@ target_sources(
           ./src/ui/mmg-fields.cpp
           ./src/ui/mmg-lcd-number.cpp
           ./src/ui/mmg-midi-buttons.cpp
-          ./src/ui/mmg-list-widget.cpp
           ./src/ui/mmg-number-display.cpp
           ./src/ui/mmg-string-display.cpp
+          ./src/ui/mmg-message-display.cpp
           ./src/ui/mmg-action-display.cpp
-          ./src/ui/mmg-binding-display.cpp
-          ./src/ui/mmg-manager-display.cpp
           ./src/ui/mmg-echo-window.cpp)
 
 target_sources(
@@ -113,12 +111,10 @@ target_sources(
           ./src/ui/mmg-fields.h
           ./src/ui/mmg-lcd-number.h
           ./src/ui/mmg-midi-buttons.h
-          ./src/ui/mmg-list-widget.h
           ./src/ui/mmg-number-display.h
           ./src/ui/mmg-string-display.h
+          ./src/ui/mmg-message-display.h
           ./src/ui/mmg-action-display.h
-          ./src/ui/mmg-binding-display.h
-          ./src/ui/mmg-manager-display.h
           ./src/ui/mmg-echo-window.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ./src/ui/resources.qrc)

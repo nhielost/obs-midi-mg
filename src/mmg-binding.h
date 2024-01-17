@@ -19,13 +19,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_BINDING_H
 #define MMG_BINDING_H
 
-#include "mmg-device.h"
 #include "mmg-message.h"
 #include "actions/mmg-action.h"
 
 #include <QThread>
 
-class MMGBindingSettings;
 class MMGBindingThread;
 class MMGBindingManager;
 
@@ -35,8 +33,7 @@ class MMGBinding : public QObject {
 public:
 	MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj = QJsonObject());
 
-	const QString &name() const { return _name; };
-	void setName(const QString &val) { _name = val; };
+	enum ResetMode { MMGBINDING_TRIGGERED, MMGBINDING_CONTINUOUS };
 
 	MMGUtils::DeviceType type() const { return _type; };
 	void setType(MMGUtils::DeviceType type);
@@ -45,47 +42,38 @@ public:
 	void setEnabled(bool val);
 	void setConnected(bool connected);
 
+	ResetMode resetMode() const { return (ResetMode)reset_mode; };
+	void setResetMode(short mode) { reset_mode = mode; }
+
 	void json(QJsonObject &binding_obj) const;
 	void blog(int log_status, const QString &message) const;
 	void copy(MMGBinding *dest);
 
-	const MMGDeviceList &usedDevices() const { return _devices; };
-	void setUsedDevices(const MMGDeviceList &devices);
+	MMGMessageManager *messages() const { return _messages; };
+	MMGActionManager *actions() const { return _actions; };
 
-	const MMGMessageList &usedMessages() const { return _messages; };
-	void setUsedMessages(const MMGMessageList &messages);
-
-	const MMGActionList &usedActions() const { return _actions; };
-	virtual void setUsedActions(const MMGActionList &actions);
-
-	MMGBindingSettings *settings() const { return _settings; };
-
-public slots:
-	void removeDevice(MMGDevice *device) { _devices.removeOne(device); };
-	void removeMessage(MMGMessage *message) { _messages.removeOne(message); };
-	void removeAction(MMGAction *action) { _actions.removeOne(action); };
-	void replaceAction(MMGAction *action);
+	MMGMessage *messages(int index) const { return _messages->at(index); };
+	MMGAction *actions(int index) const { return _actions->at(index); };
 
 private slots:
-	void executeInput(const MMGSharedMessage &message) const;
-	void executeOutput(const QList<MMGUtils::MMGNumber> &values) const;
+	void executeInput(const MMGSharedMessage &) const;
+	void executeOutput(const QList<MMGUtils::MMGNumber> &) const;
 
 private:
-	QString _name;
 	MMGUtils::DeviceType _type;
-
 	bool _enabled;
 	bool connected = false;
+	short reset_mode = 0;
 
-	MMGDeviceList _devices;
-	MMGMessageList _messages;
-	MMGActionList _actions;
-	MMGBindingSettings *_settings;
+	MMGMessageManager *_messages;
+	MMGActionManager *_actions;
 
 	MMGBindingThread *thread;
 
 	friend class MMGBindingThread;
 };
+QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj);
+QDataStream &operator>>(QDataStream &in, MMGBinding *&obj);
 
 class MMGBindingThread : public QThread {
 	Q_OBJECT
@@ -123,12 +111,24 @@ private:
 class MMGBindingManager : public MMGManager<MMGBinding> {
 
 public:
-	MMGBindingManager(QObject *parent) : MMGManager(parent){};
+	MMGBindingManager(QObject *parent, const QJsonObject &json_obj);
 
 	MMGBinding *add(const QJsonObject &json_obj = QJsonObject()) override;
+	MMGBinding *copy(MMGBinding *binding) override { return MMGManager::copy(binding); };
 
-	bool filter(MMGUtils::DeviceType type, MMGBinding *check) const override;
+	void json(QJsonObject &json_obj) const;
+	void copy(MMGBindingManager *dest);
 	void resetConnections();
+};
+QDataStream &operator<<(QDataStream &out, const MMGBindingManager *&obj);
+QDataStream &operator>>(QDataStream &in, MMGBindingManager *&obj);
+
+class MMGCollections : public MMGManager<MMGBindingManager> {
+
+public:
+	MMGCollections(QObject *parent) : MMGManager(parent){};
+
+	MMGBindingManager *add(const QJsonObject &json_obj = QJsonObject()) override;
 };
 
 #endif // MMG_BINDING_H

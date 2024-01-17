@@ -26,6 +26,24 @@ MMGActionProfiles::MMGActionProfiles(MMGActionManager *parent, const QJsonObject
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionProfiles::subNames() const
+{
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+		default:
+			opts << subModuleText("Switch");
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
+			break;
+	}
+
+	return opts;
+}
+
 void MMGActionProfiles::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -59,26 +77,6 @@ void MMGActionProfiles::createDisplay(QWidget *parent)
 
 	MMGStringDisplay *profile_display = display()->stringDisplays()->addNew(&profile);
 	profile_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-}
-
-void MMGActionProfiles::setComboOptions(QComboBox *sub)
-{
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-			opts << subModuleText("Switch");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
-			break;
-
-		default:
-			break;
-	}
-
-	sub->addItems(opts);
 }
 
 void MMGActionProfiles::setActionParams()

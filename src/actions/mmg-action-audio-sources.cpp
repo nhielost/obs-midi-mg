@@ -48,6 +48,12 @@ MMGActionAudioSources::MMGActionAudioSources(MMGActionManager *parent, const QJs
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionAudioSources::subNames() const
+{
+	return subModuleTextList(
+		{"ChangeVolume", "IncrementVolume", "Mute", "Unmute", "ToggleMute", "AudioOffset", "AudioMonitor"});
+}
+
 void MMGActionAudioSources::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -96,8 +102,7 @@ void MMGActionAudioSources::createDisplay(QWidget *parent)
 
 void MMGActionAudioSources::setComboOptions(QComboBox *sub)
 {
-	sub->addItems(subModuleTextList(
-		{"ChangeVolume", "IncrementVolume", "Mute", "Unmute", "ToggleMute", "AudioOffset", "AudioMonitor"}));
+	MMGAction::setComboOptions(sub);
 	if (type() == TYPE_OUTPUT) enable_combo_option(sub, 1, false);
 }
 
@@ -243,7 +248,7 @@ void MMGActionAudioSources::execute(const MMGMessage *midi) const
 				util_value /= 100.0;
 				util_value += obs_source_get_volume(obs_source);
 			} else {
-			util_value = convertDecibels(
+				util_value = convertDecibels(
 					convertDecibels(obs_source_get_volume(obs_source), true) + util_value, false);
 			}
 			obs_source_set_volume(obs_source, util_value);

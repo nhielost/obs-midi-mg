@@ -25,12 +25,13 @@ MMGActionRecord::MMGActionRecord(MMGActionManager *parent, const QJsonObject &js
 	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionRecord::setComboOptions(QComboBox *sub)
+const QStringList MMGActionRecord::subNames() const
 {
 	QStringList opts;
 
 	switch (type()) {
 		case TYPE_INPUT:
+		default:
 			opts << obstr_all("Basic.Main", {"StartRecording", "StopRecording"}) << subModuleText("Toggle")
 			     << obstr_all("Basic.Main", {"PauseRecording", "UnpauseRecording"})
 			     << subModuleText("TogglePause");
@@ -40,12 +41,9 @@ void MMGActionRecord::setComboOptions(QComboBox *sub)
 			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
 						   "ToggleStarted", "Paused", "Resumed", "TogglePaused"});
 			break;
-
-		default:
-			break;
 	}
 
-	sub->addItems(opts);
+	return opts;
 }
 
 void MMGActionRecord::execute(const MMGMessage *) const

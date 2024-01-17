@@ -27,6 +27,28 @@ MMGActionMediaSources::MMGActionMediaSources(MMGActionManager *parent, const QJs
 	blog(LOG_DEBUG, "Action created.");
 }
 
+const QStringList MMGActionMediaSources::subNames() const
+{
+	QStringList opts;
+
+	switch (type()) {
+		case TYPE_INPUT:
+		default:
+			opts << subModuleText("PlayPause")
+			     << obstr_all("ContextBar.MediaControls", {"RestartMedia", "StopMedia"})
+			     << subModuleText("SetTime")
+			     << obstr_all("ContextBar.MediaControls", {"PlaylistNext", "PlaylistPrevious"});
+			break;
+
+		case TYPE_OUTPUT:
+			opts << subModuleTextList({"Played", "Paused", "Restarted", "Stopped"});
+			break;
+	}
+
+	opts << subModuleTextList({"SkipForward", "SkipBackward"});
+	return opts;
+}
+
 void MMGActionMediaSources::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
@@ -60,30 +82,6 @@ void MMGActionMediaSources::createDisplay(QWidget *parent)
 	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
 
 	display()->numberDisplays()->addNew(&num);
-}
-
-void MMGActionMediaSources::setComboOptions(QComboBox *sub)
-{
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-			opts << subModuleText("PlayPause")
-			     << obstr_all("ContextBar.MediaControls", {"RestartMedia", "StopMedia"})
-			     << subModuleText("SetTime")
-			     << obstr_all("ContextBar.MediaControls", {"PlaylistNext", "PlaylistPrevious"});
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Played", "Paused", "Restarted", "Stopped"});
-			break;
-
-		default:
-			break;
-	}
-
-	opts << subModuleTextList({"SkipForward", "SkipBackward"});
-	sub->addItems(opts);
 }
 
 void MMGActionMediaSources::setActionParams()

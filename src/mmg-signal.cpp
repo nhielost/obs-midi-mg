@@ -254,7 +254,8 @@ void MMGSignals::frontendCallback(obs_frontend_event event, void *ptr)
 	emit _signals->frontendEvent(event);
 
 	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
-		manager(binding)->resetConnections();
+		enum_manager(collection) val->resetConnections();
+
 		_signals->blockSignals(false);
 	}
 }

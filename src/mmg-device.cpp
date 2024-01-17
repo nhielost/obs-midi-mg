@@ -25,13 +25,11 @@ using namespace MMGUtils;
 MMGDevice::MMGDevice(MMGDeviceManager *parent, const QJsonObject &json_obj) : MMGMIDIPort(parent, json_obj)
 {
 	update(json_obj);
-
-	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
 void MMGDevice::json(QJsonObject &device_obj) const
 {
-	device_obj["name"] = _name;
+	device_obj["name"] = objectName();
 	device_obj["active"] = (int)_active;
 	if (!_thru.isEmpty()) device_obj["thru"] = _thru;
 }
@@ -61,28 +59,50 @@ void MMGDevice::setActive(DeviceType type, bool active)
 {
 	if (!editable || isActive(type) == active || !isCapable(type)) return;
 
+	!isActive(type) ? openPort(type) : closePort(type);
+	// Is the port not in the correct state?
+	if (isPortOpen(type) == isActive(type)) {
+		open_message_box("PortOpenError");
+		return;
+	}
+
 	switch (type) {
 		case TYPE_INPUT:
 			_active ^= 0b01; // 00 -> 01, 10 -> 11, 01 -> 00, 11 -> 10
+			break;
 
 		case TYPE_OUTPUT:
 			_active ^= 0b10; // 00 -> 10, 01 -> 11, 10 -> 00, 11 -> 01
+			break;
 
 		default:
 			break;
 	}
-
-	isActive(type) ? openPort(type) : closePort(type);
 }
 
-void MMGDevice::addConnection(MMGBinding *binding)
+void MMGDevice::checkCapable()
 {
-	connect(this, &MMGDevice::deleting, binding, &MMGBinding::removeDevice);
-}
+	uint active = _active;
+	_active = 0;
 
-void MMGDevice::removeConnection(MMGBinding *binding)
-{
-	disconnect(this, &MMGDevice::deleting, binding, nullptr);
+	blog(LOG_INFO, "Checking device capabilities...");
+
+	closePort(TYPE_INPUT);
+	closePort(TYPE_OUTPUT);
+
+	openPort(TYPE_INPUT);
+	setCapable(TYPE_INPUT, isPortOpen(TYPE_INPUT));
+
+	openPort(TYPE_OUTPUT);
+	setCapable(TYPE_OUTPUT, isPortOpen(TYPE_OUTPUT));
+
+	closePort(TYPE_INPUT);
+	closePort(TYPE_OUTPUT);
+
+	blog(LOG_INFO, "Device capabilities checked. Re-opening active ports...");
+
+	setActive(TYPE_INPUT, active & 0b01);
+	setActive(TYPE_OUTPUT, active & 0b10);
 }
 // End MMGDevice
 
@@ -95,6 +115,7 @@ MMGDevice *MMGDeviceManager::add(const QJsonObject &json_obj)
 		current_device->update(json_obj);
 		return current_device;
 	} else {
+		if (find(mmgtr("Device.Dummy"))) remove(find(mmgtr("Device.Dummy")));
 		return MMGManager::add(new MMGDevice(this, json_obj));
 	}
 }
@@ -106,16 +127,11 @@ MMGDevice *MMGDeviceManager::add(const QString &name)
 	return add(json_obj);
 }
 
-bool MMGDeviceManager::filter(DeviceType type, MMGDevice *check) const
-{
-	return check->isCapable(type);
-}
-
 const QStringList MMGDeviceManager::capableDevices(DeviceType type) const
 {
 	QStringList devices;
 	for (MMGDevice *device : _list) {
-		if (device->isCapable(type)) devices += device->name();
+		if (device->isCapable(type)) devices += device->objectName();
 	}
 	return devices;
 }

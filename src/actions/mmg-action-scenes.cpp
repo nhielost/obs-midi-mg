@@ -61,11 +61,6 @@ void MMGActionScenes::createDisplay(QWidget *parent)
 	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
-void MMGActionScenes::setComboOptions(QComboBox *sub)
-{
-	sub->addItem(subModuleText("Switch"));
-}
-
 void MMGActionScenes::setActionParams()
 {
 	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);

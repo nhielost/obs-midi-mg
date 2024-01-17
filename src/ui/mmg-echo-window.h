@@ -10,14 +10,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
+
 #pragma once
 #include <QDialog>
 
 #include "ui_mmg-echo-window.h"
-#include "mmg-number-display.h"
-#include "mmg-string-display.h"
-#include "mmg-binding-display.h"
-#include "mmg-manager-display.h"
+#include "mmg-message-display.h"
 #include "../mmg-device.h"
 
 class MMGEchoWindow : public QDialog {
@@ -27,74 +25,74 @@ public:
 	explicit MMGEchoWindow(QWidget *parent);
 	~MMGEchoWindow() override;
 
+	enum MultiMode { MODE_BINDING, MODE_ACTION, MODE_MESSAGE };
+
 private:
 	Ui::MMGEchoWindow *ui;
 
-	MMGBindingDisplay *main_binding_display;
+	QMenu *menu_binding_groups;
 
-	MMGStringDisplay *type_display;
-	MMGNumberDisplay *channel_display;
-	MMGNumberDisplay *note_display;
-	MMGNumberDisplay *value_display;
+	MMGMessageDisplay *message_display;
 
-	MMGManagerDisplay<MMGDevice> *devices_display;
-	MMGManagerDisplay<MMGBinding> *bindings_display;
-	MMGManagerDisplay<MMGMessage> *messages_display;
-	MMGManagerDisplay<MMGAction> *actions_display;
-	MMGManagerDisplay<MMGSettings> *preferences_display;
-
+	MMGBindingManager *current_manager = nullptr;
 	MMGDevice *current_device = nullptr;
+
 	MMGBinding *current_binding = nullptr;
 	MMGMessage *current_message = nullptr;
 	MMGAction *current_action = nullptr;
-
-	short listening_mode = 0;
-	bool binding_edit = false;
+	MultiMode multi_mode = MODE_BINDING;
 
 	void reject() override;
 	void connectUISignals();
 	void translate();
 
+	int multiIndex(MMGUtils::DeviceType) const;
+
 public slots:
 	void displayWindow();
-	void updateMessage(const MMGSharedMessage &);
 
 private slots:
-	void onAddClick();
-	void onCopyClick();
-	void onRemoveClick();
-	void onConfirmClick();
-	void onScreenChange(int page);
+	void collectionShow(QListWidgetItem *item = nullptr);
+	void onCollectionRename(QListWidgetItem *item);
+	void onCollectionMove(const QModelIndex &, int from, int, const QModelIndex &, int to);
+	void onCollectionAdd();
+	void onCollectionEdit();
+	void onCollectionConfirm();
+	void onCollectionRemove();
 
-	void deviceShow();
-	void deviceBindingEdit();
+	void deviceShow(QListWidgetItem *item = nullptr);
 	void onDeviceInputActiveChange(bool toggled);
 	void onDeviceOutputActiveChange(bool toggled);
 	void onDeviceThruStateChange(bool toggled);
 	void onDeviceThruChange(const QString &device);
+	void onDeviceCheck();
+	void onDeviceRemove();
 
-	void messageShow();
-	void messageBindingEdit();
-	void onMessageTypeChange();
-	void onListenOnceClick(bool toggled);
-	void onListenContinuousClick(bool toggled);
+	void multiShow(QListWidgetItem *item = nullptr);
+	void onMultiRename(QListWidgetItem *item);
+	void onMultiMove(const QModelIndex &, int from, int, const QModelIndex &, int to);
+	void onMultiSelect(int);
+	void onMultiClick();
+	void onMultiChange();
+	void onAddClick();
+	void onCopyClick();
+	void onMoveClick();
+	void onMoveSelect();
+	void onRemoveClick();
 
-	void actionShow();
-	void actionBindingEdit();
-	void onActionCategoryChange(int index);
-	void onActionSwitch(bool toggled);
-	void onActionSubUpdate();
-	void onActionSubChange(int index);
-	void onActionEditRequest(MMGBinding *binding, int page);
-
-	void bindingShow();
-	void bindingBindingEdit(){};
+	void bindingShow(QListWidgetItem *item = nullptr);
 	void onBindingActiveChange(bool toggled);
 	void onBindingSwitch(bool toggled);
-	void onBindingFieldEdit(int page);
+	void onBindingResetChange(int index);
+
+	void messageShow(QListWidgetItem *item = nullptr);
+
+	void actionShow(QListWidgetItem *item = nullptr);
+	void onActionCategoryChange(int index);
+	void onActionSubUpdate();
+	void onActionSubChange(int index);
 
 	void preferenceShow();
-	void preferenceBindingEdit();
 	void exportBindings();
 	void importBindings();
 	void openHelp() const;

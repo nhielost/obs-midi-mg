@@ -46,6 +46,7 @@ public:
 
 	Category category() const override { return MMGACTION_SOURCE_AUDIO; };
 	const QString trName() const override { return "AudioSources"; };
+	const QStringList subNames() const override;
 
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;

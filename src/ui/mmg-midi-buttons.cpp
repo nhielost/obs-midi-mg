@@ -35,20 +35,20 @@ MMGMIDIButtons::MMGMIDIButtons(QWidget *parent) : QWidget(parent)
 
 	fixed_button = new QPushButton(this);
 	//fixed_button->setGeometry(0, 0, 30, 30);
-	fixed_button->setIcon(QIcon(":/icons/fixed.svg"));
+	fixed_button->setIcon(mmg_icon("fixed"));
 	fixed_button->setIconSize({12, 12});
 
 	midi_button = new QPushButton(this);
 	//midi_button->setGeometry(40, 0, 30, 30);
-	midi_button->setIcon(QIcon(":/icons/midi.svg"));
+	midi_button->setIcon(mmg_icon("midi"));
 	midi_button->setIconSize({18, 18});
 
 	custom_button = new QPushButton(this);
 	//custom_button->setGeometry(80, 0, 30, 30);
-	custom_button->setIcon(QIcon(":/icons/custom.svg"));
+	custom_button->setIcon(mmg_icon("custom"));
 
 	ignore_button = new QPushButton(this);
-	ignore_button->setIcon(QIcon(":/icons/disable.svg"));
+	ignore_button->setIcon(mmg_icon("disable"));
 
 	toggle_button = new QPushButton(this);
 	connect(toggle_button, &QPushButton::toggled, this, &MMGMIDIButtons::setToggleIcon);
@@ -105,5 +105,5 @@ void MMGMIDIButtons::setState(int state)
 
 void MMGMIDIButtons::setToggleIcon(bool toggled)
 {
-	toggle_button->setIcon(QIcon(toggled ? ":/icons/toggle-on.svg" : ":/icons/toggle-off.svg"));
+	toggle_button->setIcon(mmg_icon(toggled ? "toggle-on" : "toggle-off"));
 }

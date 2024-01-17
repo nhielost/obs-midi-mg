@@ -28,12 +28,13 @@ MMGActionReplayBuffer::MMGActionReplayBuffer(MMGActionManager *parent, const QJs
 	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionReplayBuffer::setComboOptions(QComboBox *sub)
+const QStringList MMGActionReplayBuffer::subNames() const
 {
 	QStringList opts;
 
 	switch (type()) {
 		case TYPE_INPUT:
+		default:
 			opts << obstr_all("Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"})
 			     << subModuleText("Toggle") << subModuleText("Save");
 			break;
@@ -42,12 +43,9 @@ void MMGActionReplayBuffer::setComboOptions(QComboBox *sub)
 			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
 						   "ToggleStarted", "Save"});
 			break;
-
-		default:
-			break;
 	}
 
-	sub->addItems(opts);
+	return opts;
 }
 
 void MMGActionReplayBuffer::execute(const MMGMessage *) const

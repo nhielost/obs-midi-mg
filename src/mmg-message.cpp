@@ -26,32 +26,32 @@ MMGMessage::MMGMessage(QObject *parent) : QObject(parent)
 {
 	setRanges();
 
-	_name = mmgtr("Message.Untitled");
+	setObjectName(mmgtr("Message.Untitled"));
+	setDevice(manager(device)->at(0));
 	_channel = 1;
 	_type = mmgtr("Message.Type.NoteOn");
 	_value.setState(STATE_MIDI);
-
-	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
-MMGMessage::MMGMessage(const libremidi::message &message)
+MMGMessage::MMGMessage(MMGMIDIPort *device, const libremidi::message &message)
 {
 	setRanges();
 
+	setDevice(device);
 	_channel = message.get_channel();
 	_type = getType(message);
 	_note = getNote(message);
 	_value = getValue(message);
-
-	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
 }
 
 MMGMessage::MMGMessage(const QJsonObject &json_obj)
 	: _channel(json_obj, "channel"), _type(json_obj, "type"), _note(json_obj, "note"), _value(json_obj, "value")
 {
-	_name = json_obj["name"].toString(mmgtr("Message.Untitled"));
-
 	setRanges();
+
+	setObjectName(json_obj["name"].toString(mmgtr("Message.Untitled")));
+
+	setDevice(manager(device)->find(json_obj["device"].toString()));
 
 	if (_channel == 0) _channel = 1;
 
@@ -66,8 +66,16 @@ MMGMessage::MMGMessage(const QJsonObject &json_obj)
 		_type.setState(STATE_TOGGLE);
 		_type.setMax(mmgtr("Message.Type.NoteOff"));
 	}
+}
 
-	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
+void MMGMessage::setDevice(MMGMIDIPort *device)
+{
+	disconnect(_device, &QObject::destroyed, this, nullptr);
+
+	_device = device;
+	if (!device) return;
+
+	connect(_device, &QObject::destroyed, this, [&]() { _device = nullptr; });
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
@@ -77,7 +85,8 @@ void MMGMessage::blog(int log_status, const QString &message) const
 
 void MMGMessage::json(QJsonObject &message_obj) const
 {
-	message_obj["name"] = _name;
+	message_obj["name"] = objectName();
+	message_obj["device"] = _device ? _device->objectName() : "";
 	_channel.json(message_obj, "channel");
 	_type.json(message_obj, "type");
 	_note.json(message_obj, "note");
@@ -86,7 +95,8 @@ void MMGMessage::json(QJsonObject &message_obj) const
 
 void MMGMessage::copy(MMGMessage *dest) const
 {
-	dest->_name = _name;
+	dest->setObjectName(objectName());
+	dest->_device = _device;
 	dest->_channel = _channel.copy();
 	dest->_type = _type.copy();
 	dest->_note = _note.copy();
@@ -112,10 +122,10 @@ void MMGMessage::toggle()
 bool MMGMessage::acceptable(const MMGMessage *test) const
 {
 	bool accepted = true;
+	accepted &= _device == test->_device;
 	accepted &= _channel.acceptable(test->channel());
 	accepted &= (_type == test->type().value());
-	if (_type != mmgtr("Message.Type.ProgramChange") && _type != mmgtr("Message.Type.PitchBend"))
-		accepted &= _note.acceptable(test->note());
+	if (!valueOnlyType()) accepted &= _note.acceptable(test->note());
 
 	return accepted && _value.acceptable(test->value());
 }
@@ -132,14 +142,14 @@ void MMGMessage::applyValues(const MMGNumber &applied)
 	_value.chooseOther(applied);
 }
 
-void MMGMessage::addConnection(MMGBinding *binding)
+void MMGMessage::send()
 {
-	connect(this, &MMGMessage::deleting, binding, &MMGBinding::removeMessage);
+	if (_device) _device->sendMessage(this);
 }
 
-void MMGMessage::removeConnection(MMGBinding *binding)
+bool MMGMessage::valueOnlyType() const
 {
-	disconnect(this, &MMGMessage::deleting, binding, nullptr);
+	return _type == mmgtr("Message.Type.ProgramChange") || _type == mmgtr("Message.Type.PitchBend");
 }
 
 int MMGMessage::getNote(const libremidi::message &mess)
@@ -243,6 +253,16 @@ void MMGMessage::setRanges()
 
 	if (_note.state() == STATE_FIXED && _note.max() == 100) _note.setMax(127);
 	if (_value.state() == STATE_FIXED && _value.max() == 100) _value.setMax(127);
+}
+
+QDataStream &operator<<(QDataStream &out, const MMGMessage *&obj)
+{
+	return out << (const QObject *&)obj;
+}
+
+QDataStream &operator>>(QDataStream &in, MMGMessage *&obj)
+{
+	return in >> (QObject *&)obj;
 }
 // End MMGMessage
 

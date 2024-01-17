@@ -19,8 +19,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_CONFIG_H
 #define MMG_CONFIG_H
 
+#include "mmg-device.h"
 #include "mmg-binding.h"
 #include "mmg-settings.h"
+
+class MMGOldConfig;
 
 class MMGConfig : public QObject {
 	Q_OBJECT
@@ -34,28 +37,46 @@ public:
 	void save(const QString &path_str = QString()) const;
 	void clearAllData();
 
+	MMGCollections *collections() const { return _collections; };
 	MMGDeviceManager *devices() const { return _devices; };
-	MMGMessageManager *messages() const { return _messages; };
-	MMGActionManager *actions() const { return _actions; };
-	MMGBindingManager *bindings() const { return _bindings; };
-	MMGSettingsManager *settings() const { return _settings; };
+	MMGSettings *settings() const { return _settings; };
 
 	MMGSignals *mmgsignals() const { return _signals; };
 	MMGMIDI *midi() const { return _midi; };
 
-	static QString filepath();
+	static QString filename() { return "obs-midi-mg-config.json"; };
+	static QString filepath(const QString &path_str);
 
 private:
+	MMGCollections *_collections;
 	MMGDeviceManager *_devices;
-	MMGMessageManager *_messages;
-	MMGActionManager *_actions;
-	MMGBindingManager *_bindings;
-	MMGSettingsManager *_settings;
+	MMGSettings *_settings;
 
 	MMGSignals *_signals;
 	MMGMIDI *_midi;
+
+	MMGOldConfig *old_config;
 };
 
+#define enum_manager(which) for (auto val : *manager(which))
 #define manager(which) config()->which##s()
+#define midi() config()->midi()
+
+class MMGOldConfig : public QObject {
+	Q_OBJECT
+
+public:
+	MMGOldConfig(MMGConfig *parent) : QObject(parent), new_config(parent) {}
+
+	void blog(int log_status, const QString &message) { new_config->blog(log_status, message); };
+	void load(QJsonObject &doc);
+	void postLoad();
+
+private:
+	void cleanDeviceName(QString &) const;
+
+	MMGConfig *new_config;
+	QMultiMap<QString, QString> old_internal_bindings;
+};
 
 #endif // MMG_CONFIG_H

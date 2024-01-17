@@ -264,7 +264,7 @@ MMGOBSBooleanField::MMGOBSBooleanField(QWidget *p, const MMGOBSFieldInit &init) 
 	button = new QPushButton(this);
 	button->setCheckable(true);
 	button->setGeometry(220, 20, 50, 50);
-	button->setIcon(QIcon(":/icons/confirm.svg"));
+	button->setIcon(mmg_icon("confirm"));
 	button->setIconSize(QSize(28, 28));
 	button->setCursor(Qt::PointingHandCursor);
 

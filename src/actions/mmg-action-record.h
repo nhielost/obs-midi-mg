@@ -40,9 +40,7 @@ public:
 
 	Category category() const override { return MMGACTION_RECORD; };
 	const QString trName() const override { return "Recording"; };
-
-	void setComboOptions(QComboBox *sub) override;
-	void setActionParams() override{};
+	const QStringList subNames() const override;
 
 	void execute(const MMGMessage *) const override;
 	void connectOBSSignals() override;

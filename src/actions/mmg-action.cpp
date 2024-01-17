@@ -40,8 +40,7 @@ using namespace MMGUtils;
 // MMGAction
 MMGAction::MMGAction(MMGActionManager *parent, const QJsonObject &json_obj) : QObject(parent)
 {
-	connect(this, &QObject::destroyed, [&]() { emit deleting(this); });
-	_name = json_obj["name"].toString(mmgtr("Actions.Untitled"));
+	setObjectName(json_obj["name"].toString(mmgtr("Actions.Untitled")));
 	_type = (DeviceType)json_obj["type"].toInt();
 	subcategory = json_obj["sub"].toInt();
 }
@@ -59,12 +58,12 @@ void MMGAction::setType(DeviceType type)
 
 void MMGAction::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, QString("[Actions] <%1> %2").arg(_name).arg(message));
+	global_blog(log_status, QString("[Actions] <%1> %2").arg(objectName()).arg(message));
 }
 
 void MMGAction::json(QJsonObject &json_obj) const
 {
-	json_obj["name"] = _name;
+	json_obj["name"] = objectName();
 	json_obj["category"] = (int)category();
 	json_obj["sub"] = subcategory;
 	json_obj["type"] = type();
@@ -72,7 +71,7 @@ void MMGAction::json(QJsonObject &json_obj) const
 
 void MMGAction::copy(MMGAction *dest) const
 {
-	dest->setName(_name);
+	dest->setObjectName(objectName());
 	dest->setType(_type);
 	dest->setSub(subcategory);
 }
@@ -94,16 +93,14 @@ const QStringList MMGAction::subModuleTextList(const QStringList &footer_list) c
 	return opts;
 }
 
-void MMGAction::addConnection(MMGBinding *binding)
+QDataStream &operator<<(QDataStream &out, const MMGAction *&obj)
 {
-	connect(this, &MMGAction::deleting, binding, &MMGBinding::removeAction);
-	connect(this, &MMGAction::replacing, binding, &MMGBinding::replaceAction);
+	return out << (const QObject *&)obj;
 }
 
-void MMGAction::removeConnection(MMGBinding *binding)
+QDataStream &operator>>(QDataStream &in, MMGAction *&obj)
 {
-	disconnect(this, &MMGAction::deleting, binding, nullptr);
-	disconnect(this, &MMGAction::replacing, binding, nullptr);
+	return in >> (QObject *&)obj;
 }
 // End MMGAction
 
@@ -112,7 +109,7 @@ MMGAction *MMGActionManager::add(const QJsonObject &json_obj)
 {
 	MMGAction *action = nullptr;
 	changeActionCategory(action, json_obj);
-	if (find(action->name()) != action) setUniqueName(action);
+	if (find(action->objectName()) != action) setUniqueName(action);
 	return action;
 }
 
@@ -121,11 +118,6 @@ MMGAction *MMGActionManager::copy(MMGAction *action)
 	QJsonObject json_obj;
 	json_obj["category"] = action->category();
 	return MMGManager::copy(action, add(json_obj));
-}
-
-bool MMGActionManager::filter(DeviceType type, MMGAction *check) const
-{
-	return type == TYPE_NONE || check->type() == type;
 }
 
 void MMGActionManager::changeActionCategory(MMGAction *&action, const QJsonObject &json_obj)

@@ -1,5 +1,5 @@
 ## Announcement
-**The new version 3.0.0 Beta is now available! Go check out all of the new features.**<br><br><br>
+**The new version 3.0.0 Beta 2 is now available! Go check out all of the new features.**<br><br><br>
 
 # obs-midi-mg
 

@@ -38,9 +38,7 @@ public:
 
 	Category category() const override { return MMGACTION_REPBUF; };
 	const QString trName() const override { return "ReplayBuffer"; };
-
-	void setComboOptions(QComboBox *sub) override;
-	void setActionParams() override{};
+	const QStringList subNames() const override;
 
 	void execute(const MMGMessage *midi) const override;
 	void connectOBSSignals() override;
