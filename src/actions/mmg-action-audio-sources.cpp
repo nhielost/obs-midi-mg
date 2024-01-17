@@ -384,8 +384,8 @@ void MMGActionAudioSources::sourceMonitorCallback(int monitor)
 	if (!signal) return;
 
 	MMGNumber values;
-	if (action.chooseTo(values, audioMonitorOptions())) return;
 	values = monitor;
+	if (action.chooseTo(values, audioMonitorOptions())) return;
 
 	emit eventTriggered({values});
 }
