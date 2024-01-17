@@ -110,9 +110,11 @@ void MMGMIDIPort::setCapable(DeviceType type, bool capable)
 	switch (type) {
 		case TYPE_INPUT:
 			_capable ^= 0b01;
+			break;
 
 		case TYPE_OUTPUT:
 			_capable ^= 0b10;
+			break;
 
 		default:
 			break;
