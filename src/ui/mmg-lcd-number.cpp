@@ -25,17 +25,17 @@ using namespace MMGUtils;
 
 MMGLCDNumber::MMGLCDNumber(QWidget *parent) : QWidget(parent)
 {
-	_step = 1.0;
-
 	lcd = new QLCDNumber(this);
 	inc_button = new QToolButton(this);
 	dec_button = new QToolButton(this);
 	auto_repeat_timer = new QTimer(this);
 	repeat_delay_timer = new QTimer(this);
 	repeat_delay_timer->setSingleShot(true);
+	blinking_timer = new QTimer(this);
 
 	connect(auto_repeat_timer, &QTimer::timeout, this, &MMGLCDNumber::autoRepeat);
 	connect(repeat_delay_timer, &QTimer::timeout, this, &MMGLCDNumber::initAutoRepeat);
+	connect(blinking_timer, &QTimer::timeout, this, &MMGLCDNumber::blink);
 
 	lcd->setDigitCount(8);
 	lcd->setSmallDecimalPoint(true);
@@ -104,6 +104,16 @@ void MMGLCDNumber::autoRepeatCancel()
 	step_mult = 1;
 }
 
+void MMGLCDNumber::blink()
+{
+	if (lcd->digitCount() == 0) {
+		lcd->setDigitCount(8);
+		lcd->display(blink_press ? edit_string : original_value);
+	} else {
+		lcd->setDigitCount(0);
+	}
+}
+
 void MMGLCDNumber::setBounds(double lower, double upper)
 {
 	_min = lower;
@@ -142,12 +152,15 @@ void MMGLCDNumber::display(State state)
 				lcd->display(_value);
 			}
 			break;
+
 		case LCDNUMBER_0_127:
 			lcd->display("  0-127 ");
 			break;
+
 		case LCDNUMBER_INACTIVE:
 			lcd->display("  ----- ");
 			break;
+
 		default:
 			break;
 	}
@@ -155,12 +168,83 @@ void MMGLCDNumber::display(State state)
 
 void MMGLCDNumber::wheelEvent(QWheelEvent *event)
 {
+	if (blinking_timer->isActive()) {
+		event->ignore();
+		return;
+	}
 	if (event->hasPixelDelta()) {
 		event->pixelDelta().y() > 0 ? inc() : dec();
 	} else if (!event->angleDelta().isNull()) {
 		event->angleDelta().y() > 0 ? inc() : dec();
-	} else {
-		event->ignore();
 	}
 	event->accept();
+}
+
+void MMGLCDNumber::mouseDoubleClickEvent(QMouseEvent *event)
+{
+	original_value = QString::number(_value);
+	blinking_timer->start(500);
+	setFocus();
+}
+
+void MMGLCDNumber::keyPressEvent(QKeyEvent *event)
+{
+	switch (event->key()) {
+		case Qt::Key_0:
+		case Qt::Key_1:
+		case Qt::Key_2:
+		case Qt::Key_3:
+		case Qt::Key_4:
+		case Qt::Key_5:
+		case Qt::Key_6:
+		case Qt::Key_7:
+		case Qt::Key_8:
+		case Qt::Key_9:
+			if (edit_string == "0") edit_string.clear();
+			if (edit_string.size() == 8) break;
+			edit_string += QString::number(event->key() - Qt::Key_0);
+			break;
+
+		case Qt::Key_Period:
+			if (_step >= 1 || edit_string.contains(".")) break;
+			edit_string += ".";
+			break;
+
+		case Qt::Key_Minus:
+			if (edit_string.contains("-")) {
+				edit_string.remove(0, 1);
+	} else {
+				edit_string.prepend("-");
+			}
+			break;
+
+		case Qt::Key_Backspace:
+			edit_string.remove(edit_string.size() - 1, 1);
+			if (edit_string.isEmpty()) edit_string = "0";
+			break;
+
+		case Qt::Key_Return:
+		case Qt::Key_Enter:
+		case Qt::Key_Escape:
+			clearFocus();
+			event->accept();
+			return;
+
+		default:
+		event->ignore();
+			return;
+	}
+
+	if (lcd->digitCount() != 0) lcd->display(edit_string);
+	event->accept();
+	blink_press = true;
+}
+
+void MMGLCDNumber::focusOutEvent(QFocusEvent *event)
+{
+	blinking_timer->stop();
+	lcd->setDigitCount(8);
+	setValue(edit_string.toDouble());
+	edit_string.clear();
+	blink_press = false;
 }
