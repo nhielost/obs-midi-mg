@@ -23,6 +23,7 @@ using namespace MMGUtils;
 MMGActionMediaSources::MMGActionMediaSources(MMGActionManager *parent, const QJsonObject &json_obj)
 	: MMGAction(parent, json_obj), source(json_obj, "source", 1), num(json_obj, "num", 1)
 {
+	if (num.state() == STATE_CUSTOM) num.setState(STATE_MIDI);
 	blog(LOG_DEBUG, "Action created.");
 }
 
@@ -106,7 +107,7 @@ void MMGActionMediaSources::onList1Change()
 		case SOURCE_MEDIA_TIME:
 			num_display->setVisible(!source.value().isEmpty());
 			num_display->setDescription(mmgtr("Actions.MediaSources.Time"));
-			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
+			num_display->setOptions(MIDIBUTTON_MIDI);
 			num_display->setTimeFormat(true);
 			num_display->setBounds(0.0, sourceDuration());
 			num_display->setStep(1.0);
@@ -158,6 +159,11 @@ void MMGActionMediaSources::execute(const MMGMessage *midi) const
 	ACTION_ASSERT(obs_source_get_output_flags(obs_source) & OBS_SOURCE_CONTROLLABLE_MEDIA,
 		      "Source is not a media source.");
 
+	MMGNumber time;
+	time.setMax(sourceDuration());
+	time = num.map(time, false);
+	time.setState(num.state());
+
 	switch (sub()) {
 		case SOURCE_MEDIA_TOGGLE_PLAYPAUSE:
 			switch (obs_source_media_get_state(obs_source)) {
@@ -188,7 +194,7 @@ void MMGActionMediaSources::execute(const MMGMessage *midi) const
 			break;
 
 		case SOURCE_MEDIA_TIME:
-			obs_source_media_set_time(obs_source, num.chooseFrom(midi) * 1000);
+			obs_source_media_set_time(obs_source, time.chooseFrom(midi) * 1000);
 			break;
 
 		case SOURCE_MEDIA_SKIP_FORWARD_TRACK:
@@ -200,11 +206,11 @@ void MMGActionMediaSources::execute(const MMGMessage *midi) const
 			break;
 
 		case SOURCE_MEDIA_SKIP_FORWARD_TIME:
-			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) + (num * 1000));
+			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) + (time * 1000));
 			break;
 
 		case SOURCE_MEDIA_SKIP_BACKWARD_TIME:
-			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) - (num * 1000));
+			obs_source_media_set_time(obs_source, obs_source_media_get_time(obs_source) - (time * 1000));
 			break;
 
 		default:
