@@ -89,7 +89,7 @@ void MMGActionAudioSources::createDisplay(QWidget *parent)
 	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
 
 	MMGStringDisplay *action_display = display()->stringDisplays()->addNew(&action);
-	action_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->connect(action_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
 
 	display()->numberDisplays()->addNew(&num);
 }
@@ -121,21 +121,11 @@ void MMGActionAudioSources::onList1Change()
 
 	switch (sub()) {
 		case SOURCE_AUDIO_VOLUME_CHANGETO:
-			num_display->setVisible(!source.value().isEmpty());
-			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
-			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
-			num_display->setBounds(-99.0, 27.0);
-			num_display->setStep(0.1);
-			num_display->setDefaultValue(0.0);
-			break;
-
 		case SOURCE_AUDIO_VOLUME_CHANGEBY:
-			num_display->setVisible(!source.value().isEmpty());
-			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
-			num_display->setOptions(MIDIBUTTON_FIXED);
-			num_display->setBounds(-20.0, 20.0);
-			num_display->setStep(0.1);
-			num_display->setDefaultValue(0.0);
+			action_display->setDisplayMode(MMGStringDisplay::MODE_THIN);
+			action_display->setVisible(!source.value().isEmpty());
+			action_display->setDescription(mmgtr("Actions.AudioSources.Format"));
+			action_display->setBounds(volumeFormatOptions());
 			break;
 
 		case SOURCE_AUDIO_VOLUME_MUTE_ON:
@@ -153,11 +143,43 @@ void MMGActionAudioSources::onList1Change()
 			break;
 
 		case SOURCE_AUDIO_MONITOR:
+			action_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 			action_display->setVisible(true);
 			action_display->setDescription(obstr("Basic.AdvAudio.Monitoring"));
 			action_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
 			action_display->setBounds(audioMonitorOptions());
 			return;
+
+		default:
+			return;
+	}
+
+	num_display->reset();
+}
+
+void MMGActionAudioSources::onList2Change()
+{
+	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	bool is_percent = action == volumeFormatOptions()[0];
+
+	switch (sub()) {
+		case SOURCE_AUDIO_VOLUME_CHANGETO:
+			num_display->setVisible(true);
+			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+			num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
+			num_display->setBounds(is_percent ? 0.0 : -100.0, is_percent ? 100.0 : 27.0);
+			num_display->setStep(0.1);
+			num_display->setDefaultValue(0.0);
+			break;
+
+		case SOURCE_AUDIO_VOLUME_CHANGEBY:
+			num_display->setVisible(true);
+			num_display->setDescription(mmgtr("Actions.AudioSources.Volume"));
+			num_display->setOptions(MIDIBUTTON_FIXED);
+			num_display->setBounds(is_percent ? -25.0 : -20.0, is_percent ? 25.0 : 20.0);
+			num_display->setStep(0.1);
+			num_display->setDefaultValue(0.0);
+			break;
 
 		default:
 			return;
@@ -188,8 +210,14 @@ const QStringList MMGActionAudioSources::audioMonitorOptions()
 	return obstr_all("Basic.AdvAudio.Monitoring", {"None", "MonitorOnly", "Both"});
 }
 
+const QStringList MMGActionAudioSources::volumeFormatOptions()
+{
+	return mmgtr_all("Actions.AudioSources.Format", {"Percent", "Decibels"});
+}
+
 double MMGActionAudioSources::convertDecibels(double value, bool convert_to)
 {
+	// true = convert to decibels, false = convert to percentage
 	return convert_to ? (20 * std::log10(value)) : std::pow(10, value / 20);
 }
 
@@ -200,17 +228,24 @@ void MMGActionAudioSources::execute(const MMGMessage *midi) const
 
 	ACTION_ASSERT(obs_source_get_output_flags(obs_source) & OBS_SOURCE_AUDIO, "Source is not an audio source.");
 
-	double util_value;
+	bool is_percent = action == volumeFormatOptions()[0];
+	double util_value = num.chooseFrom(midi);
 	QStringList util_list;
 
 	switch (sub()) {
 		case SOURCE_AUDIO_VOLUME_CHANGETO:
-			obs_source_set_volume(obs_source, convertDecibels(num.chooseFrom(midi), false));
+			obs_source_set_volume(obs_source,
+					      is_percent ? util_value / 100.0 : convertDecibels(util_value, false));
 			break;
 
 		case SOURCE_AUDIO_VOLUME_CHANGEBY:
+			if (is_percent) {
+				util_value /= 100.0;
+				util_value += obs_source_get_volume(obs_source);
+			} else {
 			util_value = convertDecibels(
-				convertDecibels(obs_source_get_volume(obs_source), true) + num.chooseFrom(midi), false);
+					convertDecibels(obs_source_get_volume(obs_source), true) + util_value, false);
+			}
 			obs_source_set_volume(obs_source, util_value);
 			break;
 
@@ -296,9 +331,9 @@ void MMGActionAudioSources::sourceVolumeCallback(double volume)
 
 	MMGNumber values = num;
 
-	double db = convertDecibels(volume, true);
-	if (!num.acceptable(db)) return;
-	values = db;
+	double vol_val = action == volumeFormatOptions()[0] ? volume / 100.0 : convertDecibels(volume, true);
+	if (!num.acceptable(vol_val)) return;
+	values = vol_val;
 
 	emit eventTriggered({values});
 }
