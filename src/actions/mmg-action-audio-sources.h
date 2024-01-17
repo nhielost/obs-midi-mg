@@ -62,6 +62,7 @@ public:
 
 	static const QStringList enumerate();
 	static const QStringList audioMonitorOptions();
+	static const QStringList volumeFormatOptions();
 	static double convertDecibels(double value, bool convert_to);
 
 private:
@@ -73,6 +74,7 @@ private:
 
 private slots:
 	void onList1Change();
+	void onList2Change();
 
 	void sourceVolumeCallback(double volume);
 	void sourceMuteCallback(bool muted);
