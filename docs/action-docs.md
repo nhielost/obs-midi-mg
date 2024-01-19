@@ -202,16 +202,16 @@ All Media Sources actions contain these fields in addition to the fields listed 
 
 **SOURCE**: The name of the media source.
 
-| Input Action        | Description                                                                    | Fields                                             |
-|---------------------|--------------------------------------------------------------------------------|----------------------------------------------------|
-| Play or Pause Media | Pauses the media source if playing, starts playing otherwise.                  | *N/A*                                              |
-| Restart Media       | Restarts the media source if playing.                                          | *N/A*                                              |
-| Stop Media          | Stops the media source.                                                        | *N/A*                                              |
-| Set Track Time      | Sets the time of the media source.                                             | **TIME**: The time to set to the media source.     |
-| Next Track          | If there are multiple tracks in the media source, advance to the next one.     | *N/A*                                              |
-| Previous Track      | If there are multiple tracks in the media source, go back to the previous one. | *N/A*                                              |
-| Skip Forward Time   | Advances a specified amount of time in the media source.                       | **TIME**: The time to advance in the media source. |
-| Skip Backward Time  | Rewinds a specified amount of time in the media source.                        | **TIME**: The time to rewind in the media source.  |
+| Input Action        | Description                                                                                                     | Fields                                             |
+|---------------------|-----------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| Play or Pause Media | Pauses the media source if playing, starts playing otherwise.                                                   | *N/A*                                              |
+| Restart Media       | Restarts the media source if playing.                                                                           | *N/A*                                              |
+| Stop Media          | Stops the media source.                                                                                         | *N/A*                                              |
+| Set Track Time      | Sets the time of the media source.<br>(In MIDI mode, this will adjust to the time values of the current track.) | **TIME**: The time to set to the media source.     |
+| Next Track          | If there are multiple tracks in the media source, advance to the next one.                                      | *N/A*                                              |
+| Previous Track      | If there are multiple tracks in the media source, go back to the previous one.                                  | *N/A*                                              |
+| Skip Forward Time   | Advances a specified amount of time in the media source.                                                        | **TIME**: The time to advance in the media source. |
+| Skip Backward Time  | Rewinds a specified amount of time in the media source.                                                         | **TIME**: The time to rewind in the media source.  |
 
 | Output Action        | Description                                                       | Fields |
 |----------------------|-------------------------------------------------------------------|--------|
