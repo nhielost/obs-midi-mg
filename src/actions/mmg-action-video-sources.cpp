@@ -593,7 +593,7 @@ void MMGActionVideoSources::disconnectOBSSignals()
 	active_source_signal = nullptr;
 }
 
-void MMGActionVideoSources::sourceStateCallback(void *sceneitem, bool enabled) const
+void MMGActionVideoSources::sourceStateCallback(void *sceneitem, bool enabled)
 {
 	auto signal = qobject_cast<MMGSourceSignal *>(sender());
 	if (!signal) return;
@@ -614,10 +614,10 @@ void MMGActionVideoSources::sourceStateCallback(void *sceneitem, bool enabled) c
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }
 
-void MMGActionVideoSources::sourceTransformCallback(void *sceneitem) const
+void MMGActionVideoSources::sourceTransformCallback(void *sceneitem)
 {
 	auto signal = qobject_cast<MMGSourceSignal *>(sender());
 	if (!signal) return;
@@ -750,22 +750,22 @@ void MMGActionVideoSources::sourceTransformCallback(void *sceneitem) const
 			return;
 	}
 
-	emit eventTriggered(values);
+	triggerEvent(values);
 }
 
-void MMGActionVideoSources::frontendCallback(obs_frontend_event event) const
+void MMGActionVideoSources::frontendCallback(obs_frontend_event event)
 {
 	if (event != OBS_FRONTEND_EVENT_SCREENSHOT_TAKEN) return;
 	if (sub() != SOURCE_VIDEO_SCREENSHOT_TAKEN) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
-void MMGActionVideoSources::sourceDataCallback(void *_source) const
+void MMGActionVideoSources::sourceDataCallback(void *_source)
 {
 	if (sub() != SOURCE_VIDEO_CUSTOM_CHANGED) return;
 
 	auto obs_source = static_cast<obs_source_t *>(_source);
 	if (source != obs_source_get_name(obs_source)) return;
 
-	emit eventTriggered(obs_source_custom_updated(obs_source, _json->json()));
+	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

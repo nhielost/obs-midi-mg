@@ -102,6 +102,7 @@ public:
 	double map(const MMGNumber &other, bool round = true) const;
 	bool acceptable(double val) const;
 };
+using MMGNumberList = QList<MMGNumber>;
 
 struct MMGString : public MMGValue<QString> {
 

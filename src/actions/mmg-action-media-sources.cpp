@@ -271,35 +271,35 @@ void MMGActionMediaSources::disconnectOBSSignals()
 void MMGActionMediaSources::mediaPlayedCallback()
 {
 	if (sub() != SOURCE_MEDIA_PLAYED) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionMediaSources::mediaPausedCallback()
 {
 	if (sub() != SOURCE_MEDIA_PAUSED) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionMediaSources::mediaRestartedCallback()
 {
 	if (sub() != SOURCE_MEDIA_RESTARTED) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionMediaSources::mediaStoppedCallback()
 {
 	if (sub() != SOURCE_MEDIA_STOPPED) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionMediaSources::mediaNextCallback()
 {
 	if (sub() != SOURCE_MEDIA_SKIPPED_FORWARD_TRACK) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionMediaSources::mediaPreviousCallback()
 {
 	if (sub() != SOURCE_MEDIA_SKIPPED_BACKWARD_TRACK) return;
-	emit eventTriggered();
+	triggerEvent();
 }

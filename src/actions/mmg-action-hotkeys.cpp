@@ -213,7 +213,7 @@ void MMGActionHotkeys::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::hotkeyEvent, this, &MMGActionHotkeys::hotkeyCallback);
 }
 
-void MMGActionHotkeys::hotkeyCallback(obs_hotkey_id id) const
+void MMGActionHotkeys::hotkeyCallback(obs_hotkey_id id)
 {
 	MMGHotkeyRequest req;
 	req.hotkey_id = id;
@@ -233,5 +233,5 @@ void MMGActionHotkeys::hotkeyCallback(obs_hotkey_id id) const
 		},
 		&req);
 
-	if (req.hotkey_found) emit eventTriggered();
+	if (req.hotkey_found) triggerEvent();
 }

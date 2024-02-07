@@ -171,7 +171,7 @@ void MMGMIDIPort::sendThru()
 
 	MMGMIDIPort *port = manager(device)->find(_thru);
 	if (!port) {
-		blog(LOG_INFO, "Device is not connected or does not exist.");
+		blog(LOG_INFO, "Thru device is not connected or does not exist.");
 		return;
 	}
 	port->sendMessage(message.get());

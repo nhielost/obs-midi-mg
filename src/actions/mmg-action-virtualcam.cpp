@@ -82,7 +82,7 @@ void MMGActionVirtualCam::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionVirtualCam::frontendCallback(obs_frontend_event event) const
+void MMGActionVirtualCam::frontendCallback(obs_frontend_event event)
 {
 	switch (sub()) {
 		case VIRCAM_STARTED:
@@ -103,5 +103,5 @@ void MMGActionVirtualCam::frontendCallback(obs_frontend_event event) const
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }

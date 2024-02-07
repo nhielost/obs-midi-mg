@@ -23,6 +23,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "../mmg-signal.h"
 #include "../ui/mmg-action-display.h"
 
+class MMGLink;
 class MMGActionManager;
 
 class MMGAction : public QObject {
@@ -61,6 +62,8 @@ public:
 	short sub() const { return subcategory; };
 	void setSub(short val) { subcategory = val; };
 
+	void setLink(MMGLink *link);
+
 	void blog(int log_status, const QString &message) const;
 	virtual void json(QJsonObject &action_obj) const;
 	virtual void copy(MMGAction *dest) const;
@@ -77,6 +80,7 @@ public:
 	const QStringList subModuleTextList(const QStringList &footer_list) const;
 
 	virtual void execute(const MMGMessage *midi) const = 0;
+	void triggerEvent(const MMGUtils::MMGNumberList &values = {MMGUtils::MMGNumber()});
 
 	virtual void connectOBSSignals() = 0;
 	virtual void disconnectOBSSignals() = 0;
@@ -84,14 +88,16 @@ public:
 signals:
 	void replacing(MMGAction *);
 
-	void executed() const;
-	void eventTriggered(const QList<MMGUtils::MMGNumber> &values = {MMGUtils::MMGNumber()}) const;
-
 private:
 	MMGUtils::DeviceType _type;
 	short subcategory = 0;
 	MMGActionDisplay *_display = nullptr;
+
+	MMGLink *binding_link;
+
+	friend class MMGBinding;
 };
+
 using MMGActionList = QList<MMGAction *>;
 QDataStream &operator<<(QDataStream &out, const MMGAction *&obj);
 QDataStream &operator>>(QDataStream &in, MMGAction *&obj);

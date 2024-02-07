@@ -139,7 +139,7 @@ void MMGActionScenes::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionScenes::frontendCallback(obs_frontend_event event) const
+void MMGActionScenes::frontendCallback(obs_frontend_event event)
 {
 	if (event != OBS_FRONTEND_EVENT_SCENE_CHANGED) return;
 
@@ -156,5 +156,5 @@ void MMGActionScenes::frontendCallback(obs_frontend_event event) const
 			return;
 	}
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }

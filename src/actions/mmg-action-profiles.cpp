@@ -142,7 +142,7 @@ void MMGActionProfiles::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionProfiles::frontendCallback(obs_frontend_event event) const
+void MMGActionProfiles::frontendCallback(obs_frontend_event event)
 {
 	MMGNumber values;
 	const QStringList profiles = enumerate();
@@ -169,5 +169,5 @@ void MMGActionProfiles::frontendCallback(obs_frontend_event event) const
 	}
 
 	if (profile.chooseTo(values, profiles)) return;
-	emit eventTriggered({values});
+	triggerEvent({values});
 }

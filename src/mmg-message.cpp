@@ -70,12 +70,27 @@ MMGMessage::MMGMessage(const QJsonObject &json_obj)
 
 void MMGMessage::setDevice(MMGMIDIPort *device)
 {
-	disconnect(_device, &QObject::destroyed, this, nullptr);
+	if (_device) disconnect(_device, &QObject::destroyed, this, nullptr);
 
 	_device = device;
 	if (!device) return;
 
 	connect(_device, &QObject::destroyed, this, [&]() { _device = nullptr; });
+}
+
+void MMGMessage::setLink(MMGLink *link)
+{
+	binding_link = link;
+
+	if (!_device) return;
+
+	if (link) {
+		connect(_device, &MMGMIDIPort::messageReceived, this, &MMGMessage::acceptMessage, Qt::UniqueConnection);
+	} else {
+		disconnect(_device, &MMGMIDIPort::messageReceived, this, &MMGMessage::acceptMessage);
+	}
+
+	_device->incConnection(!!link);
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const
@@ -128,6 +143,14 @@ bool MMGMessage::acceptable(const MMGMessage *test) const
 	if (!valueOnlyType()) accepted &= _note.acceptable(test->note());
 
 	return accepted && _value.acceptable(test->value());
+}
+
+void MMGMessage::acceptMessage(const MMGSharedMessage &incoming)
+{
+	if (!binding_link) return;
+	if (!acceptable(incoming.get())) return;
+
+	binding_link->messageReceived(incoming);
 }
 
 void MMGMessage::applyValues(const MMGNumber &applied)

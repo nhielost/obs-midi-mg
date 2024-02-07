@@ -22,8 +22,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-utils.h"
 #include "mmg-manager.h"
 
-class MMGBinding;
 class MMGMIDIPort;
+class MMGLink;
 
 class MMGMessage : public QObject {
 	Q_OBJECT
@@ -35,6 +35,8 @@ public:
 
 	MMGMIDIPort *device() const { return _device; };
 	void setDevice(MMGMIDIPort *device);
+
+	void setLink(MMGLink *link);
 
 	MMGUtils::MMGNumber &channel() { return _channel; };
 	MMGUtils::MMGString &type() { return _type; };
@@ -61,6 +63,9 @@ public:
 	static int getValue(const libremidi::message &mess);
 	static const QStringList acceptedTypes();
 
+	private slots:
+	void acceptMessage(const std::shared_ptr<MMGMessage> &incoming);
+
 private:
 	MMGUtils::MMGNumber _channel;
 	MMGUtils::MMGString _type;
@@ -68,6 +73,7 @@ private:
 	MMGUtils::MMGNumber _value;
 
 	MMGMIDIPort *_device = nullptr;
+	MMGLink *binding_link = nullptr;
 
 	void setRanges();
 };

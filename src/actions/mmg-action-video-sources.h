@@ -113,8 +113,8 @@ private slots:
 	void onList1Change();
 	void onList2Change();
 
-	void sourceStateCallback(void *sceneitem, bool enabled) const;
-	void sourceTransformCallback(void *sceneitem) const;
-	void frontendCallback(obs_frontend_event event) const;
-	void sourceDataCallback(void *_source) const;
+	void sourceStateCallback(void *sceneitem, bool enabled);
+	void sourceTransformCallback(void *sceneitem);
+	void frontendCallback(obs_frontend_event event);
+	void sourceDataCallback(void *_source);
 };

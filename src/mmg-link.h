@@ -17,25 +17,41 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #pragma once
-#include "mmg-action.h"
+#include "mmg-binding.h"
 
-class MMGActionVirtualCam : public MMGAction {
+#include <QThread>
+#include <mutex>
+
+class MMGLink : public QThread {
 	Q_OBJECT
 
 public:
-	MMGActionVirtualCam(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGLink(MMGBinding *parent);
+	~MMGLink()
+	{
+		if (locked) mutex.unlock();
+	}
 
-	enum Actions { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
-	enum Events { VIRCAM_STARTED, VIRCAM_STOPPED, VIRCAM_TOGGLE_STARTED };
+	void blog(int log_status, const QString &message) const;
 
-	Category category() const override { return MMGACTION_VIRCAM; };
-	const QString trName() const override { return "VirtualCamera"; };
-	const QStringList subNames() const override;
+private:
+	void execute();
 
-	void execute(const MMGMessage *) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void run() override;
+	void executeInput();
+	void executeOutput();
 
-private slots:
-	void frontendCallback(obs_frontend_event event);
+public slots:
+	void messageReceived(const MMGSharedMessage &);
+	void actionFulfilled(const MMGUtils::MMGNumberList &);
+
+private:
+	MMGBinding *binding;
+	MMGMessage *incoming_message;
+	MMGUtils::MMGNumberList incoming_nums;
+
+	std::timed_mutex mutex;
+	bool locked = false;
+
+	static short thread_count;
 };

@@ -156,7 +156,7 @@ void MMGConnectionQueue::messageFound(const MMGSharedMessage &incoming)
 	connect(message->device(), &MMGMIDIPort::messageReceived, this, &MMGConnectionQueue::messageFound);
 
 	if (queue.isEmpty()) {
-		emit action->eventTriggered();
+		emit action->triggerEvent();
 		resetQueue();
 	}
 }

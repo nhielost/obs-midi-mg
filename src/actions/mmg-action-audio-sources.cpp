@@ -340,7 +340,7 @@ void MMGActionAudioSources::sourceVolumeCallback(double volume)
 	if (!num.acceptable(vol_val)) return;
 	values = vol_val;
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }
 
 void MMGActionAudioSources::sourceMuteCallback(bool muted)
@@ -364,7 +364,7 @@ void MMGActionAudioSources::sourceMuteCallback(bool muted)
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionAudioSources::sourceOffsetCallback(int64_t offset)
@@ -378,7 +378,7 @@ void MMGActionAudioSources::sourceOffsetCallback(int64_t offset)
 	if (!num.acceptable(offset / 1000000.0)) return;
 	values = offset / 1000000.0;
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }
 
 void MMGActionAudioSources::sourceMonitorCallback(int monitor)
@@ -392,5 +392,5 @@ void MMGActionAudioSources::sourceMonitorCallback(int monitor)
 	values = monitor;
 	if (action.chooseTo(values, audioMonitorOptions())) return;
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }

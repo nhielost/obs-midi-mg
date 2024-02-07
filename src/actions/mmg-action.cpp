@@ -56,6 +56,12 @@ void MMGAction::setType(DeviceType type)
 	emit replacing(this);
 }
 
+void MMGAction::setLink(MMGLink *link)
+{
+	binding_link = link;
+	!!link ? connectOBSSignals() : disconnectOBSSignals();
+}
+
 void MMGAction::blog(int log_status, const QString &message) const
 {
 	global_blog(log_status, QString("[Actions] <%1> %2").arg(objectName()).arg(message));
@@ -91,6 +97,11 @@ const QStringList MMGAction::subModuleTextList(const QStringList &footer_list) c
 	for (const QString &footer : footer_list)
 		opts += subModuleText(footer);
 	return opts;
+}
+
+void MMGAction::triggerEvent(const MMGNumberList &values)
+{
+	if (binding_link) binding_link->actionFulfilled(values);
 }
 
 QDataStream &operator<<(QDataStream &out, const MMGAction *&obj)

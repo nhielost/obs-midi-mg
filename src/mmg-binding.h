@@ -21,10 +21,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-message.h"
 #include "actions/mmg-action.h"
+#include "mmg-link.h"
 
-#include <QThread>
-
-class MMGBindingThread;
 class MMGBindingManager;
 
 class MMGBinding : public QObject {
@@ -45,19 +43,16 @@ public:
 	ResetMode resetMode() const { return (ResetMode)reset_mode; };
 	void setResetMode(short mode) { reset_mode = mode; }
 
-	void json(QJsonObject &binding_obj) const;
 	void blog(int log_status, const QString &message) const;
+	void json(QJsonObject &binding_obj) const;
 	void copy(MMGBinding *dest);
+	void toggle();
 
 	MMGMessageManager *messages() const { return _messages; };
 	MMGActionManager *actions() const { return _actions; };
 
 	MMGMessage *messages(int index) const { return _messages->at(index); };
 	MMGAction *actions(int index) const { return _actions->at(index); };
-
-private slots:
-	void executeInput(const MMGSharedMessage &) const;
-	void executeOutput(const QList<MMGUtils::MMGNumber> &) const;
 
 private:
 	MMGUtils::DeviceType _type;
@@ -68,45 +63,10 @@ private:
 	MMGMessageManager *_messages;
 	MMGActionManager *_actions;
 
-	MMGBindingThread *thread;
-
-	friend class MMGBindingThread;
+	MMGLink *link;
 };
 QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj);
 QDataStream &operator>>(QDataStream &in, MMGBinding *&obj);
-
-class MMGBindingThread : public QThread {
-	Q_OBJECT
-
-public:
-	MMGBindingThread(MMGBinding *parent);
-	~MMGBindingThread()
-	{
-		if (locked) mutex.unlock();
-	}
-
-	void blog(int log_status, const QString &message) const;
-	void run() override;
-
-	void sendMessages();
-	void doActions();
-
-	void restart(const MMGMessage *msg);
-	void restart(const QList<MMGUtils::MMGNumber> &values);
-	MMGBindingThread *createNew() const;
-
-private:
-	std::timed_mutex mutex;
-	bool locked = false;
-
-	MMGBinding *binding;
-
-	MMGMessage *incoming_message;
-	QList<MMGUtils::MMGNumber> incoming_values;
-	MMGMessage *applied_message;
-
-	static short thread_count;
-};
 
 class MMGBindingManager : public MMGManager<MMGBinding> {
 

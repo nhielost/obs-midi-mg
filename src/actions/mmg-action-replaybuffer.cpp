@@ -96,7 +96,7 @@ void MMGActionReplayBuffer::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionReplayBuffer::frontendCallback(obs_frontend_event event) const
+void MMGActionReplayBuffer::frontendCallback(obs_frontend_event event)
 {
 	switch (sub()) {
 		case REPBUF_STARTING:
@@ -135,5 +135,5 @@ void MMGActionReplayBuffer::frontendCallback(obs_frontend_event event) const
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }
