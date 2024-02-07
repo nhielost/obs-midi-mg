@@ -55,5 +55,5 @@ private:
 private slots:
 	void onList1Change();
 
-	void hotkeyCallback(obs_hotkey_id id) const;
+	void hotkeyCallback(obs_hotkey_id id);
 };

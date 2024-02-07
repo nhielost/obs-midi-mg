@@ -290,14 +290,14 @@ void MMGActionFilters::filterEnableCallback(bool enabled)
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionFilters::filterReorderCallback()
 {
 	auto signal = qobject_cast<MMGSourceSignal *>(sender());
 	if (!signal) return;
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionFilters::sourceDataCallback(void *_source)
@@ -307,5 +307,5 @@ void MMGActionFilters::sourceDataCallback(void *_source)
 	auto obs_source = static_cast<obs_source_t *>(_source);
 	if (source != obs_source_get_name(obs_source)) return;
 
-	emit eventTriggered(obs_source_custom_updated(obs_source, _json->json()));
+	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

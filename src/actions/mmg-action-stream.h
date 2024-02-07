@@ -43,5 +43,5 @@ public:
 	void disconnectOBSSignals() override;
 
 private slots:
-	void frontendCallback(obs_frontend_event event) const;
+	void frontendCallback(obs_frontend_event event);
 };

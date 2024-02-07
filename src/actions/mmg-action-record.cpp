@@ -95,7 +95,7 @@ void MMGActionRecord::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionRecord::frontendCallback(obs_frontend_event event) const
+void MMGActionRecord::frontendCallback(obs_frontend_event event)
 {
 	switch (sub()) {
 		case RECORD_STARTING:
@@ -143,5 +143,5 @@ void MMGActionRecord::frontendCallback(obs_frontend_event event) const
 			return;
 	}
 
-	emit eventTriggered();
+	triggerEvent();
 }

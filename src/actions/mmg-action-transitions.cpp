@@ -448,7 +448,7 @@ void MMGActionTransitions::frontendCallback(obs_frontend_event event)
 			return;
 	}
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }
 
 void MMGActionTransitions::transitionStartCallback()
@@ -457,7 +457,7 @@ void MMGActionTransitions::transitionStartCallback()
 
 	if (transition != currentTransition()) return;
 
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionTransitions::transitionStopCallback()
@@ -466,7 +466,7 @@ void MMGActionTransitions::transitionStopCallback()
 
 	if (transition != currentTransition()) return;
 
-	emit eventTriggered();
+	triggerEvent();
 }
 
 void MMGActionTransitions::sourceDataCallback(void *_source)
@@ -476,5 +476,5 @@ void MMGActionTransitions::sourceDataCallback(void *_source)
 	auto obs_source = static_cast<obs_source_t *>(_source);
 	if (source != obs_source_get_name(obs_source)) return;
 
-	emit eventTriggered(obs_source_custom_updated(obs_source, _json->json()));
+	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

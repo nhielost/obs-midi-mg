@@ -154,7 +154,7 @@ void MMGActionStudioMode::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionStudioMode::frontendCallback(obs_frontend_event event) const
+void MMGActionStudioMode::frontendCallback(obs_frontend_event event)
 {
 	MMGNumber values;
 	QStringList scenes = MMGActionScenes::enumerate();
@@ -187,5 +187,5 @@ void MMGActionStudioMode::frontendCallback(obs_frontend_event event) const
 			return;
 	}
 
-	emit eventTriggered({values});
+	triggerEvent({values});
 }

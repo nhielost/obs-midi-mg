@@ -138,7 +138,7 @@ void MMGActionCollections::disconnectOBSSignals()
 	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
 }
 
-void MMGActionCollections::frontendCallback(obs_frontend_event event) const
+void MMGActionCollections::frontendCallback(obs_frontend_event event)
 {
 	MMGNumber values;
 	const QStringList collections = enumerate();
@@ -165,5 +165,5 @@ void MMGActionCollections::frontendCallback(obs_frontend_event event) const
 	}
 
 	if (collection.chooseTo(values, collections)) return;
-	emit eventTriggered({values});
+	triggerEvent({values});
 }

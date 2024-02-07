@@ -63,6 +63,7 @@ target_sources(
           ./src/mmg-binding.cpp
           ./src/mmg-config.cpp
           ./src/mmg-device.cpp
+          ./src/mmg-link.cpp
           ./src/mmg-message.cpp
           ./src/mmg-manager.cpp
           ./src/mmg-midi.cpp
@@ -101,6 +102,7 @@ target_sources(
           ./src/mmg-binding.h
           ./src/mmg-config.h
           ./src/mmg-device.h
+          ./src/mmg-link.h
           ./src/mmg-manager.h
           ./src/mmg-message.h
           ./src/mmg-midi.h

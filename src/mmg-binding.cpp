@@ -24,10 +24,11 @@ using namespace MMGUtils;
 
 // MMGBinding
 MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
-	: QObject(parent), _messages(new MMGMessageManager(this)), _actions(new MMGActionManager(this))
+	: QObject(parent),
+	  _messages(new MMGMessageManager(this)),
+	  _actions(new MMGActionManager(this)),
+	  link(new MMGLink(this))
 {
-	thread = new MMGBindingThread(this);
-
 	setObjectName(json_obj["name"].toString(mmgtr("Binding.Untitled")));
 	_enabled = json_obj["enabled"].toBool(true);
 	_type = (DeviceType)json_obj["type"].toInt();
@@ -53,6 +54,11 @@ void MMGBinding::setType(DeviceType type)
 	setConnected(true);
 }
 
+void MMGBinding::blog(int log_status, const QString &message) const
+{
+	global_blog(log_status, QString("[Bindings] <%1> %2").arg(objectName()).arg(message));
+}
+
 void MMGBinding::json(QJsonObject &binding_obj) const
 {
 	binding_obj["name"] = objectName();
@@ -62,11 +68,6 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 
 	_messages->json("messages", binding_obj);
 	_actions->json("actions", binding_obj);
-}
-
-void MMGBinding::blog(int log_status, const QString &message) const
-{
-	global_blog(log_status, QString("[Bindings] <%1> %2").arg(objectName()).arg(message));
 }
 
 void MMGBinding::copy(MMGBinding *dest)
@@ -86,6 +87,15 @@ void MMGBinding::copy(MMGBinding *dest)
 	dest->setEnabled(_enabled);
 }
 
+void MMGBinding::toggle()
+{
+	for (MMGMessage *message : *_messages)
+		message->toggle();
+
+	for (MMGAction *action : *_actions)
+		action->toggle();
+}
+
 void MMGBinding::setEnabled(bool val)
 {
 	setConnected(false);
@@ -97,50 +107,18 @@ void MMGBinding::setConnected(bool _connected)
 {
 	if (_connected && (!_enabled || connected)) return;
 
-	MMGMIDIPort *device = messages(0)->device();
-
 	switch (_type) {
 		case TYPE_INPUT:
 		default:
-			if (!device) break;
-			if (_connected) {
-				connect(device, &MMGMIDIPort::messageReceived, this, &MMGBinding::executeInput,
-					Qt::UniqueConnection);
-			} else {
-				disconnect(device, &MMGMIDIPort::messageReceived, this, nullptr);
-			}
-			device->incConnection(_connected);
+			messages(0)->setLink(_connected ? link : nullptr);
 			break;
 
 		case TYPE_OUTPUT:
-			if (_connected) {
-				connect(actions(0), &MMGAction::eventTriggered, this, &MMGBinding::executeOutput);
-				actions(0)->connectOBSSignals();
-			} else {
-				disconnect(actions(0), &MMGAction::eventTriggered, this, nullptr);
-				actions(0)->disconnectOBSSignals();
-			}
+			actions(0)->setLink(_connected ? link : nullptr);
 			break;
 	}
 
 	connected = _connected;
-}
-
-void MMGBinding::executeInput(const MMGSharedMessage &incoming) const
-{
-	if (!messages(0)->acceptable(incoming.get())) {
-		blog(LOG_DEBUG, "Message received is not acceptable.");
-		return;
-	}
-
-	MMGBindingThread *exec_thread = reset_mode ? thread->createNew() : thread;
-	exec_thread->restart(incoming.get());
-}
-
-void MMGBinding::executeOutput(const QList<MMGNumber> &values) const
-{
-	MMGBindingThread *exec_thread = reset_mode ? thread->createNew() : thread;
-	exec_thread->restart(values);
 }
 
 QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj)
@@ -153,114 +131,6 @@ QDataStream &operator>>(QDataStream &in, MMGBinding *&obj)
 	return in >> (QObject *&)obj;
 }
 // End MMGBinding
-
-// MMGBindingThread
-short MMGBindingThread::thread_count = 0;
-
-MMGBindingThread::MMGBindingThread(MMGBinding *parent) : QThread(parent), binding(parent)
-{
-	incoming_message = new MMGMessage(this);
-	applied_message = new MMGMessage(this);
-}
-
-void MMGBindingThread::blog(int log_status, const QString &message) const
-{
-	binding->blog(log_status, message);
-}
-
-void MMGBindingThread::run()
-{
-	thread_count++;
-	locked = true;
-	mutex.lock();
-
-	binding->type() == TYPE_OUTPUT ? sendMessages() : doActions();
-
-	mutex.unlock();
-	locked = false;
-	thread_count--;
-}
-
-void MMGBindingThread::sendMessages()
-{
-	if (binding->_messages->size() < 1) {
-		blog(LOG_INFO, "FAILED: No messages to send!");
-		return;
-	}
-	if (incoming_values.isEmpty()) {
-		blog(LOG_INFO, "FAILED: Values not found. Report this as a bug.");
-		return;
-	}
-
-	int i;
-	MMGNumber used_value;
-
-	for (i = 0; i < binding->_messages->size(); ++i) {
-		if (mutex.try_lock()) return;
-
-		binding->messages(i)->copy(applied_message);
-
-		used_value = incoming_values.size() < i ? incoming_values[i] : incoming_values.last();
-		applied_message->applyValues(used_value);
-
-		applied_message->send();
-	}
-
-	for (MMGMessage *message : *binding->_messages)
-		message->toggle();
-	binding->actions(0)->toggle();
-}
-
-void MMGBindingThread::doActions()
-{
-	incoming_message->copy(applied_message);
-	applied_message->type() = incoming_message->type().value();
-	applied_message->channel() = incoming_message->channel().value();
-	applied_message->note() = incoming_message->note().value();
-	applied_message->value() = incoming_message->value().value();
-
-	for (MMGAction *action : *binding->_actions) {
-		if (mutex.try_lock()) return;
-		action->execute(applied_message);
-	}
-
-	binding->messages(0)->toggle();
-	for (MMGAction *action : *binding->_actions)
-		action->toggle();
-}
-
-void MMGBindingThread::restart(const MMGMessage *msg)
-{
-	if (locked) {
-		mutex.unlock();
-		wait();
-	}
-	msg->copy(incoming_message);
-	start();
-}
-
-void MMGBindingThread::restart(const QList<MMGNumber> &values)
-{
-	if (locked) {
-		mutex.unlock();
-		wait();
-	}
-	incoming_values = values;
-	start();
-}
-
-MMGBindingThread *MMGBindingThread::createNew() const
-{
-	if (thread_count > 0xff) {
-		global_blog(LOG_INFO, "Thread count exceeded - the provided function will not execute.");
-		return nullptr;
-	}
-
-	auto custom_thread = new MMGBindingThread(binding);
-	connect(custom_thread, &QThread::finished, &QObject::deleteLater);
-	return custom_thread;
-}
-// End MMGBindingThread
 
 // MMGBindingManager
 MMGBindingManager::MMGBindingManager(QObject *parent, const QJsonObject &json_obj) : MMGManager(parent)

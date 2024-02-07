@@ -45,5 +45,5 @@ public:
 	void disconnectOBSSignals() override;
 
 private:
-	void frontendCallback(obs_frontend_event event) const;
+	void frontendCallback(obs_frontend_event event);
 };

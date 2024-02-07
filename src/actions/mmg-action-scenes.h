@@ -54,5 +54,5 @@ private:
 	static bool enumerateItems(obs_scene_t *, obs_sceneitem_t *, void *);
 
 private slots:
-	void frontendCallback(obs_frontend_event event) const;
+	void frontendCallback(obs_frontend_event event);
 };
