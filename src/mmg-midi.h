@@ -29,11 +29,6 @@ public:
 	const QString &thru() const { return _thru; };
 	void setThru(const QString &device) { _thru = device; };
 
-	bool isListening() const { return listening > 0; };
-	void incListening(bool listen);
-
-	void incConnection(bool connect);
-
 	bool isPortOpen(MMGUtils::DeviceType type) const;
 	bool isCapable(MMGUtils::DeviceType type) const;
 	QString status(MMGUtils::DeviceType type) const;
@@ -73,6 +68,9 @@ private:
 
 	void callback(const libremidi::message &msg);
 	void sendThru();
+
+	void connectNotify(const QMetaMethod &) override;
+	void disconnectNotify(const QMetaMethod &) override;
 
 	friend class MMGMIDI;
 };

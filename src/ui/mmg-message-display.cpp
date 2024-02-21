@@ -56,21 +56,12 @@ MMGMessageDisplay::MMGMessageDisplay(QWidget *parent) : QWidget(parent)
 	value_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
 	value_display->lower();
 
-	listen_once_button = new QPushButton(this);
-	listen_once_button->setGeometry(0, 407, 160, 30);
-	listen_once_button->setCursor(Qt::PointingHandCursor);
-	listen_once_button->setCheckable(true);
-	listen_once_button->setText(mmgtr("UI.Listen.Once"));
-	connect(listen_once_button, &QAbstractButton::toggled, this, &MMGMessageDisplay::onListenOnceClick);
-
-	listen_continuous_button = new QPushButton(this);
-	listen_continuous_button->setGeometry(170, 407, 160, 30);
-	listen_continuous_button->setCursor(Qt::PointingHandCursor);
-	listen_continuous_button->setCheckable(true);
-	listen_continuous_button->setText(mmgtr("UI.Listen.Continuous"));
-	connect(listen_continuous_button, &QAbstractButton::toggled, this, &MMGMessageDisplay::onListenContinuousClick);
-
-	device_display->setBounds(manager(device)->names());
+	listen_button = new QPushButton(this);
+	listen_button->setGeometry(0, 407, 330, 30);
+	listen_button->setCursor(Qt::PointingHandCursor);
+	listen_button->setCheckable(true);
+	listen_button->setText(mmgtr("UI.Listen.Execution"));
+	connect(listen_button, &QPushButton::clicked, this, &MMGMessageDisplay::onListenClick);
 }
 
 void MMGMessageDisplay::setStorage(MMGMessage *storage)
@@ -127,36 +118,64 @@ void MMGMessageDisplay::setDevice()
 	_storage->setDevice(manager(device)->find(_device));
 }
 
-void MMGMessageDisplay::onListenOnceClick(bool toggled)
+void MMGMessageDisplay::onListenClick()
 {
-	listen_once_button->setText(mmgtr_two("UI.Listen", "Cancel", "Once", toggled));
-	if (listening_mode == 2) listen_continuous_button->setChecked(false);
-	_storage->device()->incListening(toggled);
-	connectDevice(toggled);
-	listening_mode = toggled;
-	global_blog(LOG_DEBUG, toggled ? "Single listen activated." : "Listening deactivated.");
+	if (!_storage) return;
+
+	MMGMIDIPort *device = _storage->device();
+	if (!device) return;
+
+	listening_mode++;
+	deactivate();
+
+	switch (listening_mode) {
+		default:
+			listening_mode = 0;
+			[[fallthough]];
+
+		case 0: // Listen for execution
+			listen_button->setChecked(false);
+			listen_button->setText(mmgtr("UI.Listen.Execution"));
+			global_blog(LOG_DEBUG, "Listening deactivated.");
+			break;
+
+		case 1: // Listen once
+			listen_button->setChecked(true);
+			listen_button->setText(mmgtr("UI.Listen.Once"));
+			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
+			global_blog(LOG_DEBUG, "Single listen activated.");
+			break;
+
+		case 2: // Listen continuously
+			listen_button->setChecked(true);
+			listen_button->setText(mmgtr("UI.Listen.Continuous"));
+			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
+			global_blog(LOG_DEBUG, "Continuous listen activated.");
+			break;
+	}
 }
 
-void MMGMessageDisplay::onListenContinuousClick(bool toggled)
+void MMGMessageDisplay::deactivate()
 {
-	listen_continuous_button->setText(mmgtr_two("UI.Listen", "Cancel", "Continuous", toggled));
-	if (listening_mode == 1) listen_once_button->setChecked(false);
-	_storage->device()->incListening(toggled);
-	connectDevice(toggled);
-	listening_mode = toggled * 2;
-	global_blog(LOG_DEBUG, toggled ? "Continuous listen activated." : "Listening deactivated.");
+	if (!_storage) return;
+
+	disconnect(_storage->device(), &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
 }
 
 void MMGMessageDisplay::updateMessage(const MMGSharedMessage &incoming)
 {
-	if (listening_mode < 1) return;
-	if (!incoming) { // Closed without turning off Listen function
-		listen_once_button->setChecked(false);
+	if (!incoming || listening_mode < 1) {
+		deactivate();
 		return;
 	}
+
 	// Check the validity of the message type (whether it is one of the five supported types)
 	if (MMGMessage::acceptedTypes().indexOf(incoming->type()) == -1) return;
-	if (listening_mode == 1) listen_once_button->setChecked(false);
+
+	if (listening_mode == 1) {
+		listening_mode = -1;
+		onListenClick();
+	}
 
 	incoming->copy(_storage);
 	_storage->value().setMax(127);

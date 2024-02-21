@@ -89,8 +89,6 @@ void MMGMessage::setLink(MMGLink *link)
 	} else {
 		disconnect(_device, &MMGMIDIPort::messageReceived, this, &MMGMessage::acceptMessage);
 	}
-
-	_device->incConnection(!!link);
 }
 
 void MMGMessage::blog(int log_status, const QString &message) const

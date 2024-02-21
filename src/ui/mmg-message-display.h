@@ -34,8 +34,9 @@ public:
 public slots:
 	void setLabels();
 	void setDevice();
-	void onListenOnceClick(bool);
-	void onListenContinuousClick(bool);
+	void onListenClick();
+
+	void deactivate();
 	void updateMessage(const MMGSharedMessage &);
 
 private:
@@ -48,9 +49,7 @@ private:
 	MMGNumberDisplay *note_display;
 	MMGNumberDisplay *value_display;
 
-	QPushButton *listen_once_button;
-	QPushButton *listen_continuous_button;
-
+	QPushButton *listen_button;
 	short listening_mode = 0;
 };
 
