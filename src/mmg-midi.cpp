@@ -19,6 +19,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-midi.h"
 #include "mmg-config.h"
 
+#include <QMetaMethod>
+
 using namespace MMGUtils;
 
 MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj)
@@ -35,16 +37,22 @@ void MMGMIDIPort::blog(int log_status, const QString &_message) const
 	global_blog(log_status, QString("[MIDI] <%1> %2").arg(objectName()).arg(_message));
 }
 
-void MMGMIDIPort::incListening(bool listen)
+void MMGMIDIPort::connectNotify(const QMetaMethod &signal)
 {
-	if (!listen && listening < 1) return;
-	listen ? listening++ : listening--;
+	if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageListened)) {
+		listening++;
+	} else if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageReceived)) {
+		connections++;
+	}
 }
 
-void MMGMIDIPort::incConnection(bool connect)
+void MMGMIDIPort::disconnectNotify(const QMetaMethod &signal)
 {
-	if (!connect && connections < 1) return;
-	connect ? connections++ : connections--;
+	if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageListened)) {
+		listening--;
+	} else if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageReceived)) {
+		connections--;
+	}
 }
 
 void MMGMIDIPort::openPort(DeviceType type)
