@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-link.h"
+#include "mmg-midi.h"
 
 using namespace MMGUtils;
 
@@ -30,6 +31,36 @@ MMGLink::MMGLink(MMGBinding *parent) : QThread(parent), binding(parent), incomin
 void MMGLink::blog(int log_status, const QString &message) const
 {
 	binding->blog(log_status, "{LINK} " + message);
+}
+
+void MMGLink::establish(bool _connect)
+{
+	switch (binding->type()) {
+		case TYPE_INPUT:
+		default:
+			if (!binding->messages(0)->device()) break;
+
+			if (_connect) {
+				connect(binding->messages(0)->device(), &MMGMIDIPort::messageReceived, this,
+					&MMGLink::messageReceived, Qt::UniqueConnection);
+			} else {
+				disconnect(binding->messages(0)->device(), &MMGMIDIPort::messageReceived, this,
+					&MMGLink::messageReceived);
+			}
+			break;
+
+		case TYPE_OUTPUT:
+			if (_connect) {
+				connect(binding->actions(0), &MMGAction::fulfilled, this,
+					&MMGLink::actionFulfilled, Qt::UniqueConnection);
+				binding->actions(0)->connectOBSSignals();
+			} else {
+				disconnect(binding->actions(0), &MMGAction::fulfilled, this,
+					&MMGLink::actionFulfilled);
+				binding->actions(0)->disconnectOBSSignals();
+			}
+			break;
+	}
 }
 
 void MMGLink::execute()
@@ -95,6 +126,8 @@ void MMGLink::executeOutput()
 
 void MMGLink::messageReceived(const MMGSharedMessage &incoming)
 {
+	if (!binding->messages(0)->acceptable(incoming.get())) return;
+
 	if (binding->actions()->size() < 1) {
 		blog(LOG_INFO, "FAILED: No actions to execute!");
 		return;
