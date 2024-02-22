@@ -191,7 +191,7 @@ void MMGMIDIPort::callback(const libremidi::message &msg)
 
 	if (listening) {
 		emit messageListened(message);
-	} else {
+	} else if (connections) {
 		emit messageReceived(message);
 		sendThru();
 	}

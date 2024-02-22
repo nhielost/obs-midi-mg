@@ -107,16 +107,7 @@ void MMGBinding::setConnected(bool _connected)
 {
 	if (_connected && (!_enabled || connected)) return;
 
-	switch (_type) {
-		case TYPE_INPUT:
-		default:
-			messages(0)->setLink(_connected ? link : nullptr);
-			break;
-
-		case TYPE_OUTPUT:
-			actions(0)->setLink(_connected ? link : nullptr);
-			break;
-	}
+	link->establish(_connected);
 
 	connected = _connected;
 }

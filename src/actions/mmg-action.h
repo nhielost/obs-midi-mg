@@ -62,8 +62,6 @@ public:
 	short sub() const { return subcategory; };
 	void setSub(short val) { subcategory = val; };
 
-	void setLink(MMGLink *link);
-
 	void blog(int log_status, const QString &message) const;
 	virtual void json(QJsonObject &action_obj) const;
 	virtual void copy(MMGAction *dest) const;
@@ -87,13 +85,12 @@ public:
 
 signals:
 	void replacing(MMGAction *);
+	void fulfilled(const MMGUtils::MMGNumberList &);
 
 private:
 	MMGUtils::DeviceType _type;
 	short subcategory = 0;
 	MMGActionDisplay *_display = nullptr;
-
-	MMGLink *binding_link;
 
 	friend class MMGBinding;
 };

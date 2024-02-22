@@ -33,6 +33,7 @@ public:
 	}
 
 	void blog(int log_status, const QString &message) const;
+	void establish(bool connect);
 
 private:
 	void execute();
