@@ -26,25 +26,6 @@ MMGActionAudioSources::MMGActionAudioSources(MMGActionManager *parent, const QJs
 	  action(json_obj, "action", 2),
 	  num(json_obj, "num", 1)
 {
-	switch (sub()) {
-		case SOURCE_AUDIO_VOLUME_CHANGETO:
-			if (type() != TYPE_INPUT) break;
-			if (num.max() > 27) {
-				num.setMin(-99);
-				num.setMax(27);
-			}
-			break;
-		case SOURCE_AUDIO_VOLUME_CHANGEBY:
-			if (type() != TYPE_INPUT) break;
-			if (num.max() > 20) {
-				num.setMin(-20);
-				num.setMax(20);
-			}
-			break;
-		default:
-			break;
-	}
-
 	blog(LOG_DEBUG, "Action created.");
 }
 
