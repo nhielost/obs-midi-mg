@@ -80,20 +80,17 @@ void MMGActionFilters::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
-	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this, &MMGActionFilters::onList1Change);
+	connect(display()->addNew(&filter), &MMGStringDisplay::stringChanged, this, &MMGActionFilters::onList2Change);
 
-	MMGStringDisplay *filter_display = display()->stringDisplays()->addNew(&filter);
-	display()->connect(filter_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
-
-	display()->numberDisplays()->addNew(&num);
+	display()->addNew(&num);
 }
 
 void MMGActionFilters::setActionParams()
 {
-	display()->stringDisplays()->hideAll();
+	display()->hideAll();
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *source_display = display()->stringDisplay(0);
 	source_display->setVisible(true);
 	source_display->setDescription(obstr("Basic.Main.Source"));
 	source_display->setBounds(enumerateEligible());
@@ -103,7 +100,7 @@ void MMGActionFilters::onList1Change()
 {
 	connectSignals(true);
 
-	MMGStringDisplay *filter_display = display()->stringDisplays()->fieldAt(1);
+	MMGStringDisplay *filter_display = display()->stringDisplay(1);
 	filter_display->setVisible(true);
 	filter_display->setDescription(mmgtr("Actions.Filters.Filter"));
 	filter_display->setBounds(enumerate(source));
@@ -114,9 +111,9 @@ void MMGActionFilters::onList2Change()
 	connectSignals(true);
 
 	display()->reset();
-	display()->stringDisplays()->fieldAt(1)->setVisible(true);
+	display()->stringDisplay(1)->setVisible(true);
 
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	num_display->setVisible(false);
 
 	OBSSourceAutoRelease obs_source;
@@ -130,7 +127,7 @@ void MMGActionFilters::onList2Change()
 
 		case FILTER_REORDER:
 			if (type() == TYPE_OUTPUT) {
-				display()->stringDisplays()->fieldAt(1)->setVisible(false);
+				display()->stringDisplay(1)->setVisible(false);
 			} else {
 				num_display->setVisible(!filter.value().isEmpty());
 				num_display->setDescription(obstr("Basic.TransformWindow.Position"));

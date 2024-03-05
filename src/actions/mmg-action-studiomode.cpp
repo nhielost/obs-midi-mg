@@ -77,13 +77,12 @@ void MMGActionStudioMode::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&scene);
-	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->addNew(&scene)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
 void MMGActionStudioMode::setActionParams()
 {
-	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *scene_display = display()->stringDisplay(0);
 	scene_display->setVisible(false);
 	if (sub() == 3) {
 		scene_display->setVisible(true);

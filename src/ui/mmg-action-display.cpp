@@ -42,15 +42,33 @@ MMGActionDisplay::MMGActionDisplay(QWidget *parent) : QWidget(parent)
 	layout->setSizeConstraint(QLayout::SetFixedSize);
 	layout->setContentsMargins(10, 10, 10, 10);
 
-	string_fields = new MMGStringDisplayFields(scroll_widget);
-	layout->addWidget(string_fields);
-
-	number_fields = new MMGNumberDisplayFields(scroll_widget);
-	reset();
-
 	scroll_widget->setContentsMargins(0, 0, 0, 0);
 	scroll_widget->setLayout(layout);
 	scroll_area->setWidget(scroll_widget);
+}
+
+MMGStringDisplay *MMGActionDisplay::addNew(MMGString *storage, const QStringList &bounds)
+{
+	MMGStringDisplay *str_display = new MMGStringDisplay(this);
+	str_display->setStorage(storage, bounds);
+	string_fields.append(str_display);
+	layout->addWidget(str_display);
+	return str_display;
+}
+
+MMGNumberDisplay *MMGActionDisplay::addNew(MMGNumber *storage)
+{
+	MMGNumberDisplay *num_display = new MMGNumberDisplay(this);
+	num_display->setStorage(storage, true);
+	number_fields.append(num_display);
+	layout->addWidget(num_display);
+	return num_display;
+}
+
+void MMGActionDisplay::hideAll()
+{
+	for (int i = 0; i < layout->count(); i++)
+		layout->itemAt(i)->widget()->hide();
 }
 
 void MMGActionDisplay::setFields(QWidget *widget)
@@ -58,8 +76,6 @@ void MMGActionDisplay::setFields(QWidget *widget)
 	reset();
 	fields = widget;
 	fields->setParent(scroll_widget);
-	layout->removeWidget(number_fields);
-	number_fields->setVisible(false);
 	fields->setVisible(true);
 	layout->addWidget(widget);
 }
@@ -72,9 +88,6 @@ void MMGActionDisplay::reset()
 		fields->setVisible(false);
 		disconnect(fields, &QObject::destroyed, this, nullptr);
 	}
-
-	layout->addWidget(number_fields);
-	number_fields->setVisible(true);
 	fields = nullptr;
 }
 

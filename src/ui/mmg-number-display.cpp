@@ -20,7 +20,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-// MMGNumberDisplay
 MMGNumberDisplay::MMGNumberDisplay(QWidget *parent) : QWidget(parent)
 {
 	setVisible(true);
@@ -162,6 +161,7 @@ void MMGNumberDisplay::setDisplayMode(Mode mode)
 			lcd_number->setGeometry(155, 20, 175, 30);
 			midi_buttons->setVisible(true);
 			break;
+
 		case MODE_THIN:
 			setFixedSize(330, 30);
 			lcd_number->setGeometry(155, 0, 175, 30);
@@ -184,35 +184,3 @@ void MMGNumberDisplay::reset()
 	if (number) *number = defaults.value();
 	display();
 }
-// End MMGNumberDisplay
-
-// MMGNumberDisplayFields
-MMGNumberDisplayFields::MMGNumberDisplayFields(QWidget *parent) : QWidget(parent)
-{
-	QVBoxLayout *default_field_layout = new QVBoxLayout(this);
-	default_field_layout->setSpacing(10);
-	default_field_layout->setSizeConstraint(QLayout::SetFixedSize);
-	default_field_layout->setContentsMargins(0, 0, 0, 0);
-	setLayout(default_field_layout);
-}
-
-void MMGNumberDisplayFields::add(MMGNumberDisplay *field)
-{
-	fields.append(field);
-	layout()->addWidget(field);
-}
-
-MMGNumberDisplay *MMGNumberDisplayFields::addNew(MMGNumber *storage)
-{
-	MMGNumberDisplay *num_display = new MMGNumberDisplay(this);
-	num_display->setStorage(storage, true);
-	add(num_display);
-	return num_display;
-}
-
-void MMGNumberDisplayFields::hideAll()
-{
-	for (MMGNumberDisplay *display : fields)
-		display->hide();
-}
-// End MMGNumberDisplayFields

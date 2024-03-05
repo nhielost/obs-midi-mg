@@ -102,26 +102,24 @@ void MMGActionVideoSources::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&parent_scene);
-	display()->connect(scene_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&parent_scene), &MMGStringDisplay::stringChanged, this,
+		&MMGActionVideoSources::onList1Change);
+	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this,
+		&MMGActionVideoSources::onList2Change);
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
-	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
+	display()->addNew(&action)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 
-	MMGStringDisplay *action_display = display()->stringDisplays()->addNew(&action);
-	action_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-
-	display()->numberDisplays()->addNew(&nums[0]);
-	display()->numberDisplays()->addNew(&nums[1]);
-	display()->numberDisplays()->addNew(&nums[2]);
-	display()->numberDisplays()->addNew(&nums[3]);
+	display()->addNew(&nums[0]);
+	display()->addNew(&nums[1]);
+	display()->addNew(&nums[2]);
+	display()->addNew(&nums[3]);
 }
 
 void MMGActionVideoSources::setActionParams()
 {
-	display()->stringDisplays()->hideAll();
+	display()->hideAll();
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *scene_display = display()->stringDisplay(0);
 	scene_display->setVisible(true);
 	scene_display->setDescription(obstr("Basic.Scene"));
 	scene_display->setBounds(MMGActionScenes::enumerate());
@@ -131,7 +129,7 @@ void MMGActionVideoSources::onList1Change()
 {
 	connectSignals(true);
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(1);
+	MMGStringDisplay *source_display = display()->stringDisplay(1);
 	source_display->setVisible(true);
 	source_display->setDescription(obstr("Basic.Main.Source"));
 	source_display->setBounds(MMGActionScenes::enumerateItems(parent_scene));
@@ -143,16 +141,16 @@ void MMGActionVideoSources::onList2Change()
 	updateTransform();
 
 	display()->reset();
-	display()->stringDisplays()->fieldAt(0)->setVisible(true);
-	display()->stringDisplays()->fieldAt(1)->setVisible(true);
+	display()->stringDisplay(0)->setVisible(true);
+	display()->stringDisplay(1)->setVisible(true);
 
-	MMGStringDisplay *action_display = display()->stringDisplays()->fieldAt(2);
+	MMGStringDisplay *action_display = display()->stringDisplay(2);
 	action_display->setVisible(false);
 
-	MMGNumberDisplay *num1_display = display()->numberDisplays()->fieldAt(0);
-	MMGNumberDisplay *num2_display = display()->numberDisplays()->fieldAt(1);
-	MMGNumberDisplay *num3_display = display()->numberDisplays()->fieldAt(2);
-	MMGNumberDisplay *num4_display = display()->numberDisplays()->fieldAt(3);
+	MMGNumberDisplay *num1_display = display()->numberDisplay(0);
+	MMGNumberDisplay *num2_display = display()->numberDisplay(1);
+	MMGNumberDisplay *num3_display = display()->numberDisplay(2);
+	MMGNumberDisplay *num4_display = display()->numberDisplay(3);
 
 	num1_display->setVisible(false);
 	num2_display->setVisible(false);
@@ -316,7 +314,7 @@ void MMGActionVideoSources::onList2Change()
 			break;
 
 		case SOURCE_VIDEO_SCREENSHOT:
-			if (type() == TYPE_OUTPUT) display()->stringDisplays()->hideAll();
+			if (type() == TYPE_OUTPUT) display()->hideAll();
 			break;
 
 		case SOURCE_VIDEO_CUSTOM:
@@ -532,7 +530,7 @@ void MMGActionVideoSources::connectSignals(bool _connect)
 {
 	MMGAction::connectSignals(_connect);
 	if (!_connected) return;
-
+	
 	connectSourceSignal(mmgsignals()->requestSourceSignalByName(parent_scene));
 	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
 	connectSceneGroups(OBSSceneAutoRelease(obs_get_scene_by_name(parent_scene.mmgtocs())));
@@ -748,21 +746,4 @@ void MMGActionVideoSources::sourceTransformCallback(obs_sceneitem_t *obs_sceneit
 	}
 
 	triggerEvent(values);
-}
-
-void MMGActionVideoSources::frontendCallback(obs_frontend_event event)
-{
-	if (event != OBS_FRONTEND_EVENT_SCREENSHOT_TAKEN) return;
-	if (sub() != SOURCE_VIDEO_SCREENSHOT_TAKEN) return;
-	triggerEvent();
-}
-
-void MMGActionVideoSources::sourceDataCallback(void *_source)
-{
-	if (sub() != SOURCE_VIDEO_CUSTOM_CHANGED) return;
-
-	auto obs_source = static_cast<obs_source_t *>(_source);
-	if (source != obs_source_get_name(obs_source)) return;
-
-	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

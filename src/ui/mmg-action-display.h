@@ -39,8 +39,12 @@ public:
 	MMGActionDisplay(QWidget *parent);
 	~MMGActionDisplay() { reset(); };
 
-	MMGStringDisplayFields *stringDisplays() const { return string_fields; };
-	MMGNumberDisplayFields *numberDisplays() const { return number_fields; };
+	MMGStringDisplay *stringDisplay(int index) const { return string_fields.at(index); };
+	MMGNumberDisplay *numberDisplay(int index) const { return number_fields.at(index); };
+
+	MMGStringDisplay *addNew(MMGUtils::MMGString *storage, const QStringList &bounds = QStringList());
+	MMGNumberDisplay *addNew(MMGUtils::MMGNumber *storage);
+	void hideAll();
 
 	void setFields(QWidget *widget);
 	void reset();
@@ -49,16 +53,13 @@ public:
 
 	static void clearCustomOBSFields();
 
-signals:
-	void editRequest(MMGBinding *, int);
-
-protected:
+private:
 	QScrollArea *scroll_area;
 	QWidget *scroll_widget;
 	QVBoxLayout *layout;
 
-	MMGStringDisplayFields *string_fields;
-	MMGNumberDisplayFields *number_fields;
+	QList<MMGStringDisplay *> string_fields;
+	QList<MMGNumberDisplay *> number_fields;
 	QWidget *fields = nullptr;
 
 	static MMGOBSFieldsList mmg_custom_fields;

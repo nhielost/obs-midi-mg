@@ -57,13 +57,12 @@ void MMGActionScenes::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&scene);
-	scene_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->addNew(&scene)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
 void MMGActionScenes::setActionParams()
 {
-	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *scene_display = display()->stringDisplay(0);
 	scene_display->setVisible(true);
 	scene_display->setDescription(obstr("Basic.Scene"));
 	scene_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);

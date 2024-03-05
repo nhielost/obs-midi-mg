@@ -67,18 +67,17 @@ void MMGActionHotkeys::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *group_display = display()->stringDisplays()->addNew(&group);
-	display()->connect(group_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&group), &MMGStringDisplay::stringChanged, this,
+			   &MMGActionHotkeys::onList1Change);
 
-	MMGStringDisplay *hotkey_display = display()->stringDisplays()->addNew(&hotkey);
-	hotkey_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->addNew(&hotkey)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
 void MMGActionHotkeys::setActionParams()
 {
-	display()->stringDisplays()->hideAll();
+	display()->hideAll();
 
-	MMGStringDisplay *group_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *group_display = display()->stringDisplay(0);
 	group_display->setVisible(true);
 	group_display->setDescription(mmgtr("Actions.Hotkeys.Group"));
 	group_display->setBounds(enumerateCategories());
@@ -86,7 +85,7 @@ void MMGActionHotkeys::setActionParams()
 
 void MMGActionHotkeys::onList1Change()
 {
-	MMGStringDisplay *hotkey_display = display()->stringDisplays()->fieldAt(1);
+	MMGStringDisplay *hotkey_display = display()->stringDisplay(1);
 	hotkey_display->setVisible(true);
 	hotkey_display->setDescription(mmgtr("Actions.Hotkeys.Hotkey"));
 	hotkey_display->setOptions(MIDIBUTTON_TOGGLE);

@@ -31,14 +31,16 @@ public:
 
 	enum Mode { MODE_NORMAL, MODE_THIN };
 
+	void setDisplayMode(Mode mode);
 	void setStorage(MMGUtils::MMGNumber *storage, bool force_values = false);
+
 	void setDescription(const QString &desc);
 	void setOptions(MIDIButtons options);
 	void setBounds(double lower, double upper, bool extend_bounds = false);
 	void setStep(double inc);
 	void setDefaultValue(double val) { defaults = val; };
 	void setTimeFormat(bool format);
-	void setDisplayMode(Mode mode);
+
 	void display();
 	void reset();
 
@@ -58,22 +60,6 @@ protected:
 	MMGLCDNumber *lcd_max;
 
 	MMGMIDIButtons *midi_buttons;
-};
-
-class MMGNumberDisplayFields : public QWidget {
-	Q_OBJECT
-
-public:
-	MMGNumberDisplayFields(QWidget *parent);
-
-	void add(MMGNumberDisplay *field);
-	MMGNumberDisplay *addNew(MMGUtils::MMGNumber *storage);
-
-	MMGNumberDisplay *fieldAt(int index) { return fields.at(index); };
-	void hideAll();
-
-private:
-	QList<MMGNumberDisplay *> fields;
 };
 
 #endif // MMG_NUMBER_DISPLAY_H
