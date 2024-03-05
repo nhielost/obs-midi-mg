@@ -78,15 +78,15 @@ void MMGActionMediaSources::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
-	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this,
+		&MMGActionMediaSources::onList1Change);
 
-	display()->numberDisplays()->addNew(&num);
+	display()->addNew(&num);
 }
 
 void MMGActionMediaSources::setActionParams()
 {
-	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *source_display = display()->stringDisplay(0);
 	source_display->setVisible(true);
 	source_display->setDescription(mmgtr("Actions.MediaSources.MediaSource"));
 	source_display->setBounds(enumerate());
@@ -94,9 +94,9 @@ void MMGActionMediaSources::setActionParams()
 
 void MMGActionMediaSources::onList1Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	num_display->setVisible(false);
 
 	if (type() != TYPE_INPUT) return;
@@ -126,6 +126,7 @@ void MMGActionMediaSources::onList1Change()
 		default:
 			return;
 	}
+
 	num_display->reset();
 }
 
@@ -255,7 +256,7 @@ void MMGActionMediaSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 
 		default:
 			return;
-}
+	}
 
 	triggerEvent();
 }

@@ -75,13 +75,12 @@ void MMGActionProfiles::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *profile_display = display()->stringDisplays()->addNew(&profile);
-	profile_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->addNew(&profile)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
 void MMGActionProfiles::setActionParams()
 {
-	MMGStringDisplay *profile_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *profile_display = display()->stringDisplay(0);
 	profile_display->setVisible(true);
 	profile_display->setDescription(obstr("TitleBar.Profile"));
 	profile_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);

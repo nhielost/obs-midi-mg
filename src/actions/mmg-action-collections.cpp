@@ -75,13 +75,12 @@ void MMGActionCollections::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *collection_display = display()->stringDisplays()->addNew(&collection);
-	collection_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
+	display()->addNew(&collection)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
 
 void MMGActionCollections::setActionParams()
 {
-	MMGStringDisplay *collection_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *collection_display = display()->stringDisplay(0);
 	collection_display->setVisible(true);
 	collection_display->setDescription(obstr("Importer.Collection"));
 	collection_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);

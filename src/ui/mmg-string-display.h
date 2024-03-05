@@ -32,12 +32,14 @@ public:
 
 	const QStringList &bounds() const { return _bounds; };
 
+	void setDisplayMode(Mode mode);
 	void setStorage(MMGUtils::MMGString *storage, const QStringList &force_bounds = QStringList());
+
 	void setDescription(const QString &desc);
 	void setOptions(MIDIButtons options);
 	void setBounds(const QStringList &bounds);
 	void setDefaultValue(const QString &val) { defaults = val; };
-	void setDisplayMode(Mode mode);
+
 	void display();
 	void reset();
 
@@ -58,22 +60,6 @@ protected:
 	QComboBox *combo_max;
 
 	MMGMIDIButtons *midi_buttons;
-};
-
-class MMGStringDisplayFields : public QWidget {
-	Q_OBJECT
-
-public:
-	MMGStringDisplayFields(QWidget *parent);
-
-	void add(MMGStringDisplay *field);
-	MMGStringDisplay *addNew(MMGUtils::MMGString *storage, const QStringList &bounds = QStringList());
-
-	MMGStringDisplay *fieldAt(int index) { return fields.at(index); };
-	void hideAll();
-
-private:
-	QList<MMGStringDisplay *> fields;
 };
 
 #endif // MMG_STRING_DISPLAY_H

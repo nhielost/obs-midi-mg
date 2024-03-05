@@ -72,13 +72,12 @@ void MMGActionAudioSources::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
-	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this,
+		&MMGActionAudioSources::onList1Change);
+	connect(display()->addNew(&action), &MMGStringDisplay::stringChanged, this,
+		&MMGActionAudioSources::onList2Change);
 
-	MMGStringDisplay *action_display = display()->stringDisplays()->addNew(&action);
-	display()->connect(action_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
-
-	display()->numberDisplays()->addNew(&num);
+	display()->addNew(&num);
 }
 
 void MMGActionAudioSources::setComboOptions(QComboBox *sub)
@@ -89,10 +88,9 @@ void MMGActionAudioSources::setComboOptions(QComboBox *sub)
 
 void MMGActionAudioSources::setActionParams()
 {
-	display()->stringDisplays()->hideAll();
-	display()->numberDisplays()->hideAll();
+	display()->hideAll();
 
-	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *source_display = display()->stringDisplay(0);
 	source_display->setVisible(true);
 	source_display->setDescription(mmgtr("Actions.AudioSources.AudioSource"));
 	source_display->setBounds(enumerate());
@@ -102,8 +100,8 @@ void MMGActionAudioSources::onList1Change()
 {
 	connectSignals(true);
 
-	MMGStringDisplay *action_display = display()->stringDisplays()->fieldAt(1);
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGStringDisplay *action_display = display()->stringDisplay(1);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 
 	switch (sub()) {
 		case SOURCE_AUDIO_VOLUME_CHANGETO:
@@ -112,11 +110,6 @@ void MMGActionAudioSources::onList1Change()
 			action_display->setVisible(!source.value().isEmpty());
 			action_display->setDescription(mmgtr("Actions.AudioSources.Format"));
 			action_display->setBounds(volumeFormatOptions());
-			break;
-
-		case SOURCE_AUDIO_VOLUME_MUTE_ON:
-		case SOURCE_AUDIO_VOLUME_MUTE_OFF:
-		case SOURCE_AUDIO_VOLUME_MUTE_TOGGLE_ONOFF:
 			return;
 
 		case SOURCE_AUDIO_OFFSET:
@@ -145,7 +138,7 @@ void MMGActionAudioSources::onList1Change()
 
 void MMGActionAudioSources::onList2Change()
 {
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	bool is_percent = action == volumeFormatOptions()[0];
 
 	switch (sub()) {
@@ -323,6 +316,6 @@ void MMGActionAudioSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 		default:
 			return;
 	}
-
+	
 	triggerEvent({value});
 }

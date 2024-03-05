@@ -112,23 +112,21 @@ void MMGActionTransitions::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	MMGStringDisplay *transition_display = display()->stringDisplays()->addNew(&transition);
-	display()->connect(transition_display, &MMGStringDisplay::stringChanged, [&]() { onList1Change(); });
+	connect(display()->addNew(&transition), &MMGStringDisplay::stringChanged, this,
+		&MMGActionTransitions::onList1Change);
+	connect(display()->addNew(&parent_scene), &MMGStringDisplay::stringChanged, this,
+		&MMGActionTransitions::onList2Change);
+	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this,
+		&MMGActionTransitions::onList3Change);
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->addNew(&parent_scene);
-	display()->connect(scene_display, &MMGStringDisplay::stringChanged, [&]() { onList2Change(); });
-
-	MMGStringDisplay *source_display = display()->stringDisplays()->addNew(&source);
-	display()->connect(source_display, &MMGStringDisplay::stringChanged, [&]() { onList3Change(); });
-
-	display()->numberDisplays()->addNew(&num);
+	display()->addNew(&num);
 }
 
 void MMGActionTransitions::setActionParams()
 {
-	display()->stringDisplays()->hideAll();
+	display()->hideAll();
 
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	num_display->setVisible(false);
 
 	if (type() != TYPE_OUTPUT) {
@@ -179,7 +177,7 @@ void MMGActionTransitions::setActionParams()
 		}
 	}
 
-	MMGStringDisplay *transition_display = display()->stringDisplays()->fieldAt(0);
+	MMGStringDisplay *transition_display = display()->stringDisplay(0);
 	transition_display->setVisible(true);
 	transition_display->setDescription(obstr("Transition"));
 	transition_display->setBounds(enumerate());
@@ -191,9 +189,8 @@ void MMGActionTransitions::onList1Change()
 
 	display()->reset();
 
-	MMGStringDisplay *scene_display = display()->stringDisplays()->fieldAt(1);
-
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGStringDisplay *scene_display = display()->stringDisplay(1);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	num_display->setVisible(false);
 
 	if (type() != TYPE_INPUT) return;
@@ -232,7 +229,7 @@ void MMGActionTransitions::onList1Change()
 
 void MMGActionTransitions::onList2Change()
 {
-	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(2);
+	MMGStringDisplay *source_display = display()->stringDisplay(2);
 
 	switch (sub()) {
 		case TRANSITION_SOURCE_SHOW:
@@ -249,7 +246,7 @@ void MMGActionTransitions::onList2Change()
 
 void MMGActionTransitions::onList3Change()
 {
-	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
+	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 
 	switch (sub()) {
 		case TRANSITION_SOURCE_SHOW:

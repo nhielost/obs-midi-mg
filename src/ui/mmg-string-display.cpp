@@ -22,7 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
-// MMGStringDisplay
 MMGStringDisplay::MMGStringDisplay(QWidget *parent) : QWidget(parent)
 {
 	setVisible(true);
@@ -162,6 +161,7 @@ void MMGStringDisplay::setDisplayMode(Mode mode)
 			combo_string->setGeometry(160, 25, 170, 40);
 			midi_buttons->setVisible(true);
 			break;
+
 		case MODE_THIN:
 			setFixedSize(330, 40);
 			combo_string->setGeometry(160, 0, 170, 40);
@@ -169,6 +169,7 @@ void MMGStringDisplay::setDisplayMode(Mode mode)
 			midi_buttons->setVisible(false);
 			break;
 	}
+
 	combo_string->setEditable(mode == MODE_EDITABLE);
 	combo_min->setEditable(mode == MODE_EDITABLE);
 	combo_max->setEditable(mode == MODE_EDITABLE);
@@ -187,35 +188,3 @@ void MMGStringDisplay::reset()
 	if (string) *string = defaults.value();
 	display();
 }
-// End MMGStringDisplay
-
-// MMGStringDisplayFields
-MMGStringDisplayFields::MMGStringDisplayFields(QWidget *parent) : QWidget(parent)
-{
-	QVBoxLayout *default_field_layout = new QVBoxLayout(this);
-	default_field_layout->setSpacing(10);
-	default_field_layout->setSizeConstraint(QLayout::SetFixedSize);
-	default_field_layout->setContentsMargins(0, 0, 0, 0);
-	setLayout(default_field_layout);
-}
-
-void MMGStringDisplayFields::add(MMGStringDisplay *field)
-{
-	fields.append(field);
-	layout()->addWidget(field);
-}
-
-MMGStringDisplay *MMGStringDisplayFields::addNew(MMGString *storage, const QStringList &bounds)
-{
-	MMGStringDisplay *str_display = new MMGStringDisplay(this);
-	str_display->setStorage(storage, bounds);
-	add(str_display);
-	return str_display;
-}
-
-void MMGStringDisplayFields::hideAll()
-{
-	for (MMGStringDisplay *display : fields)
-		display->hide();
-}
-// End MMGStringDisplayFields
