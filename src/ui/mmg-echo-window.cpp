@@ -639,6 +639,7 @@ void MMGEchoWindow::onActionCategoryChange(int index)
 	QJsonObject json_obj;
 	json_obj["category"] = index;
 	current_binding->actions()->changeActionCategory(current_action, json_obj);
+	current_binding->refresh();
 	if (multi_mode == MODE_ACTION) { REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions()); }
 
 	onActionSubUpdate();

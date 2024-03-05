@@ -38,22 +38,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 // MMGAction
-MMGAction::MMGAction(MMGActionManager *parent, const QJsonObject &json_obj) : QObject(parent)
+MMGAction::MMGAction(MMGActionManager *parent, const QJsonObject &json_obj)
+	: QObject(parent), _type((DeviceType)json_obj["type"].toInt())
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Actions.Untitled")));
-	_type = (DeviceType)json_obj["type"].toInt();
 	subcategory = json_obj["sub"].toInt();
-}
-
-void MMGAction::setType(DeviceType type)
-{
-	if (_type == type) return;
-
-	_type = type;
-	subcategory = 0;
-	disconnectOBSSignals();
-
-	emit replacing(this);
 }
 
 void MMGAction::blog(int log_status, const QString &message) const
@@ -72,7 +61,6 @@ void MMGAction::json(QJsonObject &json_obj) const
 void MMGAction::copy(MMGAction *dest) const
 {
 	dest->setObjectName(objectName());
-	dest->setType(_type);
 	dest->setSub(subcategory);
 }
 
@@ -145,72 +133,75 @@ void MMGActionManager::changeActionCategory(MMGAction *&action, const QJsonObjec
 {
 	MMGAction *new_action = nullptr;
 
+	QJsonObject _json_obj = json_obj;
+	_json_obj["type"] = _type;
+
 	switch ((MMGAction::Category)json_obj["category"].toInt()) {
 		case MMGAction::MMGACTION_STREAM:
-			new_action = new MMGActionStream(this, json_obj);
+			new_action = new MMGActionStream(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_RECORD:
-			new_action = new MMGActionRecord(this, json_obj);
+			new_action = new MMGActionRecord(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_VIRCAM:
-			new_action = new MMGActionVirtualCam(this, json_obj);
+			new_action = new MMGActionVirtualCam(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_REPBUF:
-			new_action = new MMGActionReplayBuffer(this, json_obj);
+			new_action = new MMGActionReplayBuffer(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_STUDIOMODE:
-			new_action = new MMGActionStudioMode(this, json_obj);
+			new_action = new MMGActionStudioMode(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_SCENE:
-			new_action = new MMGActionScenes(this, json_obj);
+			new_action = new MMGActionScenes(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_SOURCE_VIDEO:
-			new_action = new MMGActionVideoSources(this, json_obj);
+			new_action = new MMGActionVideoSources(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_SOURCE_AUDIO:
-			new_action = new MMGActionAudioSources(this, json_obj);
+			new_action = new MMGActionAudioSources(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_SOURCE_MEDIA:
-			new_action = new MMGActionMediaSources(this, json_obj);
+			new_action = new MMGActionMediaSources(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_TRANSITION:
-			new_action = new MMGActionTransitions(this, json_obj);
+			new_action = new MMGActionTransitions(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_FILTER:
-			new_action = new MMGActionFilters(this, json_obj);
+			new_action = new MMGActionFilters(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_HOTKEY:
-			new_action = new MMGActionHotkeys(this, json_obj);
+			new_action = new MMGActionHotkeys(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_PROFILE:
-			new_action = new MMGActionProfiles(this, json_obj);
+			new_action = new MMGActionProfiles(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_COLLECTION:
-			new_action = new MMGActionCollections(this, json_obj);
+			new_action = new MMGActionCollections(this, _json_obj);
 			break;
 
 		case MMGAction::MMGACTION_MIDI:
-			new_action = new MMGActionMIDI(this, json_obj);
+			new_action = new MMGActionMIDI(this, _json_obj);
 			break;
 
 		case 16:
 			break;
 
 		default:
-			new_action = new MMGActionNone(this, json_obj);
+			new_action = new MMGActionNone(this, _json_obj);
 			break;
 	}
 
@@ -218,10 +209,6 @@ void MMGActionManager::changeActionCategory(MMGAction *&action, const QJsonObjec
 
 	if (action) {
 		index = _list.indexOf(action);
-
-		new_action->setType(action->type());
-		emit action->replacing(new_action);
-
 		remove(action);
 	}
 

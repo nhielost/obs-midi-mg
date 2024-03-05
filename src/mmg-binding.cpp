@@ -35,6 +35,7 @@ MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	reset_mode = json_obj["reset_mode"].toInt();
 
 	_messages->load(json_obj["messages"].toArray());
+	_actions->setType(_type);
 	_actions->load(json_obj["actions"].toArray());
 
 	setEnabled(_enabled);
@@ -46,10 +47,10 @@ void MMGBinding::setType(DeviceType type)
 
 	setConnected(false);
 	_type = type;
+	_actions->setType(type);
 
 	_messages->clear(false);
 	_actions->clear(false);
-	_actions->at(0)->setType(type);
 
 	setConnected(true);
 }

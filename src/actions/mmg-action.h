@@ -57,8 +57,6 @@ public:
 	virtual const QStringList subNames() const = 0;
 
 	MMGUtils::DeviceType type() const { return _type; };
-	void setType(MMGUtils::DeviceType type);
-
 	short sub() const { return subcategory; };
 	void setSub(short val) { subcategory = val; };
 
@@ -87,7 +85,6 @@ protected:
 	void triggerEvent(const MMGUtils::MMGNumberList &values = {MMGUtils::MMGNumber()});
 
 signals:
-	void replacing(MMGAction *);
 	void fulfilled(const MMGUtils::MMGNumberList &);
 
 protected slots:
@@ -95,7 +92,7 @@ protected slots:
 	virtual void sourceEventReceived(MMGSourceSignal::Event, QVariant){};
 
 private:
-	MMGUtils::DeviceType _type;
+	const MMGUtils::DeviceType _type;
 	short subcategory = 0;
 	MMGActionDisplay *_display = nullptr;
 };
@@ -112,7 +109,11 @@ public:
 	MMGAction *add(const QJsonObject &json_obj = QJsonObject()) override;
 	MMGAction *copy(MMGAction *action) override;
 
+	void setType(MMGUtils::DeviceType type) { _type = type; };
 	void changeActionCategory(MMGAction *&action, const QJsonObject &json_obj = QJsonObject());
+
+	private:
+	MMGUtils::DeviceType _type = MMGUtils::TYPE_INPUT;
 };
 
 #define ACTION_ASSERT(cond, str)                \
