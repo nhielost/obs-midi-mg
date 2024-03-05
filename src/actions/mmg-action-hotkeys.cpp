@@ -202,18 +202,15 @@ void MMGActionHotkeys::execute(const MMGMessage *) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionHotkeys::connectOBSSignals()
+void MMGActionHotkeys::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::hotkeyEvent, this, &MMGActionHotkeys::hotkeyCallback);
+	MMGAction::connectSignals(_connect);
+	if (!_connect) return;
+
+	connect(mmgsignals(), &MMGSignals::hotkeyEvent, this, &MMGActionHotkeys::hotkeyEventReceived);
 }
 
-void MMGActionHotkeys::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::hotkeyEvent, this, &MMGActionHotkeys::hotkeyCallback);
-}
-
-void MMGActionHotkeys::hotkeyCallback(obs_hotkey_id id)
+void MMGActionHotkeys::hotkeyEventReceived(obs_hotkey_id id)
 {
 	MMGHotkeyRequest req;
 	req.hotkey_id = id;

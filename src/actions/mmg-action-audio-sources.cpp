@@ -119,7 +119,7 @@ void MMGActionAudioSources::setActionParams()
 
 void MMGActionAudioSources::onList1Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
 	MMGStringDisplay *action_display = display()->stringDisplays()->fieldAt(1);
 	MMGNumberDisplay *num_display = display()->numberDisplays()->fieldAt(0);
@@ -283,114 +283,65 @@ void MMGActionAudioSources::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionAudioSources::connectOBSSignals()
+void MMGActionAudioSources::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
+	MMGAction::connectSignals(_connect);
+	if (!_connected) return;
 
-	active_source_signal =
-		mmgsignals()->sourceSignal(OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs())));
-	if (!active_source_signal) return;
+	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
+}
+
+void MMGActionAudioSources::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+{
+	MMGNumber value;
+	double util_value;
 
 	switch (sub()) {
 		case SOURCE_AUDIO_VOLUME_CHANGED:
-			connect(active_source_signal, &MMGSourceSignal::sourceVolumeChanged, this,
-				&MMGActionAudioSources::sourceVolumeCallback);
+			if (event != MMGSourceSignal::SIGNAL_VOLUME) return;
+
+			value = num;
+			util_value = data.toDouble();
+			util_value = action == volumeFormatOptions()[0] ? util_value * 100.0 : convertDecibels(util_value, true);
+			if (!num.acceptable(util_value)) return;
+
+			value = util_value;
 			break;
 
 		case SOURCE_AUDIO_VOLUME_MUTED:
+			if (event != MMGSourceSignal::SIGNAL_MUTE) return;
+			if (!data.toBool()) return;
+			break;
+
 		case SOURCE_AUDIO_VOLUME_UNMUTED:
+			if (event != MMGSourceSignal::SIGNAL_MUTE) return;
+			if (data.toBool()) return;
+			break;
+
 		case SOURCE_AUDIO_VOLUME_TOGGLE_MUTED:
-			connect(active_source_signal, &MMGSourceSignal::sourceMuted, this,
-				&MMGActionAudioSources::sourceMuteCallback);
+			if (event != MMGSourceSignal::SIGNAL_MUTE) return;
 			break;
 
 		case SOURCE_AUDIO_OFFSET_CHANGED:
-			connect(active_source_signal, &MMGSourceSignal::sourceSyncOffsetChanged, this,
-				&MMGActionAudioSources::sourceOffsetCallback);
+			if (event != MMGSourceSignal::SIGNAL_SYNC_OFFSET) return;
+
+			value = num;
+			util_value = data.toDouble() / 1000000.0;
+			if (!num.acceptable(util_value)) return;
+
+			value = util_value;
 			break;
 
 		case SOURCE_AUDIO_MONITOR_CHANGED:
-			connect(active_source_signal, &MMGSourceSignal::sourceMonitoringChanged, this,
-				&MMGActionAudioSources::sourceMonitorCallback);
-			break;
+			if (event != MMGSourceSignal::SIGNAL_MONITOR) return;
 
-		default:
-			break;
-	}
-}
-
-void MMGActionAudioSources::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), nullptr, this, nullptr);
-
-	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
-	active_source_signal = nullptr;
-}
-
-void MMGActionAudioSources::sourceVolumeCallback(double volume)
-{
-	if (sub() != SOURCE_AUDIO_VOLUME_CHANGED) return;
-
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	MMGNumber values = num;
-
-	double vol_val = action == volumeFormatOptions()[0] ? volume / 100.0 : convertDecibels(volume, true);
-	if (!num.acceptable(vol_val)) return;
-	values = vol_val;
-
-	triggerEvent({values});
-}
-
-void MMGActionAudioSources::sourceMuteCallback(bool muted)
-{
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	switch (sub()) {
-		case SOURCE_AUDIO_VOLUME_MUTED:
-			if (!muted) return;
-			break;
-
-		case SOURCE_AUDIO_VOLUME_UNMUTED:
-			if (muted) return;
-			break;
-
-		case SOURCE_AUDIO_VOLUME_TOGGLE_MUTED:
+			value = data.toInt();
+			if (action.chooseTo(value, audioMonitorOptions())) return;
 			break;
 
 		default:
 			return;
 	}
 
-	triggerEvent();
-}
-
-void MMGActionAudioSources::sourceOffsetCallback(int64_t offset)
-{
-	if (sub() != SOURCE_AUDIO_OFFSET_CHANGED) return;
-
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	MMGNumber values = num;
-	if (!num.acceptable(offset / 1000000.0)) return;
-	values = offset / 1000000.0;
-
-	triggerEvent({values});
-}
-
-void MMGActionAudioSources::sourceMonitorCallback(int monitor)
-{
-	if (sub() != SOURCE_AUDIO_MONITOR_CHANGED) return;
-
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	MMGNumber values;
-	values = monitor;
-	if (action.chooseTo(values, audioMonitorOptions())) return;
-
-	triggerEvent({values});
+	triggerEvent({value});
 }

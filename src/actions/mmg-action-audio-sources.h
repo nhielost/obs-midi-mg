@@ -58,8 +58,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QStringList enumerate();
 	static const QStringList audioMonitorOptions();
@@ -71,14 +70,9 @@ private:
 	MMGUtils::MMGString action;
 	MMGUtils::MMGNumber num;
 
-	const MMGSourceSignal *active_source_signal = nullptr;
-
 private slots:
 	void onList1Change();
 	void onList2Change();
 
-	void sourceVolumeCallback(double volume);
-	void sourceMuteCallback(bool muted);
-	void sourceOffsetCallback(int64_t offset);
-	void sourceMonitorCallback(int monitor);
+	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
 };

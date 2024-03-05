@@ -128,18 +128,7 @@ void MMGActionScenes::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionScenes::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionScenes::frontendCallback);
-}
-
-void MMGActionScenes::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionScenes::frontendCallback(obs_frontend_event event)
+void MMGActionScenes::frontendEventReceived(obs_frontend_event event)
 {
 	if (event != OBS_FRONTEND_EVENT_SCENE_CHANGED) return;
 

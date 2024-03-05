@@ -46,8 +46,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 private:
 	MMGMessageManager *messages;

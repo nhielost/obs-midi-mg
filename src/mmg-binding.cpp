@@ -98,9 +98,8 @@ void MMGBinding::toggle()
 
 void MMGBinding::setEnabled(bool val)
 {
-	setConnected(false);
 	_enabled = val;
-	setConnected(true);
+	refresh();
 }
 
 void MMGBinding::setConnected(bool _connected)
@@ -110,6 +109,12 @@ void MMGBinding::setConnected(bool _connected)
 	link->establish(_connected);
 
 	connected = _connected;
+}
+
+void MMGBinding::refresh()
+{
+	setConnected(false);
+	setConnected(true);
 }
 
 QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj)
@@ -155,12 +160,10 @@ void MMGBindingManager::json(QJsonObject &json_obj) const
 	MMGManager::json("bindings", json_obj);
 }
 
-void MMGBindingManager::resetConnections()
+void MMGBindingManager::refreshAll()
 {
-	for (MMGBinding *binding : _list) {
-		binding->setConnected(false);
-		binding->setConnected(true);
-	}
+	for (MMGBinding *binding : _list)
+		binding->refresh();
 }
 
 QDataStream &operator<<(QDataStream &out, const MMGBindingManager *&obj)

@@ -101,7 +101,7 @@ void MMGActionFilters::setActionParams()
 
 void MMGActionFilters::onList1Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
 	MMGStringDisplay *filter_display = display()->stringDisplays()->fieldAt(1);
 	filter_display->setVisible(true);
@@ -111,7 +111,7 @@ void MMGActionFilters::onList1Change()
 
 void MMGActionFilters::onList2Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
 	display()->reset();
 	display()->stringDisplays()->fieldAt(1)->setVisible(true);
@@ -224,88 +224,53 @@ void MMGActionFilters::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionFilters::connectOBSSignals()
+void MMGActionFilters::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
+	MMGAction::connectSignals(_connect);
+	if (!_connected) return;
 
 	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
 	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
+	connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
+	connectSourceSignal(mmgsignals()->requestSourceSignal(obs_filter));
+}
+
+void MMGActionFilters::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+{
+	OBSSourceAutoRelease obs_source;
 
 	switch (sub()) {
 		case FILTER_SHOWN:
-		case FILTER_HIDDEN:
-		case FILTER_TOGGLE_SHOWN:
-			active_source_signal = mmgsignals()->sourceSignal(obs_filter);
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
+			if (!data.toBool()) return;
+			break;
 
-			connect(active_source_signal, &MMGSourceSignal::filterEnabled, this,
-				&MMGActionFilters::filterEnableCallback);
+		case FILTER_HIDDEN:
+			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
+			if (data.toBool()) return;
+			break;
+
+		case FILTER_TOGGLE_SHOWN:
+			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
 			break;
 
 		case FILTER_REORDERED:
-			active_source_signal = mmgsignals()->sourceSignal(obs_source);
-			if (!active_source_signal) return;
-
-			connect(active_source_signal, &MMGSourceSignal::filterReordered, this,
-				&MMGActionFilters::filterReorderCallback);
+			if (event != MMGSourceSignal::SIGNAL_FILTER_REORDER) return;
 			break;
 
 		case FILTER_CUSTOM_CHANGED:
-			active_source_signal = mmgsignals()->sourceSignal(obs_filter);
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceUpdated, this,
-				&MMGActionFilters::sourceDataCallback);
-			break;
+			obs_source = obs_get_source_by_name(source.mmgtocs());
+			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
+			if (data.value<void *>() != obs_source) return;
 
-		default:
-			break;
-	}
-}
-
-void MMGActionFilters::disconnectOBSSignals()
-{
-	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
-	active_source_signal = nullptr;
-}
-
-void MMGActionFilters::filterEnableCallback(bool enabled)
-{
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	switch (sub()) {
-		case FILTER_SHOWN:
-			if (!enabled) return;
-			break;
-
-		case FILTER_HIDDEN:
-			if (enabled) return;
-			break;
-
-		case FILTER_TOGGLE_SHOWN:
-			break;
+			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
+			return;
 
 		default:
 			return;
 	}
 
 	triggerEvent();
-}
-
-void MMGActionFilters::filterReorderCallback()
-{
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-	triggerEvent();
-}
-
-void MMGActionFilters::sourceDataCallback(void *_source)
-{
-	if (sub() != FILTER_CUSTOM_CHANGED) return;
-
-	auto obs_source = static_cast<obs_source_t *>(_source);
-	if (source != obs_source_get_name(obs_source)) return;
-
-	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

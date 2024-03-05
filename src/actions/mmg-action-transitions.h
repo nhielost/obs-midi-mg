@@ -56,8 +56,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QStringList enumerate();
 	static const QString currentTransition();
@@ -71,15 +70,11 @@ private:
 	MMGUtils::MMGNumber num;
 	MMGUtils::MMGJsonObject *_json;
 
-	const MMGSourceSignal *active_source_signal = nullptr;
-
 private slots:
 	void onList1Change();
 	void onList2Change();
 	void onList3Change();
 
-	void frontendCallback(obs_frontend_event event);
-	void transitionStartCallback();
-	void transitionStopCallback();
-	void sourceDataCallback(void *_source);
+	void frontendEventReceived(obs_frontend_event event) override;
+	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
 };

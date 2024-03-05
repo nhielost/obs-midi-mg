@@ -19,7 +19,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_SIGNAL_H
 #define MMG_SIGNAL_H
 
-#include "obs-midi-mg.h"
+#include "mmg-utils.h"
+
+#include <QEvent>
+
+class MMGAction;
 
 class MMGSourceSignal : public QObject {
 	Q_OBJECT
@@ -27,35 +31,34 @@ class MMGSourceSignal : public QObject {
 public:
 	MMGSourceSignal(QObject *parent, obs_source_t *source);
 
+	enum Event {
+		SIGNAL_UPDATE,
+		SIGNAL_VISIBILITY,
+		SIGNAL_LOCK,
+		SIGNAL_TRANSFORM,
+		SIGNAL_MUTE,
+		SIGNAL_VOLUME,
+		SIGNAL_SYNC_OFFSET,
+		SIGNAL_MONITOR,
+		SIGNAL_MEDIA_PLAY,
+		SIGNAL_MEDIA_PAUSE,
+		SIGNAL_MEDIA_RESTART,
+		SIGNAL_MEDIA_STOP,
+		SIGNAL_MEDIA_PREVIOUS,
+		SIGNAL_MEDIA_NEXT,
+		SIGNAL_FILTER_ENABLE,
+		SIGNAL_FILTER_REORDER,
+		SIGNAL_TRANSITION_START,
+		SIGNAL_TRANSITION_STOP,
+	};
+
+	obs_source_t *source() const { return _source; };
 	bool match(const obs_source_t *source) const { return _source == source; };
-	bool valid() const { return !!_source; };
 
 	void disconnectSignals();
 
 signals:
-	void sourceUpdated(void *);
-
-	void sourceVisibilityChanged(void *, bool);
-	void sourceLocked(void *, bool);
-	void sourceTransformed(void *);
-
-	void sourceMuted(bool);
-	void sourceVolumeChanged(double);
-	void sourceSyncOffsetChanged(int64_t);
-	void sourceMonitoringChanged(int);
-
-	void mediaPlayed();
-	void mediaPaused();
-	void mediaRestarted();
-	void mediaStopped();
-	void mediaPreviousChange();
-	void mediaNextChange();
-
-	void filterEnabled(bool);
-	void filterReordered();
-
-	void transitionStarted();
-	void transitionStopped();
+	void sourceChanged(Event, QVariant = QVariant());
 
 private:
 	obs_source_t *_source = nullptr;
@@ -89,10 +92,11 @@ class MMGSignals : public QObject {
 	Q_OBJECT
 
 public:
-	MMGSignals(QObject *parent = nullptr);
+	MMGSignals(QObject *parent);
 
-	void enableHotkeyCallbacks(bool enabled);
-	const MMGSourceSignal *sourceSignal(obs_source_t *source);
+	const MMGSourceSignal *requestSourceSignal(obs_source_t *source);
+	const MMGSourceSignal *requestSourceSignalByName(const MMGUtils::MMGString &name);
+	void disconnectAllSignals(QObject *obj);
 
 signals:
 	void frontendEvent(obs_frontend_event);
@@ -100,12 +104,10 @@ signals:
 
 private:
 	QList<MMGSourceSignal *> source_signals;
+	bool allow_events = false;
 
 	static void frontendCallback(obs_frontend_event event, void *ptr);
 	static void hotkeyCallback(void *ptr, obs_hotkey_id id, bool pressed);
-
-private slots:
-	void shutdownCallback(obs_frontend_event event);
 };
 
 MMGSignals *mmgsignals();

@@ -78,21 +78,26 @@ public:
 	const QStringList subModuleTextList(const QStringList &footer_list) const;
 
 	virtual void execute(const MMGMessage *midi) const = 0;
-	void triggerEvent(const MMGUtils::MMGNumberList &values = {MMGUtils::MMGNumber()});
+	virtual void connectSignals(bool connect);
 
-	virtual void connectOBSSignals() = 0;
-	virtual void disconnectOBSSignals() = 0;
+protected:
+	bool _connected = false;
+
+	void connectSourceSignal(const MMGSourceSignal *signal);
+	void triggerEvent(const MMGUtils::MMGNumberList &values = {MMGUtils::MMGNumber()});
 
 signals:
 	void replacing(MMGAction *);
 	void fulfilled(const MMGUtils::MMGNumberList &);
 
+protected slots:
+	virtual void frontendEventReceived(obs_frontend_event){};
+	virtual void sourceEventReceived(MMGSourceSignal::Event, QVariant){};
+
 private:
 	MMGUtils::DeviceType _type;
 	short subcategory = 0;
 	MMGActionDisplay *_display = nullptr;
-
-	friend class MMGBinding;
 };
 
 using MMGActionList = QList<MMGAction *>;

@@ -41,8 +41,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QStringList enumerate(const QString &source);
 	static const QStringList enumerateEligible();
@@ -53,13 +52,9 @@ private:
 	MMGUtils::MMGNumber num;
 	MMGUtils::MMGJsonObject *_json;
 
-	const MMGSourceSignal *active_source_signal = nullptr;
-
 private slots:
 	void onList1Change();
 	void onList2Change();
 
-	void filterEnableCallback(bool enable);
-	void filterReorderCallback();
-	void sourceDataCallback(void *_source);
+	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
 };

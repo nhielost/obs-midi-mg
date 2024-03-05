@@ -56,8 +56,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QStringList enumerate();
 	double sourceDuration() const;
@@ -66,15 +65,8 @@ private:
 	MMGUtils::MMGString source;
 	MMGUtils::MMGNumber num;
 
-	const MMGSourceSignal *active_source_signal = nullptr;
-
 private slots:
 	void onList1Change();
 
-	void mediaPlayedCallback();
-	void mediaPausedCallback();
-	void mediaRestartedCallback();
-	void mediaStoppedCallback();
-	void mediaNextCallback();
-	void mediaPreviousCallback();
+	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
 };

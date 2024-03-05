@@ -33,6 +33,4 @@ public:
 	const QStringList subNames() const override { return {mmgtr("Actions.Titles.None")}; };
 
 	void execute(const MMGMessage *) const override { blog(LOG_DEBUG, "Successfully executed."); };
-	void connectOBSSignals() override{};
-	void disconnectOBSSignals() override{};
 };

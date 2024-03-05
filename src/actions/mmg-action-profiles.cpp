@@ -131,18 +131,7 @@ void MMGActionProfiles::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionProfiles::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionProfiles::frontendCallback);
-}
-
-void MMGActionProfiles::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionProfiles::frontendCallback(obs_frontend_event event)
+void MMGActionProfiles::frontendEventReceived(obs_frontend_event event)
 {
 	MMGNumber values;
 	const QStringList profiles = enumerate();

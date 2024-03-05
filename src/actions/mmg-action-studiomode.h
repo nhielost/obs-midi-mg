@@ -47,12 +47,10 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
 
 private:
 	MMGUtils::MMGString scene;
 
 private slots:
-	void frontendCallback(obs_frontend_event event);
+	void frontendEventReceived(obs_frontend_event event) override;
 };

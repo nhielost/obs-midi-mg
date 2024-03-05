@@ -85,18 +85,7 @@ void MMGActionReplayBuffer::execute(const MMGMessage *) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionReplayBuffer::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionReplayBuffer::frontendCallback);
-}
-
-void MMGActionReplayBuffer::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionReplayBuffer::frontendCallback(obs_frontend_event event)
+void MMGActionReplayBuffer::frontendEventReceived(obs_frontend_event event)
 {
 	switch (sub()) {
 		case REPBUF_STARTING:
