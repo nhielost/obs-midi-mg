@@ -129,7 +129,7 @@ void MMGActionVideoSources::setActionParams()
 
 void MMGActionVideoSources::onList1Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
 	MMGStringDisplay *source_display = display()->stringDisplays()->fieldAt(1);
 	source_display->setVisible(true);
@@ -139,7 +139,7 @@ void MMGActionVideoSources::onList1Change()
 
 void MMGActionVideoSources::onList2Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 	updateTransform();
 
 	display()->reset();
@@ -528,26 +528,66 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionVideoSources::connectOBSSignals()
+void MMGActionVideoSources::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
+	MMGAction::connectSignals(_connect);
+	if (!_connected) return;
 
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(parent_scene.mmgtocs());
-	active_source_signal = mmgsignals()->sourceSignal(obs_source);
+	connectSourceSignal(mmgsignals()->requestSourceSignalByName(parent_scene));
+	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
+	connectSceneGroups(OBSSceneAutoRelease(obs_get_scene_by_name(parent_scene.mmgtocs())));
+}
+
+void MMGActionVideoSources::connectSceneGroups(obs_scene_t *scene)
+{
+	obs_scene_enum_items(
+		scene,
+		[](obs_scene_t *, obs_sceneitem_t *sceneitem, void *ptr) {
+			if (!obs_sceneitem_is_group(sceneitem)) return true;
+
+			auto action = static_cast<MMGActionVideoSources *>(ptr);
+			if (!action) return false;
+
+			action->connectSourceSignal(
+				mmgsignals()->requestSourceSignal(obs_sceneitem_get_source(sceneitem)));
+			action->connectSceneGroups(obs_sceneitem_group_get_scene(sceneitem));
+			return true;
+		},
+		this);
+}
+
+void MMGActionVideoSources::frontendEventReceived(obs_frontend_event event)
+{
+	if (sub() != SOURCE_VIDEO_SCREENSHOT_TAKEN) return;
+	if (event != OBS_FRONTEND_EVENT_SCREENSHOT_TAKEN) return;
+	triggerEvent();
+}
+
+void MMGActionVideoSources::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+{
+	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(parent_scene.mmgtocs());
+	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
+
+	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
+	ACTION_ASSERT(obs_sceneitem, "Scene does not contain source.");	
 
 	switch (sub()) {
 		case SOURCE_VIDEO_DISPLAY_CHANGED:
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_VISIBILITY) return;
+			if (data.value<void *>() != obs_sceneitem) return;
+			if ((action == obstr("Show")) != obs_sceneitem_visible(obs_sceneitem)) return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceVisibilityChanged, this,
-				&MMGActionVideoSources::sourceStateCallback);
+			triggerEvent();
 			break;
 
 		case SOURCE_VIDEO_LOCK_CHANGED:
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_LOCK) return;
+			if (data.value<void *>() != obs_sceneitem) return;
+			if ((action == mmgtr("Actions.VideoSources.Locked")) != obs_sceneitem_locked(obs_sceneitem))
+				return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceLocked, this,
-				&MMGActionVideoSources::sourceStateCallback);
+			triggerEvent();
 			break;
 
 		case SOURCE_VIDEO_MOVED:
@@ -560,24 +600,17 @@ void MMGActionVideoSources::connectOBSSignals()
 		case SOURCE_VIDEO_BOUNDING_BOX_RESIZED:
 		case SOURCE_VIDEO_BOUNDING_BOX_ALIGNED:
 		case SOURCE_VIDEO_BLEND_MODE_CHANGED:
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_TRANSFORM) return;
+			if (data.value<void *>() != obs_sceneitem) return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceTransformed, this,
-				&MMGActionVideoSources::sourceTransformCallback);
-			break;
-
-		case SOURCE_VIDEO_SCREENSHOT_TAKEN:
-			connect(mmgsignals(), &MMGSignals::frontendEvent, this,
-				&MMGActionVideoSources::frontendCallback);
+			sourceTransformCallback(obs_sceneitem);
 			break;
 
 		case SOURCE_VIDEO_CUSTOM_CHANGED:
-			obs_source = obs_get_source_by_name(source.mmgtocs());
-			active_source_signal = mmgsignals()->sourceSignal(obs_source);
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
+			if (data.value<void *>() != obs_source) return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceUpdated, this,
-				&MMGActionVideoSources::sourceDataCallback);
+			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 			break;
 
 		default:
@@ -585,44 +618,8 @@ void MMGActionVideoSources::connectOBSSignals()
 	}
 }
 
-void MMGActionVideoSources::disconnectOBSSignals()
+void MMGActionVideoSources::sourceTransformCallback(obs_sceneitem_t *obs_sceneitem)
 {
-	disconnect(mmgsignals(), nullptr, this, nullptr);
-
-	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
-	active_source_signal = nullptr;
-}
-
-void MMGActionVideoSources::sourceStateCallback(void *sceneitem, bool enabled)
-{
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	auto obs_sceneitem = static_cast<obs_sceneitem_t *>(sceneitem);
-	if (source != obs_source_get_name(obs_sceneitem_get_source(obs_sceneitem))) return;
-
-	switch (sub()) {
-		case SOURCE_VIDEO_DISPLAY_CHANGED:
-			if ((action == obstr("Show")) != enabled) return;
-			break;
-
-		case SOURCE_VIDEO_LOCK_CHANGED:
-			if ((action == mmgtr("Actions.VideoSources.Locked")) != enabled) return;
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
-}
-
-void MMGActionVideoSources::sourceTransformCallback(void *sceneitem)
-{
-	auto signal = qobject_cast<MMGSourceSignal *>(sender());
-	if (!signal) return;
-
-	auto obs_sceneitem = static_cast<obs_sceneitem_t *>(sceneitem);
 	if (source != obs_source_get_name(obs_sceneitem_get_source(obs_sceneitem))) return;
 
 	QList<MMGNumber> values;

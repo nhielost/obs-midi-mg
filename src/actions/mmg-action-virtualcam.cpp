@@ -71,18 +71,7 @@ void MMGActionVirtualCam::execute(const MMGMessage *) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionVirtualCam::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionVirtualCam::frontendCallback);
-}
-
-void MMGActionVirtualCam::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionVirtualCam::frontendCallback(obs_frontend_event event)
+void MMGActionVirtualCam::frontendEventReceived(obs_frontend_event event)
 {
 	switch (sub()) {
 		case VIRCAM_STARTED:

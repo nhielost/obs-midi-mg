@@ -93,6 +93,22 @@ const QStringList MMGAction::subModuleTextList(const QStringList &footer_list) c
 	return opts;
 }
 
+void MMGAction::connectSignals(bool _connect)
+{
+	if (_type != TYPE_OUTPUT || _connect == _connected) return;
+
+	mmgsignals()->disconnectAllSignals(this);
+	_connected = _connect;
+	if (!_connect) return;
+
+	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGAction::frontendEventReceived);
+}
+
+void MMGAction::connectSourceSignal(const MMGSourceSignal *signal)
+{
+	connect(signal, &MMGSourceSignal::sourceChanged, this, &MMGAction::sourceEventReceived);
+}
+
 void MMGAction::triggerEvent(const MMGNumberList &values)
 {
 	emit fulfilled(values);

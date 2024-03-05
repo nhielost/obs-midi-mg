@@ -84,18 +84,7 @@ void MMGActionRecord::execute(const MMGMessage *) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionRecord::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionRecord::frontendCallback);
-}
-
-void MMGActionRecord::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionRecord::frontendCallback(obs_frontend_event event)
+void MMGActionRecord::frontendEventReceived(obs_frontend_event event)
 {
 	switch (sub()) {
 		case RECORD_STARTING:

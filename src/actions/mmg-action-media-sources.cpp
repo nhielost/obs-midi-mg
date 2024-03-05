@@ -218,88 +218,44 @@ void MMGActionMediaSources::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionMediaSources::connectOBSSignals()
+void MMGActionMediaSources::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
+	MMGAction::connectSignals(_connect);
+	if (!_connected) return;
 
-	active_source_signal =
-		mmgsignals()->sourceSignal(OBSSourceAutoRelease(obs_get_source_by_name(source.mmgtocs())));
-	if (!active_source_signal) return;
+	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
+}
 
+void MMGActionMediaSources::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+{
 	switch (sub()) {
 		case SOURCE_MEDIA_PLAYED:
-			connect(active_source_signal, &MMGSourceSignal::mediaPlayed, this,
-				&MMGActionMediaSources::mediaPlayedCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_PLAY) return;
 			break;
 
 		case SOURCE_MEDIA_PAUSED:
-			connect(active_source_signal, &MMGSourceSignal::mediaPaused, this,
-				&MMGActionMediaSources::mediaPausedCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_PAUSE) return;
 			break;
 
 		case SOURCE_MEDIA_RESTARTED:
-			connect(active_source_signal, &MMGSourceSignal::mediaRestarted, this,
-				&MMGActionMediaSources::mediaRestartedCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_RESTART) return;
 			break;
 
 		case SOURCE_MEDIA_STOPPED:
-			connect(active_source_signal, &MMGSourceSignal::mediaStopped, this,
-				&MMGActionMediaSources::mediaStoppedCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_STOP) return;
 			break;
 
 		case SOURCE_MEDIA_SKIPPED_FORWARD_TRACK:
-			connect(active_source_signal, &MMGSourceSignal::mediaNextChange, this,
-				&MMGActionMediaSources::mediaNextCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_NEXT) return;
 			break;
 
 		case SOURCE_MEDIA_SKIPPED_BACKWARD_TRACK:
-			connect(active_source_signal, &MMGSourceSignal::mediaPreviousChange, this,
-				&MMGActionMediaSources::mediaPreviousCallback);
+			if (event != MMGSourceSignal::SIGNAL_MEDIA_PREVIOUS) return;
 			break;
 
 		default:
-			break;
-	}
+			return;
 }
 
-void MMGActionMediaSources::disconnectOBSSignals()
-{
-	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
-	active_source_signal = nullptr;
-}
-
-void MMGActionMediaSources::mediaPlayedCallback()
-{
-	if (sub() != SOURCE_MEDIA_PLAYED) return;
-	triggerEvent();
-}
-
-void MMGActionMediaSources::mediaPausedCallback()
-{
-	if (sub() != SOURCE_MEDIA_PAUSED) return;
-	triggerEvent();
-}
-
-void MMGActionMediaSources::mediaRestartedCallback()
-{
-	if (sub() != SOURCE_MEDIA_RESTARTED) return;
-	triggerEvent();
-}
-
-void MMGActionMediaSources::mediaStoppedCallback()
-{
-	if (sub() != SOURCE_MEDIA_STOPPED) return;
-	triggerEvent();
-}
-
-void MMGActionMediaSources::mediaNextCallback()
-{
-	if (sub() != SOURCE_MEDIA_SKIPPED_FORWARD_TRACK) return;
-	triggerEvent();
-}
-
-void MMGActionMediaSources::mediaPreviousCallback()
-{
-	if (sub() != SOURCE_MEDIA_SKIPPED_BACKWARD_TRACK) return;
 	triggerEvent();
 }

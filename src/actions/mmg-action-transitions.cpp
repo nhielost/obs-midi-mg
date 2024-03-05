@@ -187,7 +187,7 @@ void MMGActionTransitions::setActionParams()
 
 void MMGActionTransitions::onList1Change()
 {
-	if (type() == TYPE_OUTPUT) connectOBSSignals();
+	connectSignals(true);
 
 	display()->reset();
 
@@ -365,64 +365,53 @@ void MMGActionTransitions::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionTransitions::connectOBSSignals()
+void MMGActionTransitions::connectSignals(bool _connect)
 {
-	disconnectOBSSignals();
+	MMGAction::connectSignals(_connect);
+	if (!_connected) return;
 
-	active_source_signal = mmgsignals()->sourceSignal(OBSSourceAutoRelease(sourceByName(transition)));
+	connectSourceSignal(mmgsignals()->requestSourceSignal(OBSSourceAutoRelease(sourceByName(transition))));
+}
+
+void MMGActionTransitions::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+{
+	OBSSourceAutoRelease obs_source;
 
 	switch (sub()) {
-		case TRANSITION_CURRENT_CHANGED:
-		case TRANSITION_CURRENT_DURATION_CHANGED:
-		case TRANSITION_TBAR_CHANGED:
-			connect(mmgsignals(), &MMGSignals::frontendEvent, this,
-				&MMGActionTransitions::frontendCallback);
-			break;
-
 		case TRANSITION_STARTED:
-			if (!active_source_signal) return;
-
-			connect(active_source_signal, &MMGSourceSignal::transitionStarted, this,
-				&MMGActionTransitions::transitionStartCallback);
+			if (event != MMGSourceSignal::SIGNAL_TRANSITION_START) return;
+			if (transition != currentTransition()) return;
 			break;
 
 		case TRANSITION_STOPPED:
-			if (!active_source_signal) return;
-
-			connect(active_source_signal, &MMGSourceSignal::transitionStopped, this,
-				&MMGActionTransitions::transitionStopCallback);
+			if (event != MMGSourceSignal::SIGNAL_TRANSITION_STOP) return;
+			if (transition != currentTransition()) return;
 			break;
 
 		case TRANSITION_TOGGLE_STARTED:
-			if (!active_source_signal) return;
-
-			connect(active_source_signal, &MMGSourceSignal::transitionStarted, this,
-				&MMGActionTransitions::transitionStartCallback);
-			connect(active_source_signal, &MMGSourceSignal::transitionStopped, this,
-				&MMGActionTransitions::transitionStopCallback);
+			if (event != MMGSourceSignal::SIGNAL_TRANSITION_START &&
+			    event != MMGSourceSignal::SIGNAL_TRANSITION_STOP)
+				return;
+			if (transition != currentTransition()) return;
 			break;
 
 		case TRANSITION_CUSTOM_CHANGED:
-			if (!active_source_signal) return;
+			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
 
-			connect(active_source_signal, &MMGSourceSignal::sourceUpdated, this,
-				&MMGActionTransitions::sourceDataCallback);
-			break;
+			obs_source = sourceByName(transition);
+			if (data.value<void *>() != obs_source) return;
+
+			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
+			return;
 
 		default:
-			break;
+			return;
 	}
+
+	triggerEvent();
 }
 
-void MMGActionTransitions::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), nullptr, this, nullptr);
-
-	if (!!active_source_signal) disconnect(active_source_signal, nullptr, this, nullptr);
-	active_source_signal = nullptr;
-}
-
-void MMGActionTransitions::frontendCallback(obs_frontend_event event)
+void MMGActionTransitions::frontendEventReceived(obs_frontend_event event)
 {
 	MMGNumber values;
 
@@ -449,32 +438,4 @@ void MMGActionTransitions::frontendCallback(obs_frontend_event event)
 	}
 
 	triggerEvent({values});
-}
-
-void MMGActionTransitions::transitionStartCallback()
-{
-	if (sub() != TRANSITION_STARTED && sub() != TRANSITION_TOGGLE_STARTED) return;
-
-	if (transition != currentTransition()) return;
-
-	triggerEvent();
-}
-
-void MMGActionTransitions::transitionStopCallback()
-{
-	if (sub() != TRANSITION_STOPPED && sub() != TRANSITION_TOGGLE_STARTED) return;
-
-	if (transition != currentTransition()) return;
-
-	triggerEvent();
-}
-
-void MMGActionTransitions::sourceDataCallback(void *_source)
-{
-	if (sub() != TRANSITION_CUSTOM_CHANGED) return;
-
-	auto obs_source = static_cast<obs_source_t *>(_source);
-	if (source != obs_source_get_name(obs_source)) return;
-
-	triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
 }

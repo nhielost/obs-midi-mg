@@ -38,7 +38,9 @@ public:
 
 	bool enabled() const { return _enabled; };
 	void setEnabled(bool val);
+
 	void setConnected(bool connected);
+	void refresh();
 
 	ResetMode resetMode() const { return (ResetMode)reset_mode; };
 	void setResetMode(short mode) { reset_mode = mode; }
@@ -78,7 +80,7 @@ public:
 
 	void json(QJsonObject &json_obj) const;
 	void copy(MMGBindingManager *dest);
-	void resetConnections();
+	void refreshAll();
 };
 QDataStream &operator<<(QDataStream &out, const MMGBindingManager *&obj);
 QDataStream &operator>>(QDataStream &in, MMGBindingManager *&obj);

@@ -41,8 +41,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QMap<QString, QString> enumerate(const QString &category);
 	static const QStringList enumerateCategories();
@@ -55,5 +54,5 @@ private:
 private slots:
 	void onList1Change();
 
-	void hotkeyCallback(obs_hotkey_id id);
+	void hotkeyEventReceived(obs_hotkey_id id);
 };

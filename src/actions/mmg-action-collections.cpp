@@ -127,18 +127,7 @@ void MMGActionCollections::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionCollections::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionCollections::frontendCallback);
-}
-
-void MMGActionCollections::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionCollections::frontendCallback(obs_frontend_event event)
+void MMGActionCollections::frontendEventReceived(obs_frontend_event event)
 {
 	MMGNumber values;
 	const QStringList collections = enumerate();

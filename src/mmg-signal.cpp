@@ -20,11 +20,16 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-config.h"
 #include "ui/mmg-action-display.h"
 
-// MMGSourceSignal
-#define GET_SIGNAL_OBJ()                     \
-	static_cast<MMGSourceSignal *>(ptr); \
-	if (!signal) return;
+using namespace MMGUtils;
 
+#define SEND_SOURCE_EVENT(...)                                     \
+	auto signal = static_cast<MMGSourceSignal *>(ptr);         \
+	if (!signal) return;                                       \
+                                                                   \
+	if (calldata_ptr(cd, "source") != signal->_source) return; \
+	emit signal->sourceChanged(__VA_ARGS__)
+
+// MMGSourceSignal
 MMGSourceSignal::MMGSourceSignal(QObject *parent, obs_source_t *source)
 	: QObject(parent), _source(obs_source_get_ref(source))
 {
@@ -105,110 +110,95 @@ void MMGSourceSignal::disconnectSignals()
 
 void MMGSourceSignal::sourceUpdateCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceUpdated(calldata_ptr(cd, "source"));
+	SEND_SOURCE_EVENT(SIGNAL_UPDATE, QVariant::fromValue(calldata_ptr(cd, "source")));
 }
 
 void MMGSourceSignal::sourceVisibleCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceVisibilityChanged(calldata_ptr(cd, "source"), calldata_bool(cd, "visible"));
+	calldata_set_ptr(cd, "source", obs_scene_get_source((obs_scene_t *)calldata_ptr(cd, "scene")));
+	SEND_SOURCE_EVENT(SIGNAL_VISIBILITY, QVariant::fromValue(calldata_ptr(cd, "item")));
 }
 
 void MMGSourceSignal::sourceLockedCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceLocked(calldata_ptr(cd, "source"), calldata_bool(cd, "locked"));
+	calldata_set_ptr(cd, "source", obs_scene_get_source((obs_scene_t *)calldata_ptr(cd, "scene")));
+	SEND_SOURCE_EVENT(SIGNAL_LOCK, QVariant::fromValue(calldata_ptr(cd, "item")));
 }
 
 void MMGSourceSignal::sourceTransformCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceTransformed(calldata_ptr(cd, "item"));
+	calldata_set_ptr(cd, "source", obs_scene_get_source((obs_scene_t *)calldata_ptr(cd, "scene")));
+	SEND_SOURCE_EVENT(SIGNAL_TRANSFORM, QVariant::fromValue(calldata_ptr(cd, "item")));
 }
 
 void MMGSourceSignal::sourceMuteCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceMuted(calldata_bool(cd, "muted"));
+	SEND_SOURCE_EVENT(SIGNAL_MUTE, calldata_bool(cd, "muted"));
 }
 
 void MMGSourceSignal::sourceVolumeCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceVolumeChanged(calldata_float(cd, "volume"));
+	SEND_SOURCE_EVENT(SIGNAL_VOLUME, calldata_float(cd, "volume"));
 }
 
 void MMGSourceSignal::sourceSyncOffsetCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceSyncOffsetChanged(calldata_int(cd, "offset"));
+	SEND_SOURCE_EVENT(SIGNAL_SYNC_OFFSET, calldata_int(cd, "offset"));
 }
 
 void MMGSourceSignal::sourceMonitoringCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->sourceMonitoringChanged(calldata_int(cd, "type"));
+	SEND_SOURCE_EVENT(SIGNAL_MONITOR, calldata_int(cd, "type"));
 }
 
-void MMGSourceSignal::mediaPlayCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaPlayCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaPlayed();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_PLAY);
 }
 
-void MMGSourceSignal::mediaPauseCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaPauseCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaPaused();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_PAUSE);
 }
 
-void MMGSourceSignal::mediaRestartCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaRestartCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaRestarted();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_RESTART);
 }
 
-void MMGSourceSignal::mediaStopCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaStopCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaStopped();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_STOP);
 }
 
-void MMGSourceSignal::mediaPreviousCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaPreviousCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaPreviousChange();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_PREVIOUS);
 }
 
-void MMGSourceSignal::mediaNextCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::mediaNextCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->mediaNextChange();
+	SEND_SOURCE_EVENT(SIGNAL_MEDIA_NEXT);
 }
 
-void MMGSourceSignal::transitionStartedCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::transitionStartedCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->transitionStarted();
+	SEND_SOURCE_EVENT(SIGNAL_TRANSITION_START);
 }
 
-void MMGSourceSignal::transitionStoppedCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::transitionStoppedCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->transitionStopped();
+	SEND_SOURCE_EVENT(SIGNAL_TRANSITION_STOP);
 }
 
 void MMGSourceSignal::filterEnableCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->filterEnabled(calldata_bool(cd, "enabled"));
+	SEND_SOURCE_EVENT(SIGNAL_FILTER_ENABLE, calldata_bool(cd, "enabled"));
 }
 
-void MMGSourceSignal::filterReorderCallback(void *ptr, calldata_t *)
+void MMGSourceSignal::filterReorderCallback(void *ptr, calldata_t *cd)
 {
-	auto signal = GET_SIGNAL_OBJ();
-	emit signal->filterReordered();
+	SEND_SOURCE_EVENT(SIGNAL_FILTER_REORDER);
 }
 // End MMGSourceSignal
 
@@ -216,71 +206,81 @@ void MMGSourceSignal::filterReorderCallback(void *ptr, calldata_t *)
 MMGSignals::MMGSignals(QObject *parent) : QObject(parent)
 {
 	obs_frontend_add_event_callback(frontendCallback, this);
-	connect(this, &MMGSignals::frontendEvent, &MMGSignals::shutdownCallback);
-	blockSignals(true);
+	obs_hotkey_enable_callback_rerouting(true);
+	obs_hotkey_set_callback_routing_func(hotkeyCallback, this);
 }
 
-void MMGSignals::enableHotkeyCallbacks(bool enabled)
+const MMGSourceSignal *MMGSignals::requestSourceSignal(obs_source_t *source)
 {
-	if (enabled) {
-		obs_hotkey_enable_callback_rerouting(true);
-		obs_hotkey_set_callback_routing_func(hotkeyCallback, this);
-	} else {
-		// Imitate OBS
-		auto routing_func = [](void *data, obs_hotkey_id id, bool pressed) {
-			QMetaObject::invokeMethod(static_cast<QObject *>(data), "ProcessHotkey",
-						  Q_ARG(obs_hotkey_id, id), Q_ARG(bool, pressed));
-		};
-		obs_hotkey_set_callback_routing_func(routing_func, obs_frontend_get_main_window());
+	if (!source) return nullptr;
+
+	MMGSourceSignal *signal = nullptr;
+	for (MMGSourceSignal *source_signal : source_signals) {
+		if (source_signal->match(source)) {
+			signal = source_signal;
+			break;
+		}
 	}
+
+	if (!signal) {
+		signal = new MMGSourceSignal(this, source);
+		source_signals.append(signal);
+	}
+
+	return signal;
 }
 
-const MMGSourceSignal *MMGSignals::sourceSignal(obs_source_t *source)
+const MMGSourceSignal *MMGSignals::requestSourceSignalByName(const MMGString &name)
 {
-	for (const MMGSourceSignal *source_signal : source_signals) {
-		if (source_signal->match(source)) return source_signal;
-	}
-	auto new_signal = new MMGSourceSignal(this, source);
-	if (!new_signal->valid()) return nullptr;
-	source_signals.append(new_signal);
-	return new_signal;
+	return requestSourceSignal(OBSSourceAutoRelease(obs_get_source_by_name(name.mmgtocs())));
+}
+
+void MMGSignals::disconnectAllSignals(QObject *obj)
+{
+	for (MMGSourceSignal *source_signal : source_signals)
+		disconnect(source_signal, &MMGSourceSignal::sourceChanged, obj, nullptr);
+
+	disconnect(this, &MMGSignals::frontendEvent, obj, nullptr);
+	disconnect(this, &MMGSignals::hotkeyEvent, obj, nullptr);
 }
 
 void MMGSignals::frontendCallback(obs_frontend_event event, void *ptr)
 {
-	auto _signals = static_cast<MMGSignals *>(ptr);
-	if (!_signals) return;
+	MMGSignals *signal = static_cast<MMGSignals *>(ptr);
+	if (!signal) return;
 
-	emit _signals->frontendEvent(event);
+	switch (event) {
+		case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+			for (MMGBindingManager *manager : *manager(collection))
+				manager->refreshAll();
 
-	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
-		enum_manager(collection) val->resetConnections();
+			signal->allow_events = true;
+			break;
 
-		_signals->blockSignals(false);
+		case OBS_FRONTEND_EVENT_EXIT:
+			obs_frontend_remove_event_callback(frontendCallback, signal);
+
+			for (MMGSourceSignal *signal : signal->source_signals)
+				signal->disconnectSignals();
+
+			MMGActionDisplay::clearCustomOBSFields();
+			qDeleteAll(signal->source_signals);
+			break;
+
+		default:
+			if (signal->allow_events) emit mmgsignals()->frontendEvent(event);
+			break;
 	}
 }
 
 void MMGSignals::hotkeyCallback(void *ptr, obs_hotkey_id id, bool pressed)
 {
-	obs_hotkey_trigger_routed_callback(id, pressed);
+	QMetaObject::invokeMethod(static_cast<QObject *>(obs_frontend_get_main_window()), "ProcessHotkey",
+				  Q_ARG(obs_hotkey_id, id), Q_ARG(bool, pressed));
+
 	if (!pressed) return;
 
-	auto _signals = static_cast<MMGSignals *>(ptr);
-	if (!_signals) return;
-
-	emit _signals->hotkeyEvent(id);
-}
-
-void MMGSignals::shutdownCallback(obs_frontend_event event)
-{
-	if (event != OBS_FRONTEND_EVENT_EXIT) return;
-	obs_frontend_remove_event_callback(frontendCallback, this);
-	enableHotkeyCallbacks(false);
-
-	for (MMGSourceSignal *signal : source_signals)
-		signal->disconnectSignals();
-
-	MMGActionDisplay::clearCustomOBSFields();
+	emit mmgsignals()->hotkeyEvent(id);
 }
 // End MMGSignals
 

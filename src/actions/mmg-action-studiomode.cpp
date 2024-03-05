@@ -143,18 +143,7 @@ void MMGActionStudioMode::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionStudioMode::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	connect(mmgsignals(), &MMGSignals::frontendEvent, this, &MMGActionStudioMode::frontendCallback);
-}
-
-void MMGActionStudioMode::disconnectOBSSignals()
-{
-	disconnect(mmgsignals(), &MMGSignals::frontendEvent, this, nullptr);
-}
-
-void MMGActionStudioMode::frontendCallback(obs_frontend_event event)
+void MMGActionStudioMode::frontendEventReceived(obs_frontend_event event)
 {
 	MMGNumber values;
 	QStringList scenes = MMGActionScenes::enumerate();

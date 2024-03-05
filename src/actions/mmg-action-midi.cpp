@@ -85,15 +85,12 @@ void MMGActionMIDI::execute(const MMGMessage *midi) const
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionMIDI::connectOBSSignals()
-{
-	disconnectOBSSignals();
-	if (type() == TYPE_OUTPUT) _queue->connectQueue();
-}
-
-void MMGActionMIDI::disconnectOBSSignals()
+void MMGActionMIDI::connectSignals(bool _connect)
 {
 	_queue->disconnectQueue();
+	if (!_connect) return;
+
+	if (type() == TYPE_OUTPUT) _queue->connectQueue();
 }
 // End MMGActionMIDI
 

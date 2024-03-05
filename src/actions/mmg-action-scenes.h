@@ -41,8 +41,6 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
 
 	static const QStringList enumerate();
 	static const QStringList enumerateItems(const QString &scene);
@@ -54,5 +52,5 @@ private:
 	static bool enumerateItems(obs_scene_t *, obs_sceneitem_t *, void *);
 
 private slots:
-	void frontendCallback(obs_frontend_event event);
+	void frontendEventReceived(obs_frontend_event event) override;
 };

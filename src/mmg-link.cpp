@@ -51,14 +51,12 @@ void MMGLink::establish(bool _connect)
 
 		case TYPE_OUTPUT:
 			if (_connect) {
-				connect(binding->actions(0), &MMGAction::fulfilled, this,
-					&MMGLink::actionFulfilled, Qt::UniqueConnection);
-				binding->actions(0)->connectOBSSignals();
+				connect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::actionFulfilled,
+					Qt::UniqueConnection);
 			} else {
-				disconnect(binding->actions(0), &MMGAction::fulfilled, this,
-					&MMGLink::actionFulfilled);
-				binding->actions(0)->disconnectOBSSignals();
+				disconnect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::actionFulfilled);
 			}
+			binding->actions(0)->connectSignals(_connect);
 			break;
 	}
 }

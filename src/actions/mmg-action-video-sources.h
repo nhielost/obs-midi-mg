@@ -79,8 +79,7 @@ public:
 	void setActionParams() override;
 
 	void execute(const MMGMessage *midi) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
+	void connectSignals(bool connect) override;
 
 	static const QStringList enumerate();
 	static const QStringList alignmentOptions();
@@ -105,16 +104,15 @@ private:
 	const MMGUtils::MMGNumber &num3() const { return nums[2]; };
 	const MMGUtils::MMGNumber &num4() const { return nums[3]; };
 
-	const MMGSourceSignal *active_source_signal = nullptr;
-
 	ActionTransform *at = nullptr;
+
+	void connectSceneGroups(obs_scene_t *);
 
 private slots:
 	void onList1Change();
 	void onList2Change();
 
-	void sourceStateCallback(void *sceneitem, bool enabled);
-	void sourceTransformCallback(void *sceneitem);
-	void frontendCallback(obs_frontend_event event);
-	void sourceDataCallback(void *_source);
+	void frontendEventReceived(obs_frontend_event) override;
+	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
+	void sourceTransformCallback(obs_sceneitem_t *sceneitem);
 };

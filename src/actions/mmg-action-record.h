@@ -43,9 +43,7 @@ public:
 	const QStringList subNames() const override;
 
 	void execute(const MMGMessage *) const override;
-	void connectOBSSignals() override;
-	void disconnectOBSSignals() override;
 
 private slots:
-	void frontendCallback(obs_frontend_event event);
+	void frontendEventReceived(obs_frontend_event event) override;
 };
