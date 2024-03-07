@@ -181,7 +181,7 @@ ${_usage_host:-}"
 
     if (( package )) {
       if [[ ! -f ${project_root}/release/${config}/${product_name}.pkg ]] {
-        log_error 'Installer Package project file not found. Run the build script or the CMake build and install procedures first.'
+        log_error 'Installer Package not found. Run the build script or the CMake build and install procedures first.'
         return 2
       }
 

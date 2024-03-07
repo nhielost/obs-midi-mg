@@ -64,8 +64,19 @@ function Package {
 
     Remove-Item @RemoveArgs
 
+    Log-Group "Archiving ${ProductName}..."
+    $CompressArgs = @{
+        Path = (Get-ChildItem -Path "${ProjectRoot}/release/${Configuration}" -Exclude "${OutputName}*.*")
+        CompressionLevel = 'Optimal'
+        DestinationPath = "${ProjectRoot}/release/${OutputName}.zip"
+        Verbose = ($Env:CI -ne $null)
+    }
+    Compress-Archive -Force @CompressArgs
+    Log-Group
+
     if ( ( $BuildInstaller ) ) {
         Log-Group "Packaging ${ProductName}..."
+
         $IsccFile = "${ProjectRoot}/build_${Target}/installer-Windows.generated.iss"
 
         if ( ! ( Test-Path -Path $IsccFile ) ) {
@@ -90,7 +101,8 @@ function Package {
 
         Compress-Archive -Force @CompressArgs
     }
-    Log-Group
+        Log-Group
+    }
 }
 
 Package
