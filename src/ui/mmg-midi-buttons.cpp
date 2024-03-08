@@ -34,23 +34,25 @@ MMGMIDIButtons::MMGMIDIButtons(QWidget *parent) : QWidget(parent)
 	layout->setContentsMargins(0, 0, 0, 0);
 
 	fixed_button = new QPushButton(this);
-	//fixed_button->setGeometry(0, 0, 30, 30);
 	fixed_button->setIcon(mmg_icon("fixed"));
 	fixed_button->setIconSize({12, 12});
+	fixed_button->setToolTip(mmgtr("MIDIButtons.Fixed"));
 
 	midi_button = new QPushButton(this);
-	//midi_button->setGeometry(40, 0, 30, 30);
 	midi_button->setIcon(mmg_icon("midi"));
 	midi_button->setIconSize({18, 18});
+	midi_button->setToolTip(mmgtr("MIDIButtons.MIDI"));
 
 	custom_button = new QPushButton(this);
-	//custom_button->setGeometry(80, 0, 30, 30);
 	custom_button->setIcon(mmg_icon("custom"));
+	custom_button->setToolTip(mmgtr("MIDIButtons.Custom"));
 
 	ignore_button = new QPushButton(this);
 	ignore_button->setIcon(mmg_icon("disable"));
+	ignore_button->setToolTip(mmgtr("MIDIButtons.Ignore"));
 
 	toggle_button = new QPushButton(this);
+	toggle_button->setToolTip(mmgtr("MIDIButtons.Toggle"));
 	connect(toggle_button, &QPushButton::toggled, this, &MMGMIDIButtons::setToggleIcon);
 
 	button_group = new QButtonGroup(this);
