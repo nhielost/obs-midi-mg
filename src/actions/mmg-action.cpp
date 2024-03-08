@@ -125,6 +125,7 @@ MMGAction *MMGActionManager::add(const QJsonObject &json_obj)
 MMGAction *MMGActionManager::copy(MMGAction *action)
 {
 	QJsonObject json_obj;
+	json_obj["name"] = action->objectName();
 	json_obj["category"] = action->category();
 	return MMGManager::copy(action, add(json_obj));
 }

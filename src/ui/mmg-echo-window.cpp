@@ -637,6 +637,7 @@ void MMGEchoWindow::actionShow(QListWidgetItem *item)
 void MMGEchoWindow::onActionCategoryChange(int index)
 {
 	QJsonObject json_obj;
+	json_obj["name"] = current_action->objectName();
 	json_obj["category"] = index;
 	current_binding->actions()->changeActionCategory(current_action, json_obj);
 	current_binding->refresh();
