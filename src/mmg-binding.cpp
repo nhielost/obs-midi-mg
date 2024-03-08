@@ -76,6 +76,7 @@ void MMGBinding::copy(MMGBinding *dest)
 	dest->setObjectName(objectName());
 	dest->reset_mode = reset_mode;
 	dest->_type = _type;
+	dest->_actions->setType(_type);
 
 	QJsonObject json_obj;
 	dest->_messages->clear();
