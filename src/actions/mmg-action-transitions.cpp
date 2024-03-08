@@ -57,7 +57,7 @@ const QStringList MMGActionTransitions::subNames() const
 		case TYPE_INPUT:
 		default:
 			opts << subModuleTextList(
-				{"CurrentChange", "SourceShow", "SourceHide", "TBarChange", "TBarToggle"});
+				{"CurrentChange", "SourceShow", "SourceHide", "TBarChange", "ReleaseTBar"});
 			break;
 
 		case TYPE_OUTPUT:
