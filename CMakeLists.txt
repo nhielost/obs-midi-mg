@@ -78,6 +78,7 @@ target_sources(
           ./src/ui/mmg-string-display.cpp
           ./src/ui/mmg-message-display.cpp
           ./src/ui/mmg-action-display.cpp
+          ./src/ui/mmg-manager-control.cpp
           ./src/ui/mmg-echo-window.cpp)
 
 target_sources(
@@ -117,6 +118,7 @@ target_sources(
           ./src/ui/mmg-string-display.h
           ./src/ui/mmg-message-display.h
           ./src/ui/mmg-action-display.h
+          ./src/ui/mmg-manager-control.h
           ./src/ui/mmg-echo-window.h)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ./src/ui/resources.qrc)
