@@ -45,7 +45,7 @@ void MMGLink::establish(bool _connect)
 					&MMGLink::messageReceived, Qt::UniqueConnection);
 			} else {
 				disconnect(binding->messages(0)->device(), &MMGMIDIPort::messageReceived, this,
-					&MMGLink::messageReceived);
+					   &MMGLink::messageReceived);
 			}
 			break;
 

@@ -39,7 +39,8 @@ using namespace MMGUtils;
 
 // MMGAction
 MMGAction::MMGAction(MMGActionManager *parent, const QJsonObject &json_obj)
-	: QObject(parent), _type((DeviceType)json_obj["type"].toInt())
+	: QObject(parent),
+	  _type((DeviceType)json_obj["type"].toInt())
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Actions.Untitled")));
 	subcategory = json_obj["sub"].toInt();

@@ -23,7 +23,9 @@ using namespace MMGUtils;
 
 // MMGActionMIDI
 MMGActionMIDI::MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj), messages(new MMGMessageManager(this)), _queue(new MMGConnectionQueue(this))
+	: MMGAction(parent, json_obj),
+	  messages(new MMGMessageManager(this)),
+	  _queue(new MMGConnectionQueue(this))
 {
 	if (json_obj.contains("device")) {
 		messages->add(json_obj);

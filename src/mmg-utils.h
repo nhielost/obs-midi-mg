@@ -183,6 +183,7 @@ bool open_message_box(const QString &message, bool information = true);
 
 void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi_value);
 QList<MMGNumber> obs_source_custom_updated(obs_source_t *source, const QJsonObject &action_json);
-}
+
+} // namespace MMGUtils
 
 #undef MMG_ENABLED

@@ -131,7 +131,7 @@ void MMGMessageDisplay::onListenClick()
 	switch (listening_mode) {
 		default:
 			listening_mode = 0;
-			[[fallthough]];
+			[[fallthrough]];
 
 		case 0: // Listen for execution
 			listen_button->setChecked(false);

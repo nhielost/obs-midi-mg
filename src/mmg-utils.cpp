@@ -411,4 +411,4 @@ QList<MMGNumber> obs_source_custom_updated(obs_source_t *, const QJsonObject &)
 	return QList<MMGNumber>();
 }
 
-}
+} // namespace MMGUtils

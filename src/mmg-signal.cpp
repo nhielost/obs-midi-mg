@@ -31,7 +31,8 @@ using namespace MMGUtils;
 
 // MMGSourceSignal
 MMGSourceSignal::MMGSourceSignal(QObject *parent, obs_source_t *source)
-	: QObject(parent), _source(obs_source_get_ref(source))
+	: QObject(parent),
+	  _source(obs_source_get_ref(source))
 {
 	if (!source) {
 		deleteLater();

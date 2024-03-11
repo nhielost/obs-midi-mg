@@ -24,7 +24,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj)
-	: QObject(parent), midi_in(midi()->inputConfig(this)), midi_out(midi()->outputConfig())
+	: QObject(parent),
+	  midi_in(midi()->inputConfig(this)),
+	  midi_out(midi()->outputConfig())
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Device.Dummy")));
 

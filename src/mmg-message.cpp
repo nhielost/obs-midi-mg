@@ -45,7 +45,10 @@ MMGMessage::MMGMessage(MMGMIDIPort *device, const libremidi::message &message)
 }
 
 MMGMessage::MMGMessage(const QJsonObject &json_obj)
-	: _channel(json_obj, "channel"), _type(json_obj, "type"), _note(json_obj, "note"), _value(json_obj, "value")
+	: _channel(json_obj, "channel"),
+	  _type(json_obj, "type"),
+	  _note(json_obj, "note"),
+	  _value(json_obj, "value")
 {
 	setRanges();
 

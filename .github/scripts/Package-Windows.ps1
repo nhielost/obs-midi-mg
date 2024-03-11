@@ -101,8 +101,8 @@ function Package {
 
         Compress-Archive -Force @CompressArgs
     }
-        Log-Group
-    }
+
+    Log-Group
 }
 
 Package
