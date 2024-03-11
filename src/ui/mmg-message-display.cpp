@@ -177,7 +177,9 @@ void MMGMessageDisplay::updateMessage(const MMGSharedMessage &incoming)
 		onListenClick();
 	}
 
+	QString name = _storage->objectName();
 	incoming->copy(_storage);
+	_storage->setObjectName(name);
 	_storage->value().setMax(127);
 
 	MMGNoEdit no_edit_message(_storage);
