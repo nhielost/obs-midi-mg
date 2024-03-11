@@ -520,6 +520,8 @@ void MMGEchoWindow::onActionCategoryChange(int index)
 	json_obj["category"] = index;
 	current_binding->actions()->changeActionCategory(current_action, json_obj);
 	current_binding->refresh();
+
+	QSignalBlocker blocker_multi(ui->structure_multi);
 	action_control->refresh();
 
 	onActionSubUpdate();
