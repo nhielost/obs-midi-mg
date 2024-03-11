@@ -23,6 +23,26 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 using namespace MMGUtils;
 
+template<> struct MultiModeMap<MMGBindingManager> {
+	static constexpr int value = 0;
+};
+
+template<> struct MultiModeMap<MMGDevice> {
+	static constexpr int value = 1;
+};
+
+template<> struct MultiModeMap<MMGBinding> {
+	static constexpr int value = 2;
+};
+
+template<> struct MultiModeMap<MMGMessage> {
+	static constexpr int value = 3;
+};
+
+template<> struct MultiModeMap<MMGAction> {
+	static constexpr int value = 4;
+};
+
 template<typename T> MMGManagerControl<T>::MMGManagerControl(QListWidget *widget) : QObject(widget)
 {
 	list_widget = widget;
@@ -118,4 +138,4 @@ template<typename T> void MMGManagerControl<T>::itemRemoved()
 	emit list_widget->itemSelectionChanged();
 }
 
-#endif
+#endif // MMG_MANAGER_CONTROL_CPP

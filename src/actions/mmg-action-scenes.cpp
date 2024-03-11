@@ -21,7 +21,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 MMGActionScenes::MMGActionScenes(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj), scene(json_obj, "scene", 1)
+	: MMGAction(parent, json_obj),
+	  scene(json_obj, "scene", 1)
 {
 	blog(LOG_DEBUG, "Action created.");
 }

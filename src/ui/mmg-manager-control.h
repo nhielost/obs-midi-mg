@@ -19,31 +19,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QListWidget>
 
-template <typename T>
-class MMGManagerControl : public QObject {
+template<typename T> struct MultiModeMap;
 
-private:
-	template<typename T> struct MultiModeMap;
-
-	template<> struct MultiModeMap<MMGBindingManager> {
-		static constexpr int value = 0;
-	};
-
-	template<> struct MultiModeMap<MMGDevice> {
-		static constexpr int value = 1;
-	};
-
-	template<> struct MultiModeMap<MMGBinding> {
-		static constexpr int value = 2;
-	};
-
-	template<> struct MultiModeMap<MMGMessage> {
-		static constexpr int value = 3;
-	};
-
-	template<> struct MultiModeMap<MMGAction> {
-		static constexpr int value = 4;
-	};
+template<typename T> class MMGManagerControl : public QObject {
 
 public:
 	MMGManagerControl(QListWidget *widget);
@@ -73,4 +51,4 @@ private:
 
 #include "mmg-manager-control.cpp"
 
-#endif
+#endif // MMG_MANAGER_CONTROL_H

@@ -276,7 +276,8 @@ void MMGActionAudioSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 
 			value = num;
 			util_value = data.toDouble();
-			util_value = action == volumeFormatOptions()[0] ? util_value * 100.0 : convertDecibels(util_value, true);
+			util_value = action == volumeFormatOptions()[0] ? util_value * 100.0
+									: convertDecibels(util_value, true);
 			if (!num.acceptable(util_value)) return;
 
 			value = util_value;
@@ -316,6 +317,6 @@ void MMGActionAudioSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 		default:
 			return;
 	}
-	
+
 	triggerEvent({value});
 }

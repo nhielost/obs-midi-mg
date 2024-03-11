@@ -21,7 +21,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 using namespace MMGUtils;
 
 MMGActionMediaSources::MMGActionMediaSources(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj), source(json_obj, "source", 1), num(json_obj, "num", 1)
+	: MMGAction(parent, json_obj),
+	  source(json_obj, "source", 1),
+	  num(json_obj, "num", 1)
 {
 	if (num.state() == STATE_CUSTOM) num.setState(STATE_MIDI);
 	blog(LOG_DEBUG, "Action created.");

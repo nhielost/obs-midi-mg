@@ -112,7 +112,7 @@ public:
 	void setType(MMGUtils::DeviceType type) { _type = type; };
 	void changeActionCategory(MMGAction *&action, const QJsonObject &json_obj = QJsonObject());
 
-	private:
+private:
 	MMGUtils::DeviceType _type = MMGUtils::TYPE_INPUT;
 };
 

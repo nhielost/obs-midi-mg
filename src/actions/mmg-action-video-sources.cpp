@@ -530,7 +530,7 @@ void MMGActionVideoSources::connectSignals(bool _connect)
 {
 	MMGAction::connectSignals(_connect);
 	if (!_connected) return;
-	
+
 	connectSourceSignal(mmgsignals()->requestSourceSignalByName(parent_scene));
 	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
 	connectSceneGroups(OBSSceneAutoRelease(obs_get_scene_by_name(parent_scene.mmgtocs())));
@@ -568,7 +568,7 @@ void MMGActionVideoSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
 
 	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
-	ACTION_ASSERT(obs_sceneitem, "Scene does not contain source.");	
+	ACTION_ASSERT(obs_sceneitem, "Scene does not contain source.");
 
 	switch (sub()) {
 		case SOURCE_VIDEO_DISPLAY_CHANGED:

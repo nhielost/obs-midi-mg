@@ -28,7 +28,9 @@ struct MMGHotkeyRequest {
 };
 
 MMGActionHotkeys::MMGActionHotkeys(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj), group(json_obj, "hotkey_group", 0), hotkey(json_obj, "hotkey", 1)
+	: MMGAction(parent, json_obj),
+	  group(json_obj, "hotkey_group", 0),
+	  hotkey(json_obj, "hotkey", 1)
 {
 	blog(LOG_DEBUG, "Action created.");
 }
@@ -67,8 +69,7 @@ void MMGActionHotkeys::createDisplay(QWidget *parent)
 {
 	MMGAction::createDisplay(parent);
 
-	connect(display()->addNew(&group), &MMGStringDisplay::stringChanged, this,
-			   &MMGActionHotkeys::onList1Change);
+	connect(display()->addNew(&group), &MMGStringDisplay::stringChanged, this, &MMGActionHotkeys::onList1Change);
 
 	display()->addNew(&hotkey)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
 }
