@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-echo-window.h"
 #include "../mmg-config.h"
+#include "mmg-manager-control.h"
 
 #include <QButtonGroup>
 #include <QMenu>
@@ -26,19 +27,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QDesktopServices>
 
 using namespace MMGUtils;
-
-#define REFRESH_STRUCTURE(structure, _manager)                                                                         \
-	structure->clear();                                                                                            \
-	for (auto *val : *_manager) {                                                                                  \
-		QListWidgetItem *new_item = new QListWidgetItem;                                                       \
-		new_item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEnabled |                  \
-				   (structure->property("editable").isNull() ? Qt::ItemIsEditable : Qt::NoItemFlags)); \
-		new_item->setText(val->objectName());                                                                  \
-		new_item->setData(260, QVariant::fromValue(val));                                                      \
-		structure->addItem(new_item);                                                                          \
-	}
-
-#define ITEM_DATA(type) item ? item->data(260).value<type *>() : nullptr
 
 MMGEchoWindow::MMGEchoWindow(QWidget *parent) : QDialog(parent, Qt::Dialog), ui(new Ui::MMGEchoWindow)
 {
@@ -53,6 +41,22 @@ MMGEchoWindow::MMGEchoWindow(QWidget *parent) : QDialog(parent, Qt::Dialog), ui(
 	message_display = new MMGMessageDisplay(ui->message_frame);
 	message_display->move(10, 10);
 
+	collection_control = new MMGManagerControl<MMGBindingManager>(ui->structure_collections);
+	collection_control->setStorage(manager(collection));
+	collection_control->connectButtons(ui->button_add_collection, ui->button_remove_collection);
+
+	device_control = new MMGManagerControl<MMGDevice>(ui->structure_devices);
+	device_control->setStorage(manager(device));
+
+	binding_control = new MMGManagerControl<MMGBinding>(ui->structure_multi);
+	binding_control->connectButtons(ui->button_add, ui->button_remove, ui->button_duplicate);
+
+	message_control = new MMGManagerControl<MMGMessage>(ui->structure_multi);
+	message_control->connectButtons(ui->button_add, ui->button_remove, ui->button_duplicate);
+
+	action_control = new MMGManagerControl<MMGAction>(ui->structure_multi);
+	action_control->connectButtons(ui->button_add, ui->button_remove, ui->button_duplicate);
+
 	translate();
 	connectUISignals();
 }
@@ -63,9 +67,9 @@ void MMGEchoWindow::displayWindow()
 
 	ui->editor_device->setVisible(false);
 
-	REFRESH_STRUCTURE(ui->structure_devices, manager(device));
-	REFRESH_STRUCTURE(ui->structure_collections, manager(collection));
-	collectionShow();
+	device_control->refresh();
+	collection_control->refresh();
+	changeView(MODE_COLLECTION);
 
 	setVisible(true);
 }
@@ -83,19 +87,12 @@ void MMGEchoWindow::reject()
 void MMGEchoWindow::connectUISignals()
 {
 	// Collection Display Connections
-	connect(ui->structure_collections, &QListWidget::itemClicked, this, &MMGEchoWindow::collectionShow);
-	connect(ui->structure_collections, &QListWidget::itemChanged, this, &MMGEchoWindow::onCollectionRename);
-	connect(ui->structure_collections->model(), &QAbstractItemModel::rowsMoved, this,
-		&MMGEchoWindow::onCollectionMove);
-	connect(ui->button_add_collection, &QPushButton::clicked, this, &MMGEchoWindow::onCollectionAdd);
-	connect(ui->button_edit_collection, &QPushButton::clicked, this, &MMGEchoWindow::onCollectionEdit);
-	connect(ui->button_remove_collection, &QPushButton::clicked, this, &MMGEchoWindow::onCollectionRemove);
-	connect(ui->button_confirm, &QPushButton::clicked, this, &MMGEchoWindow::onCollectionConfirm);
+	connect(ui->structure_collections, &QListWidget::itemSelectionChanged, this, &MMGEchoWindow::collectionShow);
+	connect(ui->button_edit_collection, &QPushButton::clicked, this, &MMGEchoWindow::onConfirmClick);
 
 	// Device Display Connections
-	connect(midi(), &MMGMIDI::deviceCapableChange, this,
-		[&]() { REFRESH_STRUCTURE(ui->structure_devices, manager(device)); });
-	connect(ui->structure_devices, &QListWidget::itemClicked, this, &MMGEchoWindow::deviceShow);
+	connect(midi(), &MMGMIDI::deviceCapableChange, device_control, &MMGManagerControl<MMGDevice>::refresh);
+	connect(ui->structure_devices, &QListWidget::itemSelectionChanged, this, &MMGEchoWindow::deviceShow);
 	connect(ui->button_in_enable, &QAbstractButton::toggled, this, &MMGEchoWindow::onDeviceInputActiveChange);
 	connect(ui->button_thru, &QAbstractButton::toggled, this, &MMGEchoWindow::onDeviceThruStateChange);
 	connect(ui->editor_thru, &QComboBox::currentTextChanged, this, &MMGEchoWindow::onDeviceThruChange);
@@ -104,17 +101,14 @@ void MMGEchoWindow::connectUISignals()
 	connect(ui->button_remove_device, &QPushButton::clicked, this, &MMGEchoWindow::onDeviceRemove);
 
 	// Multipurpose Display Connections
-	connect(ui->structure_multi, &QListWidget::itemClicked, this, &MMGEchoWindow::multiShow);
+	connect(ui->structure_multi, &QListWidget::itemSelectionChanged, this, &MMGEchoWindow::multiShow);
 	connect(ui->structure_multi, &QListWidget::itemChanged, this, &MMGEchoWindow::onMultiRename);
-	connect(ui->structure_multi->model(), &QAbstractItemModel::rowsMoved, this, &MMGEchoWindow::onMultiMove);
-	connect(ui->editor_multi_select, &QComboBox::currentIndexChanged, this, &MMGEchoWindow::onMultiSelect);
+	connect(ui->editor_multi_select, &QComboBox::currentIndexChanged, this, &MMGEchoWindow::onMultiReset);
 	connect(ui->button_multi_edit, &QPushButton::clicked, this, &MMGEchoWindow::onMultiClick);
-	connect(ui->button_add, &QPushButton::clicked, this, &MMGEchoWindow::onAddClick);
-	connect(ui->button_duplicate, &QPushButton::clicked, this, &MMGEchoWindow::onCopyClick);
-	connect(ui->button_move, &QPushButton::clicked, this, &MMGEchoWindow::onMoveClick);
-	connect(ui->button_remove, &QPushButton::clicked, this, &MMGEchoWindow::onRemoveClick);
+	connect(ui->button_confirm, &QPushButton::clicked, this, &MMGEchoWindow::onConfirmClick);
 
 	// Binding Display Connections
+	connect(ui->button_move, &QPushButton::clicked, this, &MMGEchoWindow::onBindingMoveClick);
 	connect(ui->button_enable, &QAbstractButton::toggled, this, &MMGEchoWindow::onBindingActiveChange);
 	connect(ui->button_switch, &QAbstractButton::toggled, this, &MMGEchoWindow::onBindingSwitch);
 	connect(ui->editor_binding_reset, &QComboBox::currentIndexChanged, this, &MMGEchoWindow::onBindingResetChange);
@@ -169,6 +163,52 @@ void MMGEchoWindow::translate()
 	ui->button_update_check->setText(mmgtr("Preferences.Updates"));
 }
 
+void MMGEchoWindow::changeView(MultiMode mode)
+{
+	ui->structure_multi->setProperty("kind", mode);
+
+	MMGBinding *binding = current_binding;
+	current_binding = nullptr;
+	onMultiReset();
+	current_binding = binding;
+
+	ui->editor_secondary_buttons->setVisible(false);
+	ui->label_binding_name->setVisible(false);
+
+	switch (mode) {
+		case MODE_COLLECTION:
+		case MODE_DEVICE:
+			ui->pages->setCurrentIndex(0);
+			setWindowTitle(mmgtr("Plugin.TitleBar"));
+			ui->structure_collections->setCurrentItem(nullptr);
+			ui->structure_devices->setCurrentItem(nullptr);
+			collectionShow();
+			deviceShow();
+			return;
+
+		case MODE_BINDING:
+			ui->pages->setCurrentIndex(1);
+			setWindowTitle(
+				QString("%1 - %2").arg(current_collection->objectName()).arg(mmgtr("Plugin.TitleBar")));
+			binding_control->setStorage(current_collection);
+			break;
+
+		case MODE_MESSAGE:
+			setWindowTitle(
+				QString("%1 - %2").arg(current_binding->objectName()).arg(mmgtr("Plugin.TitleBar")));
+			message_control->setStorage(current_binding->messages());
+			break;
+
+		case MODE_ACTION:
+			setWindowTitle(
+				QString("%1 - %2").arg(current_binding->objectName()).arg(mmgtr("Plugin.TitleBar")));
+			action_control->setStorage(current_binding->actions());
+			break;
+	}
+
+	multiShow();
+}
+
 int MMGEchoWindow::multiIndex(DeviceType type) const
 {
 	if (ui->editor_multi_select->signalsBlocked()) return 0;
@@ -176,14 +216,14 @@ int MMGEchoWindow::multiIndex(DeviceType type) const
 	return ui->editor_multi_select->currentIndex();
 }
 
-void MMGEchoWindow::collectionShow(QListWidgetItem *item)
+void MMGEchoWindow::collectionShow()
 {
-	current_manager = ITEM_DATA(MMGBindingManager);
+	current_collection = collection_control->currentValue();
 
-	ui->editor_secondary_collection_buttons->setVisible(!!current_manager);
-	if (!!current_manager) {
+	ui->editor_secondary_collection_buttons->setVisible(!!current_collection);
+	if (!!current_collection) {
 		QString size_str = " ";
-		qsizetype size = current_manager->size();
+		qsizetype size = current_collection->size();
 		size_str.prepend(QString::number(size));
 		size_str.append(mmgtr_two("Binding", "Name", "Names", size < 2));
 		ui->label_collection_size->setText(size_str);
@@ -191,78 +231,19 @@ void MMGEchoWindow::collectionShow(QListWidgetItem *item)
 
 	menu_binding_groups->clear();
 	for (MMGBindingManager *manager : *manager(collection)) {
-		if (manager == current_manager) continue;
+		if (manager == current_collection) continue;
 
 		QAction *new_action = new QAction(this);
 		new_action->setText(manager->objectName());
 		new_action->setData(QVariant::fromValue(manager));
-		connect(new_action, &QAction::triggered, this, &MMGEchoWindow::onMoveSelect);
+		connect(new_action, &QAction::triggered, this, &MMGEchoWindow::onBindingMoveSelect);
 		menu_binding_groups->addAction(new_action);
 	}
 }
 
-void MMGEchoWindow::onCollectionRename(QListWidgetItem *item)
+void MMGEchoWindow::deviceShow()
 {
-	if (!item) return;
-	current_manager->setObjectName(item->text());
-}
-
-void MMGEchoWindow::onCollectionMove(const QModelIndex &, int from, int, const QModelIndex &, int to)
-{
-	manager(collection)->move(from, to);
-}
-
-void MMGEchoWindow::onCollectionAdd()
-{
-	manager(collection)->add();
-	REFRESH_STRUCTURE(ui->structure_collections, manager(collection));
-}
-
-void MMGEchoWindow::onCollectionEdit()
-{
-	int index = ui->pages->currentIndex() ^ 1;
-	ui->pages->setCurrentIndex(index);
-
-	if (index == 1) {
-		REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-		multiShow();
-	} else {
-		ui->structure_collections->clearSelection();
-		ui->structure_devices->clearSelection();
-		collectionShow();
-		deviceShow();
-	}
-}
-
-void MMGEchoWindow::onCollectionConfirm()
-{
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			onCollectionEdit();
-			break;
-
-		case MODE_ACTION:
-		case MODE_MESSAGE:
-			multi_mode = MODE_BINDING;
-			onMultiChange();
-			break;
-	}
-}
-
-void MMGEchoWindow::onCollectionRemove()
-{
-	if (!current_manager) return;
-	if (!open_message_box("PermanentRemove", false)) return;
-	manager(collection)->remove(current_manager);
-	current_manager = nullptr;
-	REFRESH_STRUCTURE(ui->structure_collections, manager(collection));
-	collectionShow(nullptr);
-}
-
-void MMGEchoWindow::deviceShow(QListWidgetItem *item)
-{
-	current_device = item ? item->data(260).value<MMGDevice *>() : nullptr;
+	current_device = device_control->currentValue();
 	ui->editor_device->setVisible(!!current_device);
 	if (!current_device) return;
 
@@ -327,7 +308,7 @@ void MMGEchoWindow::onDeviceThruChange(const QString &device)
 void MMGEchoWindow::onDeviceCheck()
 {
 	current_device->checkCapable();
-	deviceShow(ui->structure_devices->currentItem());
+	deviceShow();
 	open_message_box("DeviceCheck");
 }
 
@@ -336,31 +317,32 @@ void MMGEchoWindow::onDeviceRemove()
 	if (!open_message_box("DeviceRemove", false)) return;
 
 	manager(device)->remove(current_device);
-	REFRESH_STRUCTURE(ui->structure_devices, manager(device));
-	deviceShow(nullptr);
+	device_control->refresh();
+	deviceShow();
 }
 
-void MMGEchoWindow::multiShow(QListWidgetItem *item)
+void MMGEchoWindow::multiShow()
 {
+	QListWidgetItem *item = ui->structure_multi->currentItem();
 	ui->editor_secondary_buttons->setVisible(!!item);
 	ui->label_binding_name->setVisible(!!item);
 
-	switch (multi_mode) {
+	switch (ui->structure_multi->property("kind").toInt()) {
 		case MODE_BINDING:
 		default:
-			bindingShow(item);
+			bindingShow();
 			ui->button_move->setVisible(!menu_binding_groups->isEmpty());
-			ui->button_remove->setVisible(current_manager->size() > 1);
+			ui->button_remove->setVisible(current_collection->size() > 1);
 			break;
 
 		case MODE_ACTION:
-			actionShow(item);
+			actionShow();
 			ui->button_move->setVisible(false);
 			ui->button_remove->setVisible(current_binding->actions()->size() > 1);
 			break;
 
 		case MODE_MESSAGE:
-			messageShow(item);
+			messageShow();
 			ui->button_move->setVisible(false);
 			ui->button_remove->setVisible(current_binding->messages()->size() > 1);
 			break;
@@ -370,45 +352,13 @@ void MMGEchoWindow::multiShow(QListWidgetItem *item)
 void MMGEchoWindow::onMultiRename(QListWidgetItem *item)
 {
 	if (!item) return;
-
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			current_binding->setObjectName(item->text());
-			break;
-
-		case MODE_ACTION:
-			current_action->setObjectName(item->text());
-			break;
-
-		case MODE_MESSAGE:
-			current_message->setObjectName(item->text());
-			break;
-	}
 	ui->label_binding_name->setText(item->text());
 }
 
-void MMGEchoWindow::onMultiMove(const QModelIndex &, int from, int, const QModelIndex &, int to)
+void MMGEchoWindow::onMultiReset(int)
 {
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			current_manager->move(from, to);
-			break;
-
-		case MODE_ACTION:
-			current_binding->actions()->move(from, to);
-			break;
-
-		case MODE_MESSAGE:
-			current_binding->messages()->move(from, to);
-			break;
-	}
-}
-
-void MMGEchoWindow::onMultiSelect(int)
-{
-	if (!current_binding) return;
+	ui->editor_binding->setVisible(!!current_binding);
+	ui->editor_multi_access->setVisible(!!current_binding);
 
 	messageShow();
 	actionShow();
@@ -416,145 +366,34 @@ void MMGEchoWindow::onMultiSelect(int)
 
 void MMGEchoWindow::onMultiClick()
 {
-	multi_mode = current_binding->type() == TYPE_OUTPUT ? MODE_MESSAGE : MODE_ACTION;
-	onMultiChange();
+	changeView(current_binding->type() == TYPE_OUTPUT ? MODE_MESSAGE : MODE_ACTION);
 }
 
-void MMGEchoWindow::onMultiChange()
+void MMGEchoWindow::onConfirmClick()
 {
-	MMGBinding *binding = current_binding;
-	bindingShow();
-	current_binding = binding;
-	ui->editor_secondary_buttons->setVisible(false);
-	ui->label_binding_name->setVisible(false);
-
-	switch (multi_mode) {
+	switch (ui->structure_multi->property("kind").toInt()) {
 		case MODE_BINDING:
+			changeView(MODE_COLLECTION);
+			break;
+
 		default:
-			REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-			break;
-
-		case MODE_ACTION:
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions());
-			break;
-
-		case MODE_MESSAGE:
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->messages());
+			changeView(MODE_BINDING);
 			break;
 	}
 }
 
-void MMGEchoWindow::onAddClick()
+void MMGEchoWindow::bindingShow()
 {
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			current_manager->add();
-			REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-			break;
+	current_binding = binding_control->currentValue();
 
-		case MODE_ACTION:
-			current_binding->actions()->add();
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions());
-			break;
+	onMultiReset();
 
-		case MODE_MESSAGE:
-			current_binding->messages()->add();
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->messages());
-			break;
-	}
-}
-
-void MMGEchoWindow::onCopyClick()
-{
 	if (!current_binding) return;
-
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			current_manager->copy(current_binding);
-			REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-			break;
-
-		case MODE_ACTION:
-			current_binding->actions()->copy(current_action);
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions());
-			break;
-
-		case MODE_MESSAGE:
-			current_binding->messages()->copy(current_message);
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->messages());
-			break;
-	}
-}
-
-void MMGEchoWindow::onMoveClick()
-{
-	if (menu_binding_groups->isEmpty()) return;
-	menu_binding_groups->popup(QCursor::pos());
-}
-
-void MMGEchoWindow::onMoveSelect()
-{
-	if (!sender()) return;
-
-	auto action = qobject_cast<QAction *>(sender());
-	if (!action) return;
-
-	MMGBindingManager *manager = action->data().value<MMGBindingManager *>();
-	MMGBinding *moved_binding = manager->add();
-	current_binding->copy(moved_binding);
-	current_manager->remove(current_binding);
-
-	REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-	bindingShow();
-}
-
-void MMGEchoWindow::onRemoveClick()
-{
-	if (!current_binding) return;
-	if (!open_message_box("PermanentRemove", false)) return;
-
-	switch (multi_mode) {
-		case MODE_BINDING:
-		default:
-			current_manager->remove(current_binding);
-			current_binding = nullptr;
-			REFRESH_STRUCTURE(ui->structure_multi, current_manager);
-			break;
-
-		case MODE_ACTION:
-			current_binding->actions()->remove(current_action);
-			current_action = nullptr;
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions());
-			break;
-
-		case MODE_MESSAGE:
-			current_binding->messages()->remove(current_message);
-			current_message = nullptr;
-			REFRESH_STRUCTURE(ui->structure_multi, current_binding->messages());
-			break;
-	}
-
-	multiShow();
-}
-
-void MMGEchoWindow::bindingShow(QListWidgetItem *item)
-{
-	current_binding = ITEM_DATA(MMGBinding);
-
-	ui->editor_binding->setVisible(!!current_binding);
-	ui->editor_multi_access->setVisible(!!current_binding);
 
 	QSignalBlocker blocker_enable(ui->button_enable);
 	QSignalBlocker blocker_switch(ui->button_switch);
 	QSignalBlocker blocker_binding_reset(ui->editor_binding_reset);
 	QSignalBlocker blocker_multi_select(ui->editor_multi_select);
-
-	messageShow();
-	actionShow();
-
-	if (!current_binding) return;
 
 	ui->label_binding_name->setText(current_binding->objectName());
 	bool is_output = current_binding->type() == TYPE_OUTPUT;
@@ -591,7 +430,7 @@ void MMGEchoWindow::onBindingSwitch(bool toggled)
 
 	if (ui->button_switch->signalsBlocked()) return;
 	current_binding->setType((DeviceType)toggled);
-	bindingShow(ui->structure_multi->currentItem());
+	bindingShow();
 }
 
 void MMGEchoWindow::onBindingResetChange(int index)
@@ -599,29 +438,69 @@ void MMGEchoWindow::onBindingResetChange(int index)
 	current_binding->setResetMode(index);
 }
 
-void MMGEchoWindow::messageShow(QListWidgetItem *item)
+void MMGEchoWindow::onBindingMoveClick()
 {
-	current_message = ITEM_DATA(MMGMessage);
-	if (current_binding && !current_message) current_message = current_binding->messages(multiIndex(TYPE_INPUT));
+	if (menu_binding_groups->isEmpty()) return;
+	menu_binding_groups->popup(QCursor::pos());
+}
+
+void MMGEchoWindow::onBindingMoveSelect()
+{
+	if (!sender()) return;
+
+	auto action = qobject_cast<QAction *>(sender());
+	if (!action) return;
+
+	MMGBindingManager *manager = action->data().value<MMGBindingManager *>();
+	MMGBinding *moved_binding = manager->add();
+	current_binding->copy(moved_binding);
+	current_collection->remove(current_binding);
+
+	binding_control->refresh();
+	bindingShow();
+}
+
+void MMGEchoWindow::messageShow()
+{
+	current_message = nullptr;
+
+	switch (ui->structure_multi->property("kind").toInt()) {
+		case MODE_BINDING:
+		default:
+			if (current_binding) current_message = current_binding->messages(multiIndex(TYPE_INPUT));
+			break;
+
+		case MODE_MESSAGE:
+			current_message = message_control->currentValue();
+			if (!!current_message) ui->label_binding_name->setText(current_message->objectName());
+			break;
+	}
 
 	ui->message_frame->setVisible(!!current_message);
 	if (!current_message) return;
-
-	if (multi_mode == MODE_MESSAGE) ui->label_binding_name->setText(current_message->objectName());
 
 	MMGNoEdit no_edit_message(current_message);
 	message_display->setStorage(current_message);
 }
 
-void MMGEchoWindow::actionShow(QListWidgetItem *item)
+void MMGEchoWindow::actionShow()
 {
-	current_action = ITEM_DATA(MMGAction);
-	if (current_binding && !current_action) current_action = current_binding->actions(multiIndex(TYPE_OUTPUT));
+	current_action = nullptr;
 
-	ui->action_frame->setVisible(!!current_binding);
+	switch (ui->structure_multi->property("kind").toInt()) {
+		case MODE_BINDING:
+		default:
+			if (current_binding) current_action = current_binding->actions(multiIndex(TYPE_OUTPUT));
+			break;
+
+		case MODE_ACTION:
+			current_action = action_control->currentValue();
+			if (!!current_action) ui->label_binding_name->setText(current_action->objectName());
+			break;
+	}
+
+	ui->action_frame->setVisible(!!current_action);
 	if (!current_action) return;
-
-	if (multi_mode == MODE_ACTION) ui->label_binding_name->setText(current_action->objectName());
 
 	MMGNoEdit no_edit_action(current_action);
 	QSignalBlocker blocker_cat(ui->editor_cat);
@@ -641,7 +520,7 @@ void MMGEchoWindow::onActionCategoryChange(int index)
 	json_obj["category"] = index;
 	current_binding->actions()->changeActionCategory(current_action, json_obj);
 	current_binding->refresh();
-	if (multi_mode == MODE_ACTION) { REFRESH_STRUCTURE(ui->structure_multi, current_binding->actions()); }
+	action_control->refresh();
 
 	onActionSubUpdate();
 }

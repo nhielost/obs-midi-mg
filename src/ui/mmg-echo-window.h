@@ -16,6 +16,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "ui_mmg-echo-window.h"
 #include "mmg-message-display.h"
+#include "mmg-manager-control.h"
 #include "../mmg-device.h"
 
 class MMGEchoWindow : public QDialog {
@@ -25,7 +26,7 @@ public:
 	explicit MMGEchoWindow(QWidget *parent);
 	~MMGEchoWindow() override;
 
-	enum MultiMode { MODE_BINDING, MODE_ACTION, MODE_MESSAGE };
+	enum MultiMode { MODE_COLLECTION, MODE_DEVICE, MODE_BINDING, MODE_MESSAGE, MODE_ACTION };
 
 private:
 	Ui::MMGEchoWindow *ui;
@@ -34,33 +35,32 @@ private:
 
 	MMGMessageDisplay *message_display;
 
-	MMGBindingManager *current_manager = nullptr;
-	MMGDevice *current_device = nullptr;
+	MMGManagerControl<MMGBindingManager> *collection_control;
+	MMGManagerControl<MMGDevice> *device_control;
+	MMGManagerControl<MMGBinding> *binding_control;
+	MMGManagerControl<MMGMessage> *message_control;
+	MMGManagerControl<MMGAction> *action_control;
 
+	MMGBindingManager *current_collection = nullptr;
+	MMGDevice *current_device = nullptr;
 	MMGBinding *current_binding = nullptr;
 	MMGMessage *current_message = nullptr;
 	MMGAction *current_action = nullptr;
-	MultiMode multi_mode = MODE_BINDING;
 
 	void reject() override;
 	void connectUISignals();
 	void translate();
 
+	void changeView(MultiMode mode);
 	int multiIndex(MMGUtils::DeviceType) const;
 
 public slots:
 	void displayWindow();
 
 private slots:
-	void collectionShow(QListWidgetItem *item = nullptr);
-	void onCollectionRename(QListWidgetItem *item);
-	void onCollectionMove(const QModelIndex &, int from, int, const QModelIndex &, int to);
-	void onCollectionAdd();
-	void onCollectionEdit();
-	void onCollectionConfirm();
-	void onCollectionRemove();
+	void collectionShow();
 
-	void deviceShow(QListWidgetItem *item = nullptr);
+	void deviceShow();
 	void onDeviceInputActiveChange(bool toggled);
 	void onDeviceOutputActiveChange(bool toggled);
 	void onDeviceThruStateChange(bool toggled);
@@ -68,26 +68,22 @@ private slots:
 	void onDeviceCheck();
 	void onDeviceRemove();
 
-	void multiShow(QListWidgetItem *item = nullptr);
+	void multiShow();
 	void onMultiRename(QListWidgetItem *item);
-	void onMultiMove(const QModelIndex &, int from, int, const QModelIndex &, int to);
-	void onMultiSelect(int);
+	void onMultiReset(int = 0);
 	void onMultiClick();
-	void onMultiChange();
-	void onAddClick();
-	void onCopyClick();
-	void onMoveClick();
-	void onMoveSelect();
-	void onRemoveClick();
+	void onConfirmClick();
 
-	void bindingShow(QListWidgetItem *item = nullptr);
+	void bindingShow();
 	void onBindingActiveChange(bool toggled);
 	void onBindingSwitch(bool toggled);
 	void onBindingResetChange(int index);
+	void onBindingMoveClick();
+	void onBindingMoveSelect();
 
-	void messageShow(QListWidgetItem *item = nullptr);
+	void messageShow();
 
-	void actionShow(QListWidgetItem *item = nullptr);
+	void actionShow();
 	void onActionCategoryChange(int index);
 	void onActionSubUpdate();
 	void onActionSubChange(int index);
