@@ -122,6 +122,8 @@ When being sent to an output MIDI Device, non-Fixed field states will be filled 
 
 7. ***Listen Button: Continuous***: When clicked, the MIDI Device selected above will be checked for incoming messages. All Bindings will be disabled when this is activated. When a message is received, the Message will be updated to match that message. Listening will not be deactivated on its own, so it will need to be deactivated manually - otherwise all Bindings will be disabled.
 
+***NOTE**: As of version 3.0.0, the *listen* buttons have combined into one button. Clicking the button will toggle between the three modes: off, listen once and listen continuous.*
+
 ## Actions
 
 Actions are composed of a category, action identification, and type. Additional fields are changed dynamically when the categories and identifications are changed. 
