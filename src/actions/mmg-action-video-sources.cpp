@@ -449,11 +449,19 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 			break;
 
 		case SOURCE_VIDEO_DISPLAY:
-			obs_sceneitem_set_visible(obs_sceneitem, action == obstr("Show"));
+			if (action.state() == STATE_TOGGLE) {
+				obs_sceneitem_set_visible(obs_sceneitem, !obs_sceneitem_visible(obs_sceneitem));
+			} else {
+				obs_sceneitem_set_visible(obs_sceneitem, action == obstr("Show"));
+			}
 			break;
 
 		case SOURCE_VIDEO_LOCKED:
-			obs_sceneitem_set_locked(obs_sceneitem, action == mmgtr("Actions.VideoSources.Locked"));
+			if (action.state() == STATE_TOGGLE) {
+				obs_sceneitem_set_locked(obs_sceneitem, !obs_sceneitem_locked(obs_sceneitem));
+			} else {
+				obs_sceneitem_set_locked(obs_sceneitem, action == mmgtr("Actions.VideoSources.Locked"));
+			}
 			break;
 
 		case SOURCE_VIDEO_CROP:

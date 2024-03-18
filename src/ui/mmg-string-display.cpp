@@ -146,8 +146,8 @@ void MMGStringDisplay::setComboBoxState(short state)
 		combo_string->setItemText(idx, state == 1 ? QString(mmgtr("Fields.AnyValue")).arg(label->text())
 							  : _bounds[idx]);
 	}
-	combo_min->setVisible(state == 2 || state == 4);
-	combo_max->setVisible(state == 2 || state == 4);
+	combo_min->setVisible(state == 2 || (state == 4 && _bounds.size() > 2));
+	combo_max->setVisible(state == 2 || (state == 4 && _bounds.size() > 2));
 
 	emit stringChanged();
 }
