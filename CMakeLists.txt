@@ -36,7 +36,7 @@ endif()
 
 # Include libremidi library
 add_subdirectory(libremidi EXCLUDE_FROM_ALL)
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE libremidi/include)
+target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PRIVATE libremidi/include)
 # Prevent libremidi from causing MIDI 2 and C++20 errors when compiling
 set_target_properties(libremidi PROPERTIES CXX_STANDARD 20 CXX_EXTENSIONS off)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE libremidi)

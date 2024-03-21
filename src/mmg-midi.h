@@ -97,7 +97,7 @@ private:
 	void outputAdded(const libremidi::output_port &port);
 	void outputRemoved(const libremidi::output_port &port);
 
-	void backendError(libremidi::midi_error, std::string_view) const;
+	static void backendError(std::string_view, const libremidi::source_location &);
 };
 
 #endif // MMG_MIDI_H

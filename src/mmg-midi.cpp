@@ -203,8 +203,8 @@ void MMGMIDIPort::callback(const libremidi::message &msg)
 // MMGMIDI
 MMGMIDI::MMGMIDI(QObject *parent)
 	: QObject(parent),
-	  observer({.on_error = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
-		    .on_warning = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
+	  observer({.on_error = backendError,
+		    .on_warning = backendError,
 		    .input_added = [&](libremidi::input_port port) { inputAdded(port); },
 		    .input_removed = [&](libremidi::input_port port) { inputRemoved(port); },
 		    .output_added = [&](libremidi::output_port port) { outputAdded(port); },
@@ -220,19 +220,14 @@ void MMGMIDI::blog(int log_status, const QString &message) const
 
 const libremidi::input_configuration MMGMIDI::inputConfig(MMGMIDIPort *port) const
 {
-	return {
-		.on_message = [port](libremidi::message &&message) { port->callback(message); },
-		.on_error = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
-		.on_warning = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
-	};
+	return {.on_message = [port](libremidi::message &&message) { port->callback(message); },
+		.on_error = backendError,
+		.on_warning = backendError};
 }
 
 const libremidi::output_configuration MMGMIDI::outputConfig() const
 {
-	return {
-		.on_error = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
-		.on_warning = [&](libremidi::midi_error e, std::string_view str) { backendError(e, str); },
-	};
+	return {.on_error = backendError, .on_warning = backendError};
 }
 
 void MMGMIDI::inputAdded(const libremidi::input_port &port)
@@ -293,39 +288,10 @@ void MMGMIDI::outputRemoved(const libremidi::output_port &port)
 	emit deviceCapableChange();
 }
 
-void MMGMIDI::backendError(libremidi::midi_error error, std::string_view string) const
+void MMGMIDI::backendError(std::string_view msg, const libremidi::source_location &loc)
 {
-	QString err_string = string.data();
-
-	switch (error) {
-		case libremidi::WARNING:
-			blog(LOG_INFO, "{WARNING} " + err_string);
-			break;
-
-		case libremidi::UNSPECIFIED:
-		default:
-			blog(LOG_INFO, "{UNKNOWN ERROR} " + err_string);
-			break;
-
-		case libremidi::NO_DEVICES_FOUND:
-			blog(LOG_INFO, "{NO DEVICES} " + err_string);
-			break;
-
-		case libremidi::INVALID_DEVICE:
-		case libremidi::INVALID_PARAMETER:
-		case libremidi::INVALID_USE:
-			blog(LOG_INFO, "{INVALID USAGE} " + err_string);
-			break;
-
-		case libremidi::MEMORY_ERROR:
-			blog(LOG_INFO, "{MEMORY ERROR} " + err_string);
-			break;
-
-		case libremidi::DRIVER_ERROR:
-		case libremidi::SYSTEM_ERROR:
-		case libremidi::THREAD_ERROR:
-			blog(LOG_INFO, "{SYSTEM ERROR} " + err_string);
-			break;
-	}
+	midi()->blog(LOG_INFO, QString("ERROR: ") + msg.data());
+	midi()->blog(LOG_DEBUG,
+	     QString("Debug Info: %1 at %2:%3").arg(loc.function_name()).arg(loc.file_name()).arg(loc.line()));
 }
 // End MMGMIDI
