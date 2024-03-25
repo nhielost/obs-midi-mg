@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2024 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -68,11 +68,11 @@ void MMGDevice::setActive(DeviceType type, bool active)
 
 	switch (type) {
 		case TYPE_INPUT:
-			_active ^= 0b01; // 00 -> 01, 10 -> 11, 01 -> 00, 11 -> 10
+			_active ^= 0b01;
 			break;
 
 		case TYPE_OUTPUT:
-			_active ^= 0b10; // 00 -> 10, 01 -> 11, 10 -> 00, 11 -> 01
+			_active ^= 0b10;
 			break;
 
 		default:

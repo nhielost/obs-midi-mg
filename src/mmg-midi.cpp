@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022-2023 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2024 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -29,9 +29,6 @@ MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj)
 	  midi_out(midi()->outputConfig())
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Device.Dummy")));
-
-	//thru_timer = new MMGTimer(this);
-	//connect(thru_timer, &MMGTimer::stopping, this, &MMGMIDIPort::closeOutputPort);
 }
 
 void MMGMIDIPort::blog(int log_status, const QString &_message) const
