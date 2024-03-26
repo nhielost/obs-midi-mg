@@ -25,6 +25,6 @@ using namespace MMGUtils;
 
 MMGSettings::MMGSettings(QObject *parent) : QObject(parent) {}
 
-void MMGSettings::json(const QString &key, QJsonObject &json_obj) const {}
+void MMGSettings::json(const QString &, QJsonObject &) const {}
 
-void MMGSettings::load(const QJsonObject &json_obj) {}
+void MMGSettings::load(const QJsonObject &) {}

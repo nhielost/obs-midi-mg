@@ -289,6 +289,6 @@ void MMGMIDI::backendError(std::string_view msg, const libremidi::source_locatio
 {
 	midi()->blog(LOG_INFO, QString("ERROR: ") + msg.data());
 	midi()->blog(LOG_DEBUG,
-	     QString("Debug Info: %1 at %2:%3").arg(loc.function_name()).arg(loc.file_name()).arg(loc.line()));
+		     QString("Debug Info: %1 at %2:%3").arg(loc.function_name()).arg(loc.file_name()).arg(loc.line()));
 }
 // End MMGMIDI
