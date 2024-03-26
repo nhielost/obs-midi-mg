@@ -1,6 +1,3 @@
-## Announcement
-**The new version 3.0.0 Beta 3 is now available. This is the last beta before the full version 3.**<br><br><br>
-
 # obs-midi-mg
 
 Allows MIDI devices to interact with OBS Studio.
