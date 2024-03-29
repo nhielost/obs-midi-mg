@@ -27,6 +27,7 @@ MMGMessageDisplay::MMGMessageDisplay(QWidget *parent) : QWidget(parent)
 	device_display = new MMGStringDisplay(this);
 	device_display->move(0, 5);
 	device_display->setDescription(mmgtr("Device.Name"));
+	device_display->setStorage(&_device);
 	connect(device_display, &MMGStringDisplay::stringChanged, this, &MMGMessageDisplay::setDevice);
 
 	type_display = new MMGStringDisplay(this);
@@ -69,7 +70,7 @@ void MMGMessageDisplay::setStorage(MMGMessage *storage)
 	_storage = storage;
 
 	MMGNoEdit no_edit_storage(storage);
-	device_display->setStorage(&_device);
+	_device = !!storage->device() ? storage->device()->objectName() : "";
 	type_display->setStorage(&storage->type());
 	channel_display->setStorage(&storage->channel());
 	note_display->setStorage(&storage->note());
