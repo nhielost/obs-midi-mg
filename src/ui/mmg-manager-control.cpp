@@ -63,6 +63,8 @@ template<typename T> void MMGManagerControl<T>::refresh()
 {
 	if (!isEnabled()) return;
 
+	list_widget->blockSignals(true);
+
 	list_widget->clear();
 	for (T *val : *current_manager) {
 		QListWidgetItem *new_item = new QListWidgetItem;
@@ -72,6 +74,8 @@ template<typename T> void MMGManagerControl<T>::refresh()
 		new_item->setData(dataRole(), QVariant::fromValue(val));
 		list_widget->addItem(new_item);
 	}
+
+	list_widget->blockSignals(false);
 
 	itemShow();
 }

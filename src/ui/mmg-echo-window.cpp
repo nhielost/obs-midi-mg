@@ -457,7 +457,7 @@ void MMGEchoWindow::onBindingMoveSelect()
 	current_collection->remove(current_binding);
 
 	binding_control->refresh();
-	bindingShow();
+	multiShow();
 }
 
 void MMGEchoWindow::messageShow()
