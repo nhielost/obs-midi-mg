@@ -153,7 +153,7 @@ void MMGMIDIPort::sendMessage(const MMGMessage *midi)
 	}
 
 	libremidi::message _message;
-	int channel = midi->channel() - 1;
+	int channel = midi->channel();
 	int note = midi->note();
 	int value = midi->value();
 
