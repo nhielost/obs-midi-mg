@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-link.h"
+#include "mmg-binding.h"
 #include "mmg-midi.h"
 
 using namespace MMGUtils;
@@ -124,14 +125,20 @@ void MMGLink::executeOutput()
 
 void MMGLink::messageReceived(const MMGSharedMessage &incoming)
 {
-	if (!binding->messages(0)->acceptable(incoming.get())) return;
+	MMGMessage *checked_message = binding->messages(0);
+	if (!checked_message->acceptable(incoming.get())) return;
 
 	if (binding->actions()->size() < 1) {
 		blog(LOG_INFO, "FAILED: No actions to execute!");
 		return;
 	}
 
-	incoming->copy(incoming_message);
+	checked_message->copy(incoming_message);
+	incoming_message->type().setValue(incoming->type().value());
+	incoming_message->channel().setValue(incoming->channel().value());
+	incoming_message->note().setValue(incoming->note().value());
+	incoming_message->value().setValue(incoming->value().value());
+
 	execute();
 }
 

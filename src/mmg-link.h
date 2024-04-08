@@ -16,11 +16,16 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#pragma once
-#include "mmg-binding.h"
+#ifndef MMG_LINK_H
+#define MMG_LINK_H
+
+#include "mmg-utils.h"
+#include "mmg-message.h"
 
 #include <QThread>
 #include <mutex>
+
+class MMGBinding;
 
 class MMGLink : public QThread {
 	Q_OBJECT
@@ -56,3 +61,4 @@ private:
 
 	static short thread_count;
 };
+#endif // MMG_LINK_H

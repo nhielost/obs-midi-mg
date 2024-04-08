@@ -26,10 +26,11 @@ using namespace MMGUtils;
 MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	: QObject(parent),
 	  _messages(new MMGMessageManager(this)),
-	  _actions(new MMGActionManager(this)),
-	  link(new MMGLink(this))
+	  _actions(new MMGActionManager(this))
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Binding.Untitled")));
+	link = new MMGLink(this);
+
 	_enabled = json_obj["enabled"].toBool(true);
 	_type = (DeviceType)json_obj["type"].toInt();
 	reset_mode = json_obj["reset_mode"].toInt();

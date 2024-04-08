@@ -23,7 +23,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-manager.h"
 
 class MMGMIDIPort;
-class MMGLink;
 
 class MMGMessage : public QObject {
 	Q_OBJECT
