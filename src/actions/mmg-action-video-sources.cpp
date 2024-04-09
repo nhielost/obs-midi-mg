@@ -17,8 +17,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-action-video-sources.h"
+
 #include "../mmg-binding.h"
 #include "mmg-action-scenes.h"
+#include "../ui/mmg-fields.h"
 
 using namespace MMGUtils;
 
@@ -87,6 +89,7 @@ void MMGActionVideoSources::setEditable(bool edit)
 	nums[1].setEditable(edit);
 	nums[2].setEditable(edit);
 	nums[3].setEditable(edit);
+	_json->setEditable(edit);
 }
 
 void MMGActionVideoSources::toggle()
@@ -157,7 +160,7 @@ void MMGActionVideoSources::onList2Change()
 	num3_display->setVisible(false);
 	num4_display->setVisible(false);
 
-	MMGActionFieldRequest req;
+	OBSSourceAutoRelease obs_source;
 	bool source_exists = !source.value().isEmpty();
 
 	switch (sub()) {
@@ -265,7 +268,6 @@ void MMGActionVideoSources::onList2Change()
 
 		case SOURCE_VIDEO_SCALEFILTER:
 			action_display->setVisible(true);
-			action_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
 			action_display->setDescription(obstr("ScaleFiltering"));
 			action_display->setBounds(scaleFilterOptions());
 			action_display->setDefaultValue(scaleFilterOptions().value(at->scale_type));
@@ -318,9 +320,8 @@ void MMGActionVideoSources::onList2Change()
 			break;
 
 		case SOURCE_VIDEO_CUSTOM:
-			req.source = obs_get_source_by_name(source.mmgtocs());
-			req.json = _json;
-			display()->setCustomOBSFields(req);
+			obs_source = obs_get_source_by_name(source.mmgtocs());
+			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
 			break;
 
 		default:
@@ -524,7 +525,7 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 			break;
 
 		case SOURCE_VIDEO_CUSTOM:
-			obs_source_custom_update(obs_source, _json->json(), midi);
+			MMGOBSFields::execute(obs_source, _json, midi);
 			break;
 
 		default:
@@ -616,7 +617,7 @@ void MMGActionVideoSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
+			triggerEvent();
 			break;
 
 		default:

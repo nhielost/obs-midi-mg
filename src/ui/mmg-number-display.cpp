@@ -83,6 +83,8 @@ void MMGNumberDisplay::setDescription(const QString &desc)
 
 void MMGNumberDisplay::setBounds(double lower, double upper, bool extend_bounds)
 {
+	if (defaults.min() == lower && defaults.max() == upper) return;
+
 	if (extend_bounds) {
 		double range = upper - lower;
 		lcd_number->setBounds(lower - range, upper + range);

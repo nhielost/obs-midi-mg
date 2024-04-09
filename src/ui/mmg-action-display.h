@@ -23,15 +23,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-number-display.h"
 #include "mmg-string-display.h"
 
-class MMGBinding;
-
-struct MMGActionFieldRequest {
-	OBSSourceAutoRelease source;
-	MMGUtils::MMGJsonObject *json;
-};
-
-using MMGOBSFieldsList = QList<class MMGOBSFields *>;
-
 class MMGActionDisplay : public QWidget {
 	Q_OBJECT
 
@@ -49,10 +40,6 @@ public:
 	void setFields(QWidget *widget);
 	void reset();
 
-	void setCustomOBSFields(const MMGActionFieldRequest &req);
-
-	static void clearCustomOBSFields();
-
 private:
 	QScrollArea *scroll_area;
 	QWidget *scroll_widget;
@@ -61,8 +48,6 @@ private:
 	QList<MMGStringDisplay *> string_fields;
 	QList<MMGNumberDisplay *> number_fields;
 	QWidget *fields = nullptr;
-
-	static MMGOBSFieldsList mmg_custom_fields;
 };
 
 #endif // MMG_ACTION_DISPLAY_H

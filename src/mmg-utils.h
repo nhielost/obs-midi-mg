@@ -126,16 +126,19 @@ class MMGJsonObject : public QObject {
 public:
 	MMGJsonObject(QObject *parent = nullptr) : QObject(parent){};
 
+	void setEditable(bool edit) { editable = edit; };
+
 	bool isEmpty() const { return json_obj.isEmpty(); };
+	QStringList keys() const { return json_obj.keys(); };
 	QJsonValue value(const QString &key) const { return json_obj[key]; };
-	void insert(const QString &key, const QJsonValue &value) { json_obj[key] = value; };
 
 	const QJsonObject &json() const { return json_obj; };
-	void setJson(const QJsonObject &json) { json_obj = json; };
+	void setJson(const QJsonObject &json) { MMG_ENABLED json_obj = json; };
 	void clear() { json_obj = {}; };
 
 private:
 	QJsonObject json_obj;
+	bool editable = true;
 };
 
 template<class T> struct MMGNoEdit {
@@ -180,9 +183,6 @@ void enable_combo_option(QComboBox *combo, int index, bool enable);
 QIcon mmg_icon(const QString &icon_name);
 
 bool open_message_box(const QString &message, bool information = true);
-
-void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi_value);
-QList<MMGNumber> obs_source_custom_updated(obs_source_t *source, const QJsonObject &action_json);
 
 } // namespace MMGUtils
 

@@ -53,8 +53,11 @@ public:
 	virtual void jsonUpdate(QJsonObject &json_obj) const = 0;
 	virtual void jsonData(QJsonObject &json_obj) const = 0;
 	virtual void apply(const QJsonObject &json_obj) = 0;
+
 	virtual void refresh(const MMGOBSFieldInit &init) = 0;
 	virtual void update(obs_property_t *prop) = 0;
+
+	virtual void execute(QJsonObject &data, const MMGMessage *message) const = 0;
 
 signals:
 	void triggerUpdate();
@@ -82,8 +85,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override { json_obj[_name] = number.value(); };
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
 
 private:
 	MMGUtils::MMGNumber number;
@@ -102,8 +108,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override;
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
 
 	static const QVariantList propertyValues(obs_source_t *source, const QString &field);
 
@@ -126,8 +135,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override { json_obj[_name] = boolean; };
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override { updateAndBlock(prop); };
+
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
 
 private slots:
 	void changeBoolean(bool value);
@@ -135,7 +147,7 @@ private slots:
 
 private:
 	bool boolean;
-	MMGUtils::ValueState state = MMGUtils::STATE_FIXED;
+	MMGUtils::ValueState state = MMGUtils::STATE_IGNORE;
 
 	QPushButton *button;
 	MMGMIDIButtons *midi_buttons;
@@ -153,8 +165,11 @@ public:
 	void jsonUpdate(QJsonObject &) const override{};
 	void jsonData(QJsonObject &) const override{};
 	void apply(const QJsonObject &) override{};
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &, const MMGMessage *) const override{};
 
 private:
 	QPushButton *button;
@@ -175,8 +190,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override;
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &data, const MMGMessage *) const override { jsonUpdate(data); };
 
 private:
 	QColor color;
@@ -198,8 +216,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override;
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &data, const MMGMessage *) const override { jsonUpdate(data); };
 
 private:
 	QFont font;
@@ -218,8 +239,11 @@ public:
 	void jsonUpdate(QJsonObject &json_obj) const override;
 	void jsonData(QJsonObject &json_obj) const override;
 	void apply(const QJsonObject &) override{};
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
+
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
 
 	MMGOBSBooleanField *booleanField() const { return boolean_field; };
 
@@ -237,14 +261,16 @@ public:
 
 	void callback();
 	void jsonUpdate(QJsonObject &json_obj) const override { json_obj[_name] = path; };
-	void jsonData(QJsonObject &json_obj) const override;
+	void jsonData(QJsonObject &json_obj) const override { json_obj["string"] = path; };
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
 
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
+
 private:
 	QString path;
-	MMGUtils::ValueState state = MMGUtils::STATE_FIXED;
 
 	short dialog_type;
 	QString filters;
@@ -263,16 +289,16 @@ public:
 
 	void callback(const QString &str);
 	void jsonUpdate(QJsonObject &json_obj) const override { json_obj[_name] = text; };
-	void jsonData(QJsonObject &json_obj) const override;
+	void jsonData(QJsonObject &json_obj) const override { json_obj["string"] = text; };
 	void apply(const QJsonObject &json_obj) override;
+
 	void refresh(const MMGOBSFieldInit &init) override;
 	void update(obs_property_t *prop) override;
 
-	bool checkMIDI() const;
+	void execute(QJsonObject &data, const MMGMessage *message) const override;
 
 private:
 	QString text;
-	MMGUtils::ValueState state = MMGUtils::STATE_FIXED;
 
 	QTextEdit *text_edit;
 	QLineEdit *line_edit;
@@ -286,30 +312,42 @@ public:
 	~MMGOBSFields() { obs_properties_destroy(props); }
 
 	void changeSource(obs_source_t *source);
-	bool match(obs_source_t *source) const { return identifier == obs_source_get_id(source); };
-	void setJsonDestination(MMGUtils::MMGJsonObject *json);
+	void apply(MMGUtils::MMGJsonObject *json);
 
-	void addFields(QWidget *parent, obs_properties_t *props, const MMGOBSFieldInit &json_init);
+	static MMGOBSFields *registerSource(obs_source_t *source, MMGUtils::MMGJsonObject *json);
+	static void execute(obs_source_t *source, const MMGUtils::MMGJsonObject *json, const MMGMessage *message);
+	static void clearFields() { qDeleteAll(all_fields); };
 
-public slots:
+signals:
+	void dataChanged(const QJsonObject &);
+
+private slots:
 	void updateField();
 	void jsonUpdate();
 	void jsonData();
 
-private slots:
 	void buttonFieldClicked(); // For when an MMGOBSButtonField is clicked
 
 private:
 	QString identifier;
 	QString source_name;
-	obs_properties_t *props = nullptr;
-	QJsonObject json_src;
-
-	MMGUtils::MMGJsonObject *json_des = nullptr;
 	QList<MMGOBSField *> fields;
 
-	MMGOBSFieldInit getSourceData(obs_source_t *source);
-	void addGroupContent(MMGOBSGroupField *field, const MMGOBSFieldInit &init);
-};
+	obs_properties_t *props = nullptr;
+	QJsonObject property_json;
 
-using MMGOBSFieldsList = QList<MMGOBSFields *>;
+	QJsonObject data_json;
+
+	bool match(obs_source_t *source) const { return identifier == obs_source_get_id(source); };
+
+	void addFields(QWidget *parent, obs_properties_t *props, const MMGOBSFieldInit &json_init);
+	void addGroupContent(MMGOBSGroupField *field, const MMGOBSFieldInit &init);
+
+	MMGOBSFieldInit gatherSourceData(obs_source_t *source);
+	static QJsonObject sourceDataJson(obs_source_t *source);
+	static QJsonObject sourceDefaultJson(obs_source_t *source);
+
+	static MMGOBSFields *findFields(obs_source_t *source);
+
+	static QList<MMGOBSFields *> all_fields;
+};

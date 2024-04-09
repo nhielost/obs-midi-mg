@@ -17,6 +17,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-fields.h"
+#include "mmg-action-display.h"
+#include "../mmg-message.h"
+
+#include <mutex>
 
 #include <QColorDialog>
 #include <QFontDialog>
@@ -25,6 +29,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QDesktopServices>
 
 using namespace MMGUtils;
+
+static std::mutex custom_update;
 
 // MMGOBSField
 const QString MMGOBSField::frame_style = "border: 1px solid #ff0000; border-radius: 8px;";
@@ -49,6 +55,7 @@ const QSignalBlocker MMGOBSField::updateAndBlock(obs_property_t *prop)
 MMGOBSNumberField::MMGOBSNumberField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
 	_name = obs_property_name(init.prop);
+	number.setState(STATE_IGNORE);
 
 	num_display = new MMGNumberDisplay(this);
 	num_display->move(0, 10);
@@ -98,7 +105,15 @@ void MMGOBSNumberField::update(obs_property_t *prop)
 	MMGNumber bounds = propertyBounds(prop);
 	num_display->setBounds(bounds.min(), bounds.max());
 	num_display->setStep(bounds.value());
+
+	MMGNoEdit no_edit_number(&number);
 	num_display->display();
+}
+
+void MMGOBSNumberField::execute(QJsonObject &data, const MMGMessage *message) const
+{
+	if (number.state() == STATE_IGNORE) return;
+	data[_name] = number.chooseFrom(message);
 }
 
 const MMGNumber MMGOBSNumberField::propertyBounds(obs_property_t *prop)
@@ -138,6 +153,7 @@ finish:
 MMGOBSStringField::MMGOBSStringField(QWidget *p, const MMGOBSFieldInit &init) : MMGOBSField(p)
 {
 	_name = obs_property_name(init.prop);
+	string.setState(STATE_IGNORE);
 
 	str_display = new MMGStringDisplay(this);
 	str_display->setOptions(MIDIBUTTON_FIXED | MIDIBUTTON_MIDI | MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
@@ -197,6 +213,12 @@ void MMGOBSStringField::update(obs_property_t *prop)
 
 	MMGNoEdit no_edit_string(&string);
 	str_display->display();
+}
+
+void MMGOBSStringField::execute(QJsonObject &data, const MMGMessage *message) const
+{
+	if (string.state() == STATE_IGNORE) return;
+	data[_name] = QJsonValue::fromVariant(values.value(options.indexOf(string.chooseFrom(message, options))));
 }
 
 const QStringList MMGOBSStringField::propertyDescriptions(obs_property_t *prop)
@@ -321,6 +343,12 @@ void MMGOBSBooleanField::refresh(const MMGOBSFieldInit &init)
 
 	button->setChecked(boolean);
 	midi_buttons->setState(state);
+}
+
+void MMGOBSBooleanField::execute(QJsonObject &data, const MMGMessage *) const
+{
+	if (state == STATE_IGNORE) return;
+	data[_name] = state == STATE_TOGGLE ? !data[_name].toBool() : boolean;
 }
 // End MMGOBSBooleanField
 
@@ -571,6 +599,11 @@ void MMGOBSGroupField::update(obs_property_t *prop)
 		label->setText(obs_property_description(prop));
 	}
 }
+
+void MMGOBSGroupField::execute(QJsonObject &data, const MMGMessage *message) const
+{
+	HAS_BOOLEAN_FIELD boolean_field->execute(data, message);
+}
 // End MMGOBSGroupField
 
 // MMGOBSPathField
@@ -602,16 +635,9 @@ MMGOBSPathField::MMGOBSPathField(QWidget *p, const MMGOBSFieldInit &init) : MMGO
 	refresh(init);
 }
 
-void MMGOBSPathField::jsonData(QJsonObject &json_obj) const
-{
-	json_obj["string"] = path;
-	json_obj["state"] = state;
-}
-
 void MMGOBSPathField::apply(const QJsonObject &json_obj)
 {
 	path = json_obj["string"].toString();
-	state = (ValueState)json_obj["state"].toInt();
 	emit triggerUpdate();
 }
 
@@ -638,6 +664,18 @@ void MMGOBSPathField::update(obs_property_t *prop)
 
 	path_display->setText(path);
 	button->setText(mmgtr_two("Fields", "FileSelect", "FolderSelect", dialog_type < 2));
+}
+
+void MMGOBSPathField::execute(QJsonObject &data, const MMGMessage *message) const
+{
+	QString str = path;
+	str.replace("${type}", message->type());
+	str.replace("${channel}", num_to_str(message->channel()));
+	str.replace("${note}", num_to_str(message->note()));
+	str.replace("${control}", num_to_str(message->note()));
+	str.replace("${value}", num_to_str(message->value()));
+	str.replace("${velocity}", num_to_str(message->value()));
+	data[_name] = str;
 }
 
 void MMGOBSPathField::callback()
@@ -691,24 +729,15 @@ MMGOBSTextField::MMGOBSTextField(QWidget *p, const MMGOBSFieldInit &init) : MMGO
 	line_edit->connect(line_edit, &QLineEdit::textChanged, this, &MMGOBSTextField::callback);
 }
 
-void MMGOBSTextField::jsonData(QJsonObject &json_obj) const
-{
-	json_obj["string"] = text;
-	json_obj["state"] = state;
-}
-
 void MMGOBSTextField::callback(const QString &str)
 {
 	text = str;
-	state = (ValueState)checkMIDI();
 	emit saveData();
 }
 
 void MMGOBSTextField::apply(const QJsonObject &json_obj)
 {
 	text = json_obj["string"].toString();
-	state = (ValueState)checkMIDI();
-
 	emit triggerUpdate();
 }
 
@@ -719,7 +748,6 @@ void MMGOBSTextField::refresh(const MMGOBSFieldInit &init)
 	} else {
 		text = init.default_json[_name].toString();
 	}
-	state = (ValueState)checkMIDI();
 	update(init.prop);
 }
 
@@ -732,14 +760,22 @@ void MMGOBSTextField::update(obs_property_t *prop)
 	line_edit->setText(text);
 }
 
-bool MMGOBSTextField::checkMIDI() const
+void MMGOBSTextField::execute(QJsonObject &data, const MMGMessage *message) const
 {
-	return text.contains("${type}") || text.contains("${channel}") || text.contains("${note}") ||
-	       text.contains("${control}") || text.contains("${value}") || text.contains("${velocity}");
+	QString str = text;
+	str.replace("${type}", message->type());
+	str.replace("${channel}", num_to_str(message->channel()));
+	str.replace("${note}", num_to_str(message->note()));
+	str.replace("${control}", num_to_str(message->note()));
+	str.replace("${value}", num_to_str(message->value()));
+	str.replace("${velocity}", num_to_str(message->value()));
+	data[_name] = str;
 }
 // End MMGOBSTextField
 
 // MMGOBSFields
+QList<MMGOBSFields *> MMGOBSFields::all_fields;
+
 MMGOBSFields::MMGOBSFields(obs_source_t *source)
 {
 	if (!source) {
@@ -756,7 +792,7 @@ MMGOBSFields::MMGOBSFields(obs_source_t *source)
 	layout->setContentsMargins(0, 0, 0, 0);
 	setLayout(layout);
 
-	addFields(this, props, getSourceData(source));
+	addFields(this, props, gatherSourceData(source));
 	jsonUpdate();
 }
 
@@ -764,8 +800,9 @@ void MMGOBSFields::changeSource(obs_source_t *source)
 {
 	if (!match(source) || obs_source_get_name(source) == source_name) return;
 
-	MMGOBSFieldInit init = getSourceData(source);
-	if (json_des) json_des->clear();
+	MMGOBSFieldInit init = gatherSourceData(source);
+	property_json = {};
+	data_json = {};
 
 	for (MMGOBSField *field : fields) {
 		init.prop = obs_properties_get(props, field->name().qtocs());
@@ -773,19 +810,28 @@ void MMGOBSFields::changeSource(obs_source_t *source)
 	}
 }
 
-MMGOBSFieldInit MMGOBSFields::getSourceData(obs_source_t *source)
+MMGOBSFieldInit MMGOBSFields::gatherSourceData(obs_source_t *source)
 {
 	source_name = obs_source_get_name(source);
-
-	OBSDataAutoRelease source_data = obs_source_get_settings(source);
-	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
-	QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
-	QJsonObject defaults_json = json_from_str(obs_data_get_json(source_defaults));
 
 	if (props) obs_properties_destroy(props);
 	props = obs_source_properties(source);
 
-	return {nullptr, source_json, defaults_json};
+	return {nullptr, sourceDataJson(source), sourceDefaultJson(source)};
+}
+
+QJsonObject MMGOBSFields::sourceDataJson(obs_source_t *source)
+{
+	OBSDataAutoRelease source_data = obs_source_get_settings(source);
+	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
+	return json_from_str(obs_data_get_json(source_data));
+}
+
+QJsonObject MMGOBSFields::sourceDefaultJson(obs_source_t *source)
+{
+	OBSDataAutoRelease source_data = obs_source_get_settings(source);
+	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
+	return json_from_str(obs_data_get_json(source_defaults));
 }
 
 void MMGOBSFields::addFields(QWidget *parent, obs_properties_t *_props, const MMGOBSFieldInit &json_init)
@@ -805,44 +851,55 @@ void MMGOBSFields::addFields(QWidget *parent, obs_properties_t *_props, const MM
 			case OBS_PROPERTY_INT:
 				field = new MMGOBSNumberField(parent, init);
 				break;
+
 			case OBS_PROPERTY_LIST:
 				field = new MMGOBSStringField(parent, init);
 				break;
+
 			case OBS_PROPERTY_BOOL:
 				field = new MMGOBSBooleanField(parent, init);
 				break;
+
 			case OBS_PROPERTY_BUTTON:
 				field = new MMGOBSButtonField(parent, init);
 				connect(qobject_cast<MMGOBSButtonField *>(field), &MMGOBSButtonField::clicked, this,
 					&MMGOBSFields::buttonFieldClicked);
 				break;
+
 			case OBS_PROPERTY_COLOR:
 				field = new MMGOBSColorField(parent, init, false);
 				break;
+
 			case OBS_PROPERTY_COLOR_ALPHA:
 				field = new MMGOBSColorField(parent, init, true);
 				break;
+
 			case OBS_PROPERTY_FONT:
 				field = new MMGOBSFontField(parent, init);
 				break;
+
 			case OBS_PROPERTY_GROUP:
 				field = new MMGOBSGroupField(parent, init);
 				addGroupContent(qobject_cast<MMGOBSGroupField *>(field), init);
 				break;
+
 			case OBS_PROPERTY_PATH:
 				field = new MMGOBSPathField(parent, init);
 				break;
+
 			case OBS_PROPERTY_TEXT:
 				if (obs_property_text_type(prop) != OBS_TEXT_INFO) {
 					field = new MMGOBSTextField(parent, init);
 					break;
 				}
 				[[fallthrough]];
+
 			case OBS_PROPERTY_EDITABLE_LIST:
 			case OBS_PROPERTY_FRAME_RATE:
 			default:
 				continue;
 		}
+
 		connect(field, &MMGOBSField::triggerUpdate, this, &MMGOBSFields::updateField);
 		connect(field, &MMGOBSField::saveUpdates, this, &MMGOBSFields::jsonUpdate);
 		connect(field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
@@ -858,13 +915,14 @@ void MMGOBSFields::jsonUpdate()
 	auto sender_field = qobject_cast<MMGOBSField *>(sender());
 
 	if (sender_field) {
-		sender_field->jsonUpdate(json_src);
+		sender_field->jsonUpdate(property_json);
 	} else {
+		property_json = {};
 		for (MMGOBSField *field : fields)
-			field->jsonUpdate(json_src);
+			field->jsonUpdate(property_json);
 	}
 
-	OBSDataAutoRelease obs_data = obs_data_create_from_json(json_to_str(json_src));
+	OBSDataAutoRelease obs_data = obs_data_create_from_json(json_to_str(property_json));
 	obs_properties_apply_settings(props, obs_data);
 
 	for (MMGOBSField *field : fields)
@@ -873,26 +931,28 @@ void MMGOBSFields::jsonUpdate()
 
 void MMGOBSFields::jsonData()
 {
-	if (!json_des) return;
 	auto field = qobject_cast<MMGOBSField *>(sender());
 	if (!field) return;
 
 	QJsonObject json_obj;
 	field->jsonData(json_obj);
-	json_des->insert(field->name(), json_obj);
+	data_json[field->name()] = json_obj;
+
+	emit dataChanged(data_json);
 }
 
-void MMGOBSFields::setJsonDestination(MMGJsonObject *json)
+void MMGOBSFields::apply(MMGJsonObject *json)
 {
-	if (json_des) disconnect(json_des, &QObject::destroyed, this, nullptr);
-	json_des = json;
-	connect(json_des, &QObject::destroyed, this, [&]() { json_des = nullptr; });
+	disconnect(this, &MMGOBSFields::dataChanged, nullptr, nullptr);
+	if (!json) return;
+	connect(this, &MMGOBSFields::dataChanged, json, &MMGJsonObject::setJson);
 
-	if (json_src.keys() != json_des->json().keys()) json_des->clear();
-	bool do_apply = !json_des->isEmpty();
+	if (property_json.keys() != json->keys()) json->clear();
+	bool do_apply = !json->isEmpty();
 
+	data_json = {};
 	for (MMGOBSField *field : fields) {
-		if (do_apply) field->apply(json_des->value(field->name()).toObject());
+		if (do_apply) field->apply(json->value(field->name()).toObject());
 		emit field->saveData();
 	}
 }
@@ -923,6 +983,50 @@ void MMGOBSFields::addGroupContent(MMGOBSGroupField *field, const MMGOBSFieldIni
 		connect(bool_field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
 		layout()->addWidget(bool_field);
 	}
+
 	addFields(field, obs_property_group_content(init.prop), init);
 }
-// End MMGOBSFields
+
+MMGOBSFields *MMGOBSFields::findFields(obs_source_t *source)
+{
+	if (!source) return nullptr;
+
+	for (MMGOBSFields *obs_fields : all_fields) {
+		if (!obs_fields->match(source)) continue;
+		obs_fields->changeSource(source);
+		return obs_fields;
+	}
+
+	return nullptr;
+}
+
+MMGOBSFields *MMGOBSFields::registerSource(obs_source_t *source, MMGJsonObject *json)
+{
+	if (!source) return nullptr;
+
+	MMGOBSFields *fields = findFields(source);
+	if (!fields) {
+		fields = new MMGOBSFields(source);
+		all_fields.append(fields);
+	}
+
+	fields->apply(json);
+	return fields;
+}
+
+void MMGOBSFields::execute(obs_source_t *source, const MMGJsonObject *json, const MMGMessage *message)
+{
+	MMGOBSFields *fields = findFields(source);
+	if (!fields) return;
+
+	std::lock_guard custom_guard(custom_update);
+	QJsonObject final_json = sourceDataJson(source);
+
+	for (MMGOBSField *field : fields->fields) {
+		field->apply(json->value(field->name()).toObject());
+		field->execute(final_json, message);
+		field->apply(fields->data_json[field->name()].toObject());
+	}
+
+	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(json_to_str(final_json))));
+}

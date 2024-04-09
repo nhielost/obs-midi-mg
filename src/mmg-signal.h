@@ -23,8 +23,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <QEvent>
 
-class MMGAction;
-
 class MMGSourceSignal : public QObject {
 	Q_OBJECT
 

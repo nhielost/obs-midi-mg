@@ -18,7 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-signal.h"
 #include "mmg-config.h"
-#include "ui/mmg-action-display.h"
+#include "ui/mmg-fields.h"
 
 using namespace MMGUtils;
 
@@ -264,12 +264,12 @@ void MMGSignals::frontendCallback(obs_frontend_event event, void *ptr)
 			for (MMGSourceSignal *signal : signal->source_signals)
 				signal->disconnectSignals();
 
-			MMGActionDisplay::clearCustomOBSFields();
+			MMGOBSFields::clearFields();
 			qDeleteAll(signal->source_signals);
 			break;
 
 		default:
-			if (signal->allow_events) emit mmgsignals()->frontendEvent(event);
+			if (signal->allow_events) emit signal->frontendEvent(event);
 			break;
 	}
 }

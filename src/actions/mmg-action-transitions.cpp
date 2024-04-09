@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-transitions.h"
 #include "mmg-action-scenes.h"
+#include "../ui/mmg-fields.h"
 
 using namespace MMGUtils;
 
@@ -101,6 +102,7 @@ void MMGActionTransitions::setEditable(bool edit)
 	parent_scene.setEditable(edit);
 	source.setEditable(edit);
 	num.setEditable(edit);
+	_json->setEditable(edit);
 }
 
 void MMGActionTransitions::toggle()
@@ -195,7 +197,7 @@ void MMGActionTransitions::onList1Change()
 
 	if (type() != TYPE_INPUT) return;
 
-	MMGActionFieldRequest req;
+	OBSSourceAutoRelease obs_source;
 
 	switch (sub()) {
 		case TRANSITION_CURRENT:
@@ -216,10 +218,10 @@ void MMGActionTransitions::onList1Change()
 			break;
 
 		case TRANSITION_CUSTOM:
-			req.source = sourceByName(transition);
-			if (!obs_source_configurable(req.source)) break;
-			req.json = _json;
-			display()->setCustomOBSFields(req);
+			obs_source = sourceByName(transition);
+			if (!obs_source_configurable(obs_source)) break;
+
+			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
 			break;
 
 		default:
@@ -352,7 +354,7 @@ void MMGActionTransitions::execute(const MMGMessage *midi) const
 			break;
 
 		case TRANSITION_CUSTOM:
-			obs_source_custom_update(obs_transition, _json->json(), midi);
+			MMGOBSFields::execute(obs_transition, _json, midi);
 			break;
 
 		default:
@@ -398,7 +400,7 @@ void MMGActionTransitions::sourceEventReceived(MMGSourceSignal::Event event, QVa
 			obs_source = sourceByName(transition);
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
+			triggerEvent();
 			return;
 
 		default:

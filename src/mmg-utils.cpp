@@ -25,10 +25,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMessageBox>
 #include <QStandardItemModel>
 
-#include <mutex>
-
-static std::mutex custom_update;
-
 void global_blog(int log_status, const QString &message)
 {
 	blog(log_status, "[obs-midi-mg] %s", message.qtocs());
@@ -319,96 +315,6 @@ void enable_combo_option(QComboBox *combo, int index, bool enable)
 QIcon mmg_icon(const QString &icon_name)
 {
 	return QIcon(QString(":/icons/%1.svg").arg(icon_name));
-}
-
-void obs_source_custom_update(obs_source_t *source, const QJsonObject &action_json, const MMGMessage *midi)
-{
-	if (!source) return;
-
-	std::lock_guard guard(custom_update);
-
-	OBSDataAutoRelease source_data = obs_source_get_settings(source);
-	QJsonObject source_json = json_from_str(obs_data_get_json(source_data));
-	QJsonObject final_json;
-
-	for (const QString &key : action_json.keys()) {
-		QJsonObject key_obj = action_json[key].toObject();
-		switch (key_obj["state"].toInt()) {
-			case STATE_MIDI:
-				if (key_obj.contains("value")) {
-					// String Field
-					QVariantList options = MMGOBSStringField::propertyValues(source, key);
-					MMGNumber number;
-					number.setState(STATE_CUSTOM);
-					number.setMax(options.size() - 1);
-					final_json[key] =
-						QJsonValue::fromVariant(options.value(number.chooseFrom(midi, true)));
-				} else if (key_obj.contains("string")) {
-					// Text and Path Fields
-					QString str = key_obj["string"].toString();
-					str.replace("${type}", midi->type());
-					str.replace("${channel}", num_to_str(midi->channel()));
-					str.replace("${note}", num_to_str(midi->note()));
-					str.replace("${control}", num_to_str(midi->note()));
-					str.replace("${value}", num_to_str(midi->value()));
-					str.replace("${velocity}", num_to_str(midi->value()));
-					final_json[key] = str;
-				}
-				break;
-
-			case STATE_CUSTOM:
-				if (key_obj.contains("number")) {
-					// Number Field
-					final_json[key] = (midi->value() / 127.0) * (key_obj["higher"].toDouble() -
-										     key_obj["lower"].toDouble()) +
-							  key_obj["lower"].toDouble();
-				}
-				break;
-
-			case STATE_IGNORE:
-				break;
-
-			case STATE_TOGGLE:
-				if (key_obj.contains("lower")) {
-					// Number and String Fields
-					if (key_obj["lower"] == source_json[key]) {
-						final_json[key] = key_obj["higher"];
-					} else {
-						final_json[key] = key_obj["lower"];
-					}
-				} else {
-					// Boolean Field
-					final_json[key] = !source_json[key].toBool();
-				}
-				break;
-
-			default:
-				// NORMAL
-				if (key_obj.contains("number")) {
-					// Number Field
-					final_json[key] = key_obj["number"];
-				} else if (key_obj.contains("value")) {
-					// String and Boolean Fields
-					final_json[key] = key_obj["value"];
-				} else if (key_obj.contains("color")) {
-					// Color Field
-					final_json[key] = key_obj["color"];
-				} else if (key_obj.contains("string")) {
-					// Text and Path Fields
-					final_json[key] = key_obj["string"];
-				} else {
-					// Font Field
-					final_json[key] = key_obj;
-				}
-				break;
-		}
-	}
-	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(json_to_str(final_json))));
-}
-
-QList<MMGNumber> obs_source_custom_updated(obs_source_t *, const QJsonObject &)
-{
-	return QList<MMGNumber>();
 }
 
 } // namespace MMGUtils

@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-filters.h"
 #include "mmg-action-scenes.h"
+#include "../ui/mmg-fields.h"
 
 using namespace MMGUtils;
 
@@ -69,6 +70,7 @@ void MMGActionFilters::setEditable(bool edit)
 	source.setEditable(edit);
 	filter.setEditable(edit);
 	num.setEditable(edit);
+	_json->setEditable(edit);
 }
 
 void MMGActionFilters::toggle()
@@ -117,7 +119,6 @@ void MMGActionFilters::onList2Change()
 	num_display->setVisible(false);
 
 	OBSSourceAutoRelease obs_source;
-	MMGActionFieldRequest req;
 
 	switch (sub()) {
 		case FILTER_SHOW:
@@ -141,9 +142,8 @@ void MMGActionFilters::onList2Change()
 
 		case FILTER_CUSTOM:
 			obs_source = obs_get_source_by_name(source.mmgtocs());
-			req.source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-			req.json = _json;
-			display()->setCustomOBSFields(req);
+			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
+			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
 			break;
 
 		default:
@@ -211,7 +211,7 @@ void MMGActionFilters::execute(const MMGMessage *midi) const
 			break;
 
 		case FILTER_CUSTOM:
-			obs_source_custom_update(obs_filter, _json->json(), midi);
+			MMGOBSFields::execute(obs_filter, _json, midi);
 			break;
 
 		default:
@@ -262,7 +262,7 @@ void MMGActionFilters::sourceEventReceived(MMGSourceSignal::Event event, QVarian
 			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent(obs_source_custom_updated(obs_source, _json->json()));
+			triggerEvent();
 			return;
 
 		default:
