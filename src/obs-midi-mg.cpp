@@ -25,15 +25,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMainWindow>
 #include <QDir>
 
-#include <obs-frontend-api.h>
-
-using namespace std;
-
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-midi-mg", "en-US")
 
 static MMGEchoWindow *echo_window;
 static MMGConfig *global_config;
+static bool ui_init = false;
 
 const char *obs_module_name(void)
 {
@@ -43,6 +40,18 @@ const char *obs_module_name(void)
 const char *obs_module_description(void)
 {
 	return mmgtr("Plugin.Description");
+}
+
+static void show_ui()
+{
+	if (!ui_init) {
+		global_blog(LOG_INFO, "Loading plugin interface using the Echo style...");
+		echo_window = new MMGEchoWindow((QWidget *)obs_frontend_get_main_window());
+		global_blog(LOG_INFO, "Plugin interface loaded.");
+
+		ui_init = true;
+	}
+	echo_window->displayWindow();
 }
 
 bool obs_module_load(void)
@@ -60,9 +69,7 @@ bool obs_module_load(void)
 
 	// Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
 	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(mmgtr("Plugin.ToolsButton"));
-	global_blog(LOG_INFO, "Loading plugin using the Echo style...");
-	echo_window = new MMGEchoWindow((QWidget *)obs_frontend_get_main_window());
-	QObject::connect(menu_action, &QAction::triggered, echo_window, &MMGEchoWindow::displayWindow);
+	QObject::connect(menu_action, &QAction::triggered, show_ui);
 
 	// Done
 	global_blog(LOG_INFO, "Plugin loaded.");

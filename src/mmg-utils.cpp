@@ -17,10 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-utils.h"
-#include "mmg-config.h"
-#include "ui/mmg-number-display.h"
-#include "actions/mmg-action.h"
-#include "ui/mmg-fields.h"
+#include "mmg-message.h"
 
 #include <QMessageBox>
 #include <QStandardItemModel>
