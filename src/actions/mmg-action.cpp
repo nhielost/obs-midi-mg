@@ -48,7 +48,7 @@ MMGAction::MMGAction(MMGActionManager *parent, const QJsonObject &json_obj)
 
 void MMGAction::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, QString("[Actions] <%1> %2").arg(objectName()).arg(message));
+	MMGText::mmgblog(log_status, QString("[Actions] <%1> %2").arg(objectName()).arg(message));
 }
 
 void MMGAction::json(QJsonObject &json_obj) const

@@ -137,21 +137,21 @@ void MMGMessageDisplay::onListenClick()
 		case 0: // Listen for execution
 			listen_button->setChecked(false);
 			listen_button->setText(mmgtr("UI.Listen.Execution"));
-			global_blog(LOG_DEBUG, "Listening deactivated.");
+			MMGText::mmgblog(LOG_DEBUG, "Listening deactivated.");
 			break;
 
 		case 1: // Listen once
 			listen_button->setChecked(true);
 			listen_button->setText(mmgtr("UI.Listen.Once"));
 			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-			global_blog(LOG_DEBUG, "Single listen activated.");
+			MMGText::mmgblog(LOG_DEBUG, "Single listen activated.");
 			break;
 
 		case 2: // Listen continuously
 			listen_button->setChecked(true);
 			listen_button->setText(mmgtr("UI.Listen.Continuous"));
 			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-			global_blog(LOG_DEBUG, "Continuous listen activated.");
+			MMGText::mmgblog(LOG_DEBUG, "Continuous listen activated.");
 			break;
 	}
 }

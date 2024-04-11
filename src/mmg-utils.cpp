@@ -22,11 +22,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMessageBox>
 #include <QStandardItemModel>
 
-void global_blog(int log_status, const QString &message)
-{
-	blog(log_status, "[obs-midi-mg] %s", message.qtocs());
-}
-
 QDataStream &operator<<(QDataStream &out, const QObject *&obj)
 {
 	return out << *(quint64 *)(&obj);
@@ -52,7 +47,7 @@ MMGNumber::MMGNumber()
 
 MMGNumber::MMGNumber(const QJsonObject &json_obj, const QString &preferred, int fallback_num)
 {
-	double fallback = json_obj[num_to_str(fallback_num, "num")].toDouble();
+	double fallback = json_obj[MMGText::asString(fallback_num, "num")].toDouble();
 
 	if (json_obj[preferred].isObject()) {
 		// v2.3.0+ (with bounds)
@@ -148,9 +143,9 @@ bool MMGNumber::acceptable(double value) const
 		case STATE_MIDI:
 		case STATE_CUSTOM:
 			if (lower <= higher) {
-				return num_between(value, lower, higher);
+				return (value >= lower) && (value <= higher);
 			} else {
-				return num_between(value, higher, lower, false);
+				return (value > higher) && (value < lower);
 			}
 
 		case STATE_IGNORE:
@@ -178,7 +173,7 @@ MMGString::MMGString(const QJsonObject &json_obj, const QString &preferred, int 
 		setState(json_obj[preferred + "_state"].toInt());
 	} else {
 		// pre v2.1.0
-		setValue(json_obj[num_to_str(fallback_num, "str")].toString());
+		setValue(json_obj[MMGText::asString(fallback_num, "str")].toString());
 		if (val == mmgtr("Fields.UseMessageValue")) {
 			value_state = STATE_MIDI;
 		} else if (val == mmgtr("Fields.Toggle")) {
@@ -228,6 +223,38 @@ bool MMGString::chooseTo(MMGNumber &values, const QStringList &range) const
 }
 // End MMGString
 
+// MMGText
+void MMGText::mmgblog(int log_status, const QString &message)
+{
+	blog(log_status, "[obs-midi-mg] %s", message.qtocs());
+}
+
+QString MMGText::asString(int num, const QString &prefix)
+{
+	return QString("%1%2").arg(prefix).arg(num);
+}
+
+QString MMGText::join(Translator translator, const QString &header, const QString &joiner)
+{
+	QString joined = QString("%1.%2").arg(header).arg(joiner);
+	return translator == TEXT_OBS ? obstr(joined.qtocs()) : mmgtr(joined.qtocs());
+}
+
+QString MMGText::choose(const char *header, const char *opt1, const char *opt2, bool decider)
+{
+	return MMGText::join(TEXT_MMG, header, decider ? opt1 : opt2);
+}
+
+QStringList MMGText::batch(Translator translator, const QString &header, const QStringList &list)
+{
+	QStringList tr_list;
+	for (const QString &str : list) {
+		tr_list += MMGText::join(translator, header, str);
+	}
+	return tr_list;
+}
+// End MMGText
+
 // MMGJsonObject
 MMGJsonObject::MMGJsonObject(QObject *parent, const QJsonObject &head) : QObject(parent)
 {
@@ -265,48 +292,10 @@ void MMGTimer::reset(int time)
 }
 // End MMGTimer
 
-QString mmgtr_join(const QString &header, const QString &joiner)
-{
-	return mmgtr(QString("%1.%2").arg(header).arg(joiner).qtocs());
-}
-
-QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool decider)
-{
-	return mmgtr_join(header, decider ? opt1 : opt2);
-}
-
-QStringList mmgtr_all(const QString &header, const QStringList &list)
-{
-	QStringList tr_list;
-	for (const QString &str : list) {
-		tr_list += mmgtr_join(header, str);
-	}
-	return tr_list;
-}
-
-QStringList obstr_all(const QString &header, const QStringList &list)
-{
-	QStringList tr_list;
-	for (const QString &str : list) {
-		tr_list += obstr((header + "." + str).qtocs());
-	}
-	return tr_list;
-}
-
-bool num_between(double num, double lower, double higher, bool inclusive)
-{
-	return inclusive ? ((num >= lower) && (num <= higher)) : ((num > lower) && (num < higher));
-}
-
-QString num_to_str(int num, const QString &prefix)
-{
-	return QString("%1%2").arg(prefix).arg(num);
-}
-
 bool open_message_box(const QString &message, bool information)
 {
-	QString title = mmgtr_join("UI.MessageBox.Title", message);
-	QString text = mmgtr_join("UI.MessageBox.Text", message);
+	QString title = MMGText::join(TEXT_MMG, "UI.MessageBox.Title", message);
+	QString text = MMGText::join(TEXT_MMG, "UI.MessageBox.Text", message);
 
 	if (information) {
 		QMessageBox::information(nullptr, title, text);

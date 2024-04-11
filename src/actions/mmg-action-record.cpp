@@ -32,8 +32,9 @@ const QStringList MMGActionRecord::subNames() const
 	switch (type()) {
 		case TYPE_INPUT:
 		default:
-			opts << obstr_all("Basic.Main", {"StartRecording", "StopRecording"}) << subModuleText("Toggle")
-			     << obstr_all("Basic.Main", {"PauseRecording", "UnpauseRecording"})
+			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartRecording", "StopRecording"})
+			     << subModuleText("Toggle")
+			     << MMGText::batch(TEXT_OBS, "Basic.Main", {"PauseRecording", "UnpauseRecording"})
 			     << subModuleText("TogglePause");
 			break;
 

@@ -66,7 +66,7 @@ void MMGLink::execute()
 {
 	if (binding->resetMode()) {
 		if (thread_count > 0xff) {
-			global_blog(LOG_INFO, "{LINK} Thread count exceeded - the provided function will not execute.");
+			blog(LOG_INFO, "Thread count exceeded - the provided function will not execute.");
 			return;
 		}
 

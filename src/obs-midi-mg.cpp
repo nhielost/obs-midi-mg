@@ -45,9 +45,9 @@ const char *obs_module_description(void)
 static void show_ui()
 {
 	if (!ui_init) {
-		global_blog(LOG_INFO, "Loading plugin interface using the Echo style...");
+		MMGText::mmgblog(LOG_INFO, "Loading plugin interface using the Echo style...");
 		echo_window = new MMGEchoWindow((QWidget *)obs_frontend_get_main_window());
-		global_blog(LOG_INFO, "Plugin interface loaded.");
+		MMGText::mmgblog(LOG_INFO, "Plugin interface loaded.");
 
 		ui_init = true;
 	}
@@ -56,7 +56,7 @@ static void show_ui()
 
 bool obs_module_load(void)
 {
-	global_blog(LOG_INFO, "Loading plugin (" OBS_MIDIMG_VERSION ")...");
+	MMGText::mmgblog(LOG_INFO, "Loading plugin (" OBS_MIDIMG_VERSION ")...");
 
 	// Create the obs-midi-mg directory in plugin_config if it doesn't exist
 	auto *config_path = obs_module_config_path("");
@@ -72,14 +72,14 @@ bool obs_module_load(void)
 	QObject::connect(menu_action, &QAction::triggered, show_ui);
 
 	// Done
-	global_blog(LOG_INFO, "Plugin loaded.");
+	MMGText::mmgblog(LOG_INFO, "Plugin loaded.");
 	return true;
 }
 
 void obs_module_unload()
 {
 	delete global_config;
-	global_blog(LOG_INFO, "Plugin unloaded.");
+	MMGText::mmgblog(LOG_INFO, "Plugin unloaded.");
 }
 
 MMGConfig *config()

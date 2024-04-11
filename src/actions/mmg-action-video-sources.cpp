@@ -52,7 +52,7 @@ void MMGActionVideoSources::json(QJsonObject &json_obj) const
 	source.json(json_obj, "source", false);
 	action.json(json_obj, "action");
 	for (int i = 0; i < 4; ++i) {
-		nums[i].json(json_obj, num_to_str(i + 1, "num"));
+		nums[i].json(json_obj, MMGText::asString(i + 1, "num"));
 	}
 	_json->json(json_obj, "json");
 }
@@ -347,27 +347,30 @@ const QStringList MMGActionVideoSources::enumerate()
 
 const QStringList MMGActionVideoSources::alignmentOptions()
 {
-	return obstr_all("Basic.TransformWindow.Alignment",
-			 {"TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft",
-			  "BottomCenter", "BottomRight"});
+	return MMGText::batch(TEXT_OBS, "Basic.TransformWindow.Alignment",
+			      {"TopLeft", "TopCenter", "TopRight", "CenterLeft", "Center", "CenterRight", "BottomLeft",
+			       "BottomCenter", "BottomRight"});
 }
 
 const QStringList MMGActionVideoSources::boundingBoxOptions()
 {
-	return obstr_all("Basic.TransformWindow.BoundsType",
-			 {"None", "Stretch", "ScaleInner", "ScaleOuter", "ScaleToWidth", "ScaleToHeight", "MaxOnly"});
+	return MMGText::batch(TEXT_OBS, "Basic.TransformWindow.BoundsType",
+			      {"None", "Stretch", "ScaleInner", "ScaleOuter", "ScaleToWidth", "ScaleToHeight",
+			       "MaxOnly"});
 }
 
 const QStringList MMGActionVideoSources::scaleFilterOptions()
 {
-	QStringList opts = obstr_all("ScaleFiltering", {"Point", "Bicubic", "Bilinear", "Lanczos", "Area"});
+	QStringList opts =
+		MMGText::batch(TEXT_OBS, "ScaleFiltering", {"Point", "Bicubic", "Bilinear", "Lanczos", "Area"});
 	opts.prepend(obstr("Disable"));
 	return opts;
 }
 
 const QStringList MMGActionVideoSources::blendModeOptions()
 {
-	return obstr_all("BlendingMode", {"Normal", "Additive", "Subtract", "Screen", "Multiply", "Lighten", "Darken"});
+	return MMGText::batch(TEXT_OBS, "BlendingMode",
+			      {"Normal", "Additive", "Subtract", "Screen", "Multiply", "Lighten", "Darken"});
 }
 
 const vec2 MMGActionVideoSources::obsResolution()

@@ -34,8 +34,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #define MMG_ENABLED if (editable)
 
-void global_blog(int log_status, const QString &message);
-
 QDataStream &operator<<(QDataStream &out, const QObject *&obj);
 QDataStream &operator>>(QDataStream &in, QObject *&obj);
 
@@ -45,6 +43,7 @@ namespace MMGUtils {
 
 enum DeviceType { TYPE_NONE = -1, TYPE_INPUT, TYPE_OUTPUT };
 enum ValueState { STATE_FIXED, STATE_MIDI, STATE_CUSTOM, STATE_IGNORE, STATE_TOGGLE };
+enum Translator { TEXT_MMG, TEXT_OBS };
 
 template<typename T> struct MMGValue {
 
@@ -101,6 +100,8 @@ public:
 
 	double map(const MMGNumber &other, bool round = true) const;
 	bool acceptable(double val) const;
+
+	static bool isBetween();
 };
 using MMGNumberList = QList<MMGNumber>;
 
@@ -119,6 +120,17 @@ public:
 
 	bool operator==(const char *ch) const { return val == ch; };
 	bool operator!=(const char *ch) const { return val != ch; };
+};
+
+class MMGText {
+public:
+	static void mmgblog(int log_status, const QString &message);
+
+	static QString asString(int num, const QString &prefix = "");
+
+	static QString join(Translator translator, const QString &header, const QString &joiner);
+	static QString choose(const char *header, const char *opt1, const char *opt2, bool decider);
+	static QStringList batch(Translator translator, const QString &header, const QStringList &list);
 };
 
 class MMGJsonObject : public QObject {
@@ -172,14 +184,6 @@ public slots:
 	void stopTimer() { emit stopping(); };
 	void reset(int time);
 };
-
-QString mmgtr_join(const QString &header, const QString &joiner);
-QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool decider);
-QStringList mmgtr_all(const QString &header, const QStringList &list);
-QStringList obstr_all(const QString &header, const QStringList &list);
-
-bool num_between(double num, double lower, double higher, bool inclusive = true);
-QString num_to_str(int num, const QString &prefix = "");
 
 void enable_combo_option(QComboBox *combo, int index, bool enable);
 QIcon mmg_icon(const QString &icon_name);

@@ -142,7 +142,7 @@ void MMGEchoWindow::translate()
 	ui->button_switch->setToolTip(mmgtr("UI.Buttons.Switch"));
 	ui->button_move->setToolTip(mmgtr("UI.Buttons.Move"));
 	ui->label_binding_reset->setText(mmgtr("Binding.Reset"));
-	ui->editor_binding_reset->addItems(mmgtr_all("Binding.Reset", {"Triggered", "Continuous"}));
+	ui->editor_binding_reset->addItems(MMGText::batch(TEXT_MMG, "Binding.Reset", {"Triggered", "Continuous"}));
 
 	ui->label_thru->setText(mmgtr("Device.Thru.Label"));
 	ui->button_device_check->setText(mmgtr("Device.Check.Label"));
@@ -151,9 +151,10 @@ void MMGEchoWindow::translate()
 	ui->label_sub->setText(mmgtr("Actions.Name"));
 	ui->editor_cat->clear();
 	ui->editor_cat->addItems(
-		mmgtr_all("Actions.Titles", {"None", "Streaming", "Recording", "VirtualCamera", "ReplayBuffer",
-					     "StudioMode", "Scenes", "VideoSources", "AudioSources", "MediaSources",
-					     "Transitions", "Filters", "Hotkeys", "Profiles", "Collections", "MIDI"}));
+		MMGText::batch(TEXT_MMG, "Actions.Titles",
+			       {"None", "Streaming", "Recording", "VirtualCamera", "ReplayBuffer", "StudioMode",
+				"Scenes", "VideoSources", "AudioSources", "MediaSources", "Transitions", "Filters",
+				"Hotkeys", "Profiles", "Collections", "MIDI"}));
 
 	ui->button_export->setToolTip(mmgtr("UI.Buttons.Export"));
 	ui->button_import->setToolTip(mmgtr("UI.Buttons.Import"));
@@ -225,7 +226,7 @@ void MMGEchoWindow::collectionShow()
 		QString size_str = " ";
 		qsizetype size = current_collection->size();
 		size_str.prepend(QString::number(size));
-		size_str.append(mmgtr_two("Binding", "Name", "Names", size < 2));
+		size_str.append(MMGText::choose("Binding", "Name", "Names", size < 2));
 		ui->label_collection_size->setText(size_str);
 	}
 

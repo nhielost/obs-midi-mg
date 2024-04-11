@@ -35,7 +35,7 @@ const QStringList MMGActionReplayBuffer::subNames() const
 	switch (type()) {
 		case TYPE_INPUT:
 		default:
-			opts << obstr_all("Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"})
+			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"})
 			     << subModuleText("Toggle") << subModuleText("Save");
 			break;
 

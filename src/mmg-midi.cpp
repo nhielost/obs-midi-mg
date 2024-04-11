@@ -33,7 +33,7 @@ MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj)
 
 void MMGMIDIPort::blog(int log_status, const QString &_message) const
 {
-	global_blog(log_status, QString("[MIDI] <%1> %2").arg(objectName()).arg(_message));
+	MMGText::mmgblog(log_status, QString("[MIDI] <%1> %2").arg(objectName()).arg(_message));
 }
 
 void MMGMIDIPort::connectNotify(const QMetaMethod &signal)
@@ -141,7 +141,7 @@ void MMGMIDIPort::setCapable(DeviceType type, bool capable)
 QString MMGMIDIPort::status(DeviceType type) const
 {
 	if (!isCapable(type)) return mmgtr("Plugin.Unavailable");
-	return mmgtr_two("Device.Status", "Connected", "Disconnected", isPortOpen(type));
+	return MMGText::choose("Device.Status", "Connected", "Disconnected", isPortOpen(type));
 }
 
 void MMGMIDIPort::sendMessage(const MMGMessage *midi)
@@ -212,7 +212,7 @@ MMGMIDI::MMGMIDI(QObject *parent)
 
 void MMGMIDI::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, "[MIDI] " + message);
+	MMGText::mmgblog(log_status, "[MIDI] " + message);
 }
 
 const libremidi::input_configuration MMGMIDI::inputConfig(MMGMIDIPort *port) const

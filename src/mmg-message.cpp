@@ -83,7 +83,7 @@ void MMGMessage::setDevice(MMGMIDIPort *device)
 
 void MMGMessage::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, "[Messages] " + message);
+	MMGText::mmgblog(log_status, "[Messages] " + message);
 }
 
 void MMGMessage::json(QJsonObject &message_obj) const
@@ -241,7 +241,8 @@ QString MMGMessage::getType(const libremidi::message &mess)
 
 const QStringList MMGMessage::acceptedTypes()
 {
-	return mmgtr_all("Message.Type", {"NoteOn", "NoteOff", "ControlChange", "ProgramChange", "PitchBend"});
+	return MMGText::batch(TEXT_MMG, "Message.Type",
+			      {"NoteOn", "NoteOff", "ControlChange", "ProgramChange", "PitchBend"});
 }
 
 void MMGMessage::setRanges()

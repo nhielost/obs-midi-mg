@@ -39,7 +39,7 @@ MMGConfig::MMGConfig()
 
 void MMGConfig::blog(int log_status, const QString &message) const
 {
-	global_blog(log_status, "[Configuration] " + message);
+	MMGText::mmgblog(log_status, "[Configuration] " + message);
 }
 
 void MMGConfig::load(const QString &path_str)

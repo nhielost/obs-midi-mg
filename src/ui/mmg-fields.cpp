@@ -663,18 +663,18 @@ void MMGOBSPathField::update(obs_property_t *prop)
 	filters = obs_property_path_filter(prop);
 
 	path_display->setText(path);
-	button->setText(mmgtr_two("Fields", "FileSelect", "FolderSelect", dialog_type < 2));
+	button->setText(MMGText::choose("Fields", "FileSelect", "FolderSelect", dialog_type < 2));
 }
 
 void MMGOBSPathField::execute(QJsonObject &data, const MMGMessage *message) const
 {
 	QString str = path;
 	str.replace("${type}", message->type());
-	str.replace("${channel}", num_to_str(message->channel()));
-	str.replace("${note}", num_to_str(message->note()));
-	str.replace("${control}", num_to_str(message->note()));
-	str.replace("${value}", num_to_str(message->value()));
-	str.replace("${velocity}", num_to_str(message->value()));
+	str.replace("${channel}", MMGText::asString(message->channel()));
+	str.replace("${note}", MMGText::asString(message->note()));
+	str.replace("${control}", MMGText::asString(message->note()));
+	str.replace("${value}", MMGText::asString(message->value()));
+	str.replace("${velocity}", MMGText::asString(message->value()));
 	data[_name] = str;
 }
 
@@ -764,11 +764,11 @@ void MMGOBSTextField::execute(QJsonObject &data, const MMGMessage *message) cons
 {
 	QString str = text;
 	str.replace("${type}", message->type());
-	str.replace("${channel}", num_to_str(message->channel()));
-	str.replace("${note}", num_to_str(message->note()));
-	str.replace("${control}", num_to_str(message->note()));
-	str.replace("${value}", num_to_str(message->value()));
-	str.replace("${velocity}", num_to_str(message->value()));
+	str.replace("${channel}", MMGText::asString(message->channel()));
+	str.replace("${note}", MMGText::asString(message->note()));
+	str.replace("${control}", MMGText::asString(message->note()));
+	str.replace("${value}", MMGText::asString(message->value()));
+	str.replace("${velocity}", MMGText::asString(message->value()));
 	data[_name] = str;
 }
 // End MMGOBSTextField

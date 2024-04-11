@@ -186,12 +186,12 @@ const QStringList MMGActionAudioSources::enumerate()
 
 const QStringList MMGActionAudioSources::audioMonitorOptions()
 {
-	return obstr_all("Basic.AdvAudio.Monitoring", {"None", "MonitorOnly", "Both"});
+	return MMGText::batch(TEXT_OBS, "Basic.AdvAudio.Monitoring", {"None", "MonitorOnly", "Both"});
 }
 
 const QStringList MMGActionAudioSources::volumeFormatOptions()
 {
-	return mmgtr_all("Actions.AudioSources.Format", {"Percent", "Decibels"});
+	return MMGText::batch(TEXT_MMG, "Actions.AudioSources.Format", {"Percent", "Decibels"});
 }
 
 double MMGActionAudioSources::convertDecibels(double value, bool convert_to)

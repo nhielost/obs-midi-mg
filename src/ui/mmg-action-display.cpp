@@ -75,7 +75,7 @@ void MMGActionDisplay::setFields(QWidget *widget)
 	fields = widget;
 	fields->setParent(scroll_widget);
 	fields->setVisible(true);
-	connect(fields, &QObject::destroyed, this, [&](){ fields = nullptr; });
+	connect(fields, &QObject::destroyed, this, [&]() { fields = nullptr; });
 	layout->addWidget(widget);
 }
 

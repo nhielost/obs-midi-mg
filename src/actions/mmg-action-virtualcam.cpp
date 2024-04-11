@@ -33,7 +33,7 @@ const QStringList MMGActionVirtualCam::subNames() const
 	switch (type()) {
 		case TYPE_INPUT:
 		default:
-			opts << obstr_all("Basic.Main", {"StartVirtualCam", "StopVirtualCam"})
+			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartVirtualCam", "StopVirtualCam"})
 			     << subModuleText("Toggle");
 			break;
 

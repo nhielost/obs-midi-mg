@@ -37,9 +37,10 @@ const QStringList MMGActionMediaSources::subNames() const
 		case TYPE_INPUT:
 		default:
 			opts << subModuleText("PlayPause")
-			     << obstr_all("ContextBar.MediaControls", {"RestartMedia", "StopMedia"})
+			     << MMGText::batch(TEXT_OBS, "ContextBar.MediaControls", {"RestartMedia", "StopMedia"})
 			     << subModuleText("SetTime")
-			     << obstr_all("ContextBar.MediaControls", {"PlaylistNext", "PlaylistPrevious"});
+			     << MMGText::batch(TEXT_OBS, "ContextBar.MediaControls",
+					       {"PlaylistNext", "PlaylistPrevious"});
 			break;
 
 		case TYPE_OUTPUT:

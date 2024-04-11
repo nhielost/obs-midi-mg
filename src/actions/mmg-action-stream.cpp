@@ -32,7 +32,8 @@ const QStringList MMGActionStream::subNames() const
 	switch (type()) {
 		case TYPE_INPUT:
 		default:
-			opts << obstr_all("Basic.Main", {"StartStreaming", "StopStreaming"}) << subModuleText("Toggle");
+			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartStreaming", "StopStreaming"})
+			     << subModuleText("Toggle");
 			break;
 
 		case TYPE_OUTPUT:
