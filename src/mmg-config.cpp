@@ -100,7 +100,7 @@ void MMGConfig::save(const QString &path_str) const
 
 	QFile file(filepath(path_str));
 	file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
-	qlonglong result = file.write(json_to_str(save_obj));
+	qlonglong result = file.write(MMGJsonObject::toString(save_obj));
 	if (result < 0) {
 		blog(LOG_INFO, "Configuration unable to be saved. Reason: " + file.errorString());
 	} else {

@@ -124,7 +124,7 @@ public:
 class MMGJsonObject : public QObject {
 
 public:
-	MMGJsonObject(QObject *parent = nullptr) : QObject(parent){};
+	MMGJsonObject(QObject *parent, const QJsonObject &json);
 
 	void setEditable(bool edit) { editable = edit; };
 
@@ -132,9 +132,14 @@ public:
 	QStringList keys() const { return json_obj.keys(); };
 	QJsonValue value(const QString &key) const { return json_obj[key]; };
 
-	const QJsonObject &json() const { return json_obj; };
+	void json(QJsonObject &json, const QString &key) const { json[key] = json_obj; };
 	void setJson(const QJsonObject &json) { MMG_ENABLED json_obj = json; };
+	void copy(MMGJsonObject *dest) const { dest->json_obj = json_obj; };
 	void clear() { json_obj = {}; };
+
+	static QByteArray toString(const QJsonObject &json_obj);
+	static QJsonObject toObject(const QByteArray &str);
+	static QJsonObject toObject(const char *str) { return toObject(QByteArray(str)); };
 
 private:
 	QJsonObject json_obj;
@@ -172,9 +177,6 @@ QString mmgtr_join(const QString &header, const QString &joiner);
 QString mmgtr_two(const char *header, const char *opt1, const char *opt2, bool decider);
 QStringList mmgtr_all(const QString &header, const QStringList &list);
 QStringList obstr_all(const QString &header, const QStringList &list);
-
-const QByteArray json_to_str(const QJsonObject &json_obj);
-const QJsonObject json_from_str(const QByteArray &str);
 
 bool num_between(double num, double lower, double higher, bool inclusive = true);
 QString num_to_str(int num, const QString &prefix = "");

@@ -824,14 +824,14 @@ QJsonObject MMGOBSFields::sourceDataJson(obs_source_t *source)
 {
 	OBSDataAutoRelease source_data = obs_source_get_settings(source);
 	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
-	return json_from_str(obs_data_get_json(source_data));
+	return MMGJsonObject::toObject(obs_data_get_json(source_data));
 }
 
 QJsonObject MMGOBSFields::sourceDefaultJson(obs_source_t *source)
 {
 	OBSDataAutoRelease source_data = obs_source_get_settings(source);
 	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
-	return json_from_str(obs_data_get_json(source_defaults));
+	return MMGJsonObject::toObject(obs_data_get_json(source_defaults));
 }
 
 void MMGOBSFields::addFields(QWidget *parent, obs_properties_t *_props, const MMGOBSFieldInit &json_init)
@@ -922,7 +922,7 @@ void MMGOBSFields::jsonUpdate()
 			field->jsonUpdate(property_json);
 	}
 
-	OBSDataAutoRelease obs_data = obs_data_create_from_json(json_to_str(property_json));
+	OBSDataAutoRelease obs_data = obs_data_create_from_json(MMGJsonObject::toString(property_json));
 	obs_properties_apply_settings(props, obs_data);
 
 	for (MMGOBSField *field : fields)
@@ -1028,5 +1028,5 @@ void MMGOBSFields::execute(obs_source_t *source, const MMGJsonObject *json, cons
 		field->apply(fields->data_json[field->name()].toObject());
 	}
 
-	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(json_to_str(final_json))));
+	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(MMGJsonObject::toString(final_json))));
 }

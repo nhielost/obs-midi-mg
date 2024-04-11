@@ -31,15 +31,9 @@ MMGActionVideoSources::MMGActionVideoSources(MMGActionManager *parent, const QJs
 	  source(json_obj, "source", 2),
 	  action(json_obj, "action", 3),
 	  nums{{json_obj, "num1", 1}, {json_obj, "num2", 2}, {json_obj, "num3", 3}, {json_obj, "num4", 4}},
-	  _json(new MMGJsonObject(this)),
+	  _json(new MMGJsonObject(this, json_obj)),
 	  at(new ActionTransform)
 {
-	if (json_obj["json"].isString()) {
-		_json->setJson(json_from_str(json_obj["json"].toString().qtocs()));
-	} else {
-		_json->setJson(json_obj["json"].toObject());
-	}
-
 	blog(LOG_DEBUG, "Action created.");
 }
 
@@ -60,7 +54,7 @@ void MMGActionVideoSources::json(QJsonObject &json_obj) const
 	for (int i = 0; i < 4; ++i) {
 		nums[i].json(json_obj, num_to_str(i + 1, "num"));
 	}
-	json_obj["json"] = _json->json();
+	_json->json(json_obj, "json");
 }
 
 void MMGActionVideoSources::copy(MMGAction *dest) const
@@ -77,7 +71,7 @@ void MMGActionVideoSources::copy(MMGAction *dest) const
 	casted->nums[1] = num2().copy();
 	casted->nums[2] = num3().copy();
 	casted->nums[3] = num4().copy();
-	casted->_json->setJson(_json->json());
+	_json->copy(casted->_json);
 }
 
 void MMGActionVideoSources::setEditable(bool edit)

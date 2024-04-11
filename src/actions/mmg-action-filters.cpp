@@ -27,13 +27,8 @@ MMGActionFilters::MMGActionFilters(MMGActionManager *parent, const QJsonObject &
 	  source(json_obj, "source", 1),
 	  filter(json_obj, "filter", 2),
 	  num(json_obj, "num", 1),
-	  _json(new MMGJsonObject(this))
+	  _json(new MMGJsonObject(this, json_obj))
 {
-	if (json_obj["json"].isString()) {
-		_json->setJson(json_from_str(json_obj["json"].toString().qtocs()));
-	} else {
-		_json->setJson(json_obj["json"].toObject());
-	}
 	blog(LOG_DEBUG, "Action created.");
 }
 
@@ -49,7 +44,7 @@ void MMGActionFilters::json(QJsonObject &json_obj) const
 	source.json(json_obj, "source", false);
 	filter.json(json_obj, "filter", false);
 	num.json(json_obj, "num");
-	json_obj["json"] = _json->json();
+	_json->json(json_obj, "json");
 }
 
 void MMGActionFilters::copy(MMGAction *dest) const
@@ -62,7 +57,7 @@ void MMGActionFilters::copy(MMGAction *dest) const
 	casted->source = source.copy();
 	casted->filter = filter.copy();
 	casted->num = num.copy();
-	casted->_json->setJson(_json->json());
+	_json->copy(casted->_json);
 }
 
 void MMGActionFilters::setEditable(bool edit)

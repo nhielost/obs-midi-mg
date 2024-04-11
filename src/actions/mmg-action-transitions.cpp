@@ -40,13 +40,8 @@ MMGActionTransitions::MMGActionTransitions(MMGActionManager *parent, const QJson
 	  parent_scene(json_obj, "scene", 2),
 	  source(json_obj, "source", 3),
 	  num(json_obj, "num", 1),
-	  _json(new MMGJsonObject(this))
+	  _json(new MMGJsonObject(this, json_obj))
 {
-	if (json_obj["json_str"].isString()) {
-		_json->setJson(json_from_str(json_obj["json_str"].toString().qtocs()));
-	} else {
-		_json->setJson(json_obj["json"].toObject());
-	}
 	blog(LOG_DEBUG, "Action created.");
 }
 
@@ -79,7 +74,7 @@ void MMGActionTransitions::json(QJsonObject &json_obj) const
 	parent_scene.json(json_obj, "scene", false);
 	source.json(json_obj, "source", false);
 	num.json(json_obj, "num");
-	json_obj["json"] = _json->json();
+	_json->json(json_obj, "json");
 }
 
 void MMGActionTransitions::copy(MMGAction *dest) const
@@ -93,7 +88,7 @@ void MMGActionTransitions::copy(MMGAction *dest) const
 	casted->parent_scene = parent_scene.copy();
 	casted->source = source.copy();
 	casted->num = num.copy();
-	casted->_json->setJson(_json->json());
+	_json->copy(casted->_json);
 }
 
 void MMGActionTransitions::setEditable(bool edit)

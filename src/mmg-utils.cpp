@@ -228,6 +228,29 @@ bool MMGString::chooseTo(MMGNumber &values, const QStringList &range) const
 }
 // End MMGString
 
+// MMGJsonObject
+MMGJsonObject::MMGJsonObject(QObject *parent, const QJsonObject &head) : QObject(parent)
+{
+	if (head["json"].isString()) {
+		json_obj = MMGJsonObject::toObject(head["json"].toString().toUtf8());
+	} else if (head["json_str"].isString()) {
+		json_obj = MMGJsonObject::toObject(head["json_str"].toString().toUtf8());
+	} else {
+		json_obj = head["json"].toObject();
+	}
+}
+
+QByteArray MMGJsonObject::toString(const QJsonObject &json_obj)
+{
+	return QJsonDocument(json_obj).toJson(QJsonDocument::Compact);
+}
+
+QJsonObject MMGJsonObject::toObject(const QByteArray &str)
+{
+	return QJsonDocument::fromJson(str).object();
+}
+// End MMGJsonObject
+
 // MMGTimer
 MMGTimer::MMGTimer(QObject *parent) : QTimer(parent)
 {
@@ -241,16 +264,6 @@ void MMGTimer::reset(int time)
 	emit resetting(time);
 }
 // End MMGTimer
-
-const QByteArray json_to_str(const QJsonObject &json_obj)
-{
-	return QJsonDocument(json_obj).toJson(QJsonDocument::Compact);
-}
-
-const QJsonObject json_from_str(const QByteArray &str)
-{
-	return QJsonDocument::fromJson(str).object();
-}
 
 QString mmgtr_join(const QString &header, const QString &joiner)
 {
