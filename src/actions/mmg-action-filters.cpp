@@ -219,12 +219,17 @@ void MMGActionFilters::execute(const MMGMessage *midi) const
 void MMGActionFilters::connectSignals(bool _connect)
 {
 	MMGAction::connectSignals(_connect);
-	if (!_connected) return;
+	if (!_connected && type() == TYPE_OUTPUT) return;
 
 	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
 	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-	connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
-	connectSourceSignal(mmgsignals()->requestSourceSignal(obs_filter));
+
+	if (type() == TYPE_OUTPUT) {
+		connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
+		connectSourceSignal(mmgsignals()->requestSourceSignal(obs_filter));
+	}
+
+	MMGOBSFields::registerSource(obs_filter, _json);
 }
 
 void MMGActionFilters::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
@@ -257,7 +262,7 @@ void MMGActionFilters::sourceEventReceived(MMGSourceSignal::Event event, QVarian
 			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent();
+			triggerEvent(MMGOBSFields::customEventReceived(obs_source, _json));
 			return;
 
 		default:

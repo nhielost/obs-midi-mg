@@ -154,7 +154,6 @@ void MMGActionVideoSources::onList2Change()
 	num3_display->setVisible(false);
 	num4_display->setVisible(false);
 
-	OBSSourceAutoRelease obs_source;
 	bool source_exists = !source.value().isEmpty();
 
 	switch (sub()) {
@@ -314,8 +313,7 @@ void MMGActionVideoSources::onList2Change()
 			break;
 
 		case SOURCE_VIDEO_CUSTOM:
-			obs_source = obs_get_source_by_name(source.mmgtocs());
-			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
+			display()->setFields(MMGOBSFields::registerSource(OBSSourceAutoRelease(currentSource()), _json));
 			break;
 
 		default:
@@ -382,30 +380,7 @@ const vec2 MMGActionVideoSources::obsResolution()
 	return xy;
 }
 
-const vec2 MMGActionVideoSources::sourceResolution() const
-{
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-	vec2 xy;
-	vec2_set(&xy, obs_source_get_width(obs_source), obs_source_get_height(obs_source));
-	return xy;
-}
-
-void MMGActionVideoSources::updateTransform() const
-{
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(parent_scene.mmgtocs());
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-	if (!obs_source || !obs_scene) return;
-
-	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
-	if (!obs_sceneitem) return;
-
-	obs_sceneitem_get_info(obs_sceneitem, &at->ti);
-	obs_sceneitem_get_crop(obs_sceneitem, &at->crop);
-	at->scale_type = obs_sceneitem_get_scale_filter(obs_sceneitem);
-	at->blend_type = obs_sceneitem_get_blending_mode(obs_sceneitem);
-}
-
-uint32_t MMGActionVideoSources::convertAlignment(bool to_align, uint32_t value) const
+uint32_t MMGActionVideoSources::convertAlignment(bool to_align, uint32_t value)
 {
 	uint32_t result;
 
@@ -426,10 +401,43 @@ uint32_t MMGActionVideoSources::convertAlignment(bool to_align, uint32_t value) 
 	return result;
 }
 
+obs_scene_t *MMGActionVideoSources::currentScene() const
+{
+	return obs_get_scene_by_name(parent_scene.mmgtocs());
+}
+
+obs_source_t *MMGActionVideoSources::currentSource() const
+{
+	return obs_get_source_by_name(source.mmgtocs());
+}
+
+const vec2 MMGActionVideoSources::sourceResolution() const
+{
+	OBSSourceAutoRelease obs_source = currentSource();
+	vec2 xy;
+	vec2_set(&xy, obs_source_get_width(obs_source), obs_source_get_height(obs_source));
+	return xy;
+}
+
+void MMGActionVideoSources::updateTransform() const
+{
+	OBSSceneAutoRelease obs_scene = currentScene();
+	OBSSourceAutoRelease obs_source = currentSource();
+	if (!obs_source || !obs_scene) return;
+
+	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
+	if (!obs_sceneitem) return;
+
+	obs_sceneitem_get_info(obs_sceneitem, &at->ti);
+	obs_sceneitem_get_crop(obs_sceneitem, &at->crop);
+	at->scale_type = obs_sceneitem_get_scale_filter(obs_sceneitem);
+	at->blend_type = obs_sceneitem_get_blending_mode(obs_sceneitem);
+}
+
 void MMGActionVideoSources::execute(const MMGMessage *midi) const
 {
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(parent_scene.mmgtocs());
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+	OBSSceneAutoRelease obs_scene = currentScene();
+	OBSSourceAutoRelease obs_source = currentSource();
 	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
 
 	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
@@ -535,11 +543,15 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 void MMGActionVideoSources::connectSignals(bool _connect)
 {
 	MMGAction::connectSignals(_connect);
-	if (!_connected) return;
+	if (!_connected && type() == TYPE_OUTPUT) return;
 
-	connectSourceSignal(mmgsignals()->requestSourceSignalByName(parent_scene));
-	connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
-	connectSceneGroups(OBSSceneAutoRelease(obs_get_scene_by_name(parent_scene.mmgtocs())));
+	if (type() == TYPE_OUTPUT) {
+		connectSourceSignal(mmgsignals()->requestSourceSignalByName(parent_scene));
+		connectSourceSignal(mmgsignals()->requestSourceSignalByName(source));
+		connectSceneGroups(OBSSceneAutoRelease(currentScene()));
+	}
+
+	MMGOBSFields::registerSource(OBSSourceAutoRelease(currentSource()), _json);
 }
 
 void MMGActionVideoSources::connectSceneGroups(obs_scene_t *scene)
@@ -569,8 +581,8 @@ void MMGActionVideoSources::frontendEventReceived(obs_frontend_event event)
 
 void MMGActionVideoSources::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
 {
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(parent_scene.mmgtocs());
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
+	OBSSceneAutoRelease obs_scene = currentScene();
+	OBSSourceAutoRelease obs_source = currentSource();
 	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
 
 	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
@@ -614,7 +626,7 @@ void MMGActionVideoSources::sourceEventReceived(MMGSourceSignal::Event event, QV
 			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent();
+			triggerEvent(MMGOBSFields::customEventReceived(obs_source, _json));
 			break;
 
 		default:

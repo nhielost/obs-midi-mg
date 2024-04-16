@@ -116,6 +116,19 @@ void MMGOBSNumberField::execute(QJsonObject &data, const MMGMessage *message) co
 	data[_name] = number.chooseFrom(message);
 }
 
+void MMGOBSNumberField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (number.state() == STATE_IGNORE) return;
+	
+	MMGNumber _number = number;
+	double val = data[_name].toDouble();
+
+	if (!_number.acceptable(val)) return;
+
+	_number = val;
+	nums += _number;
+}
+
 const MMGNumber MMGOBSNumberField::propertyBounds(obs_property_t *prop)
 {
 	MMGNumber bounds;
@@ -219,6 +232,20 @@ void MMGOBSStringField::execute(QJsonObject &data, const MMGMessage *message) co
 {
 	if (string.state() == STATE_IGNORE) return;
 	data[_name] = QJsonValue::fromVariant(values.value(options.indexOf(string.chooseFrom(message, options))));
+}
+
+void MMGOBSStringField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (string.state() == STATE_IGNORE) return;
+
+	qsizetype index = options.indexOf<QString>(string);
+	if (values.indexOf(data[_name].toVariant()) == index) return;
+
+	MMGNumber _number;
+	_number.setValue(index);
+	_number.setMax(values.size() - 1);
+	_number.setState(string.state());
+	nums += _number;
 }
 
 const QStringList MMGOBSStringField::propertyDescriptions(obs_property_t *prop)
@@ -350,6 +377,16 @@ void MMGOBSBooleanField::execute(QJsonObject &data, const MMGMessage *) const
 	if (state == STATE_IGNORE) return;
 	data[_name] = state == STATE_TOGGLE ? !data[_name].toBool() : boolean;
 }
+
+void MMGOBSBooleanField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (state == STATE_IGNORE) return;
+	if (state == STATE_FIXED && data[_name].toBool() == boolean) return;
+
+	MMGNumber _number;
+	_number.setState(STATE_TOGGLE);
+	nums += _number;
+}
 // End MMGOBSBooleanField
 
 // MMGOBSButtonField
@@ -447,6 +484,12 @@ void MMGOBSColorField::update(obs_property_t *prop)
 	label->setText(obs_property_description(prop));
 }
 
+void MMGOBSColorField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (data[_name].toInteger() == convertColor(color.rgba())) return;
+	nums += MMGNumber();
+}
+
 void MMGOBSColorField::callback()
 {
 	QColor _color = QColorDialog::getColor(color, nullptr, QString(), (QColorDialog::ColorDialogOption)alpha);
@@ -538,6 +581,14 @@ void MMGOBSFontField::update(obs_property_t *prop)
 	inner_label->setText(QString("%1, %2pt").arg(font.family()).arg(font.pointSize()));
 }
 
+void MMGOBSFontField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	QJsonObject font_obj;
+	jsonData(font_obj);
+	if (data[_name].toObject() == font_obj) return;
+	nums += MMGNumber();
+}
+
 void MMGOBSFontField::callback()
 {
 	bool accept;
@@ -602,6 +653,11 @@ void MMGOBSGroupField::update(obs_property_t *prop)
 void MMGOBSGroupField::execute(QJsonObject &data, const MMGMessage *message) const
 {
 	HAS_BOOLEAN_FIELD boolean_field->execute(data, message);
+}
+
+void MMGOBSGroupField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	HAS_BOOLEAN_FIELD boolean_field->customEventReceived(nums, data);
 }
 // End MMGOBSGroupField
 
@@ -677,6 +733,12 @@ void MMGOBSPathField::execute(QJsonObject &data, const MMGMessage *message) cons
 	data[_name] = str;
 }
 
+void MMGOBSPathField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (data[_name].toString() == path) return;
+	nums += MMGNumber();
+}
+
 void MMGOBSPathField::callback()
 {
 	QString new_path;
@@ -685,12 +747,15 @@ void MMGOBSPathField::callback()
 			new_path = QFileDialog::getOpenFileName(nullptr, button->text(), default_path, filters, nullptr,
 								QFileDialog::Option::HideNameFilterDetails);
 			break;
+
 		case 1: // FILE WRITING
 			new_path = QFileDialog::getSaveFileName(nullptr, button->text(), default_path, filters);
 			break;
+
 		case 2: // DIRECTORY
 			new_path = QFileDialog::getExistingDirectory(nullptr, button->text(), default_path);
 			break;
+
 		default:
 			break;
 	}
@@ -769,6 +834,12 @@ void MMGOBSTextField::execute(QJsonObject &data, const MMGMessage *message) cons
 	str.replace("${value}", MMGText::asString(message->value()));
 	str.replace("${velocity}", MMGText::asString(message->value()));
 	data[_name] = str;
+}
+
+void MMGOBSTextField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
+{
+	if (data[_name].toString() == text) return;
+	nums += MMGNumber();
 }
 // End MMGOBSTextField
 
@@ -950,10 +1021,14 @@ void MMGOBSFields::apply(MMGJsonObject *json)
 	bool do_apply = !json->isEmpty();
 
 	data_json = {};
+	QSignalBlocker blocker_this(this);
+
 	for (MMGOBSField *field : fields) {
 		if (do_apply) field->apply(json->value(field->name()).toObject());
 		emit field->saveData();
 	}
+
+	emit dataChanged(data_json);
 }
 
 void MMGOBSFields::updateField()
@@ -1020,12 +1095,31 @@ void MMGOBSFields::execute(obs_source_t *source, const MMGJsonObject *json, cons
 
 	std::lock_guard custom_guard(custom_update);
 	QJsonObject final_json = sourceDataJson(source);
+	bool apply_json = !json->isEmpty();
 
 	for (MMGOBSField *field : fields->fields) {
-		field->apply(json->value(field->name()).toObject());
+		if (apply_json) field->apply(json->value(field->name()).toObject());
 		field->execute(final_json, message);
-		field->apply(fields->data_json[field->name()].toObject());
+		if (apply_json) field->apply(fields->data_json[field->name()].toObject());
 	}
 
 	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(MMGJsonObject::toString(final_json))));
+}
+
+MMGNumberList MMGOBSFields::customEventReceived(obs_source_t *source, const MMGJsonObject *json)
+{
+	MMGOBSFields *fields = findFields(source);
+	if (!fields) return {MMGNumber()};
+
+	std::lock_guard custom_guard(custom_update);
+	QJsonObject final_json = sourceDataJson(source);
+	MMGNumberList nums;
+
+	for (MMGOBSField *field : fields->fields) {
+		field->apply(json->value(field->name()).toObject());
+		field->customEventReceived(nums, final_json);
+		field->apply(fields->data_json[field->name()].toObject());
+	}
+
+	return nums;
 }

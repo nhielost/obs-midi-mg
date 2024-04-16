@@ -87,10 +87,12 @@ public:
 	static const QStringList scaleFilterOptions();
 	static const QStringList blendModeOptions();
 	static const vec2 obsResolution();
+	static uint32_t convertAlignment(bool to_align, uint32_t value);
 
+	obs_scene_t *currentScene() const;
+	obs_source_t *currentSource() const;
 	const vec2 sourceResolution() const;
 	void updateTransform() const;
-	uint32_t convertAlignment(bool to_align, uint32_t value) const;
 
 private:
 	MMGUtils::MMGString parent_scene;

@@ -58,6 +58,7 @@ public:
 	virtual void update(obs_property_t *prop) = 0;
 
 	virtual void execute(QJsonObject &data, const MMGMessage *message) const = 0;
+	virtual void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const = 0;
 
 signals:
 	void triggerUpdate();
@@ -90,6 +91,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private:
 	MMGUtils::MMGNumber number;
@@ -113,6 +115,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 	static const QVariantList propertyValues(obs_source_t *source, const QString &field);
 
@@ -140,6 +143,7 @@ public:
 	void update(obs_property_t *prop) override { updateAndBlock(prop); };
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private slots:
 	void changeBoolean(bool value);
@@ -170,6 +174,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &, const MMGMessage *) const override{};
+	void customEventReceived(MMGUtils::MMGNumberList &, const QJsonObject &) const override{};
 
 private:
 	QPushButton *button;
@@ -195,6 +200,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *) const override { jsonUpdate(data); };
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private:
 	QColor color;
@@ -221,6 +227,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *) const override { jsonUpdate(data); };
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private:
 	QFont font;
@@ -244,6 +251,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 	MMGOBSBooleanField *booleanField() const { return boolean_field; };
 
@@ -268,6 +276,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private:
 	QString path;
@@ -296,6 +305,7 @@ public:
 	void update(obs_property_t *prop) override;
 
 	void execute(QJsonObject &data, const MMGMessage *message) const override;
+	void customEventReceived(MMGUtils::MMGNumberList &nums, const QJsonObject &data) const override;
 
 private:
 	QString text;
@@ -316,6 +326,7 @@ public:
 
 	static MMGOBSFields *registerSource(obs_source_t *source, MMGUtils::MMGJsonObject *json);
 	static void execute(obs_source_t *source, const MMGUtils::MMGJsonObject *json, const MMGMessage *message);
+	static MMGUtils::MMGNumberList customEventReceived(obs_source_t *source, const MMGUtils::MMGJsonObject *json);
 	static void clearFields() { qDeleteAll(all_fields); };
 
 signals:

@@ -190,12 +190,11 @@ void MMGActionTransitions::onList1Change()
 	MMGNumberDisplay *num_display = display()->numberDisplay(0);
 	num_display->setVisible(false);
 
-	if (type() != TYPE_INPUT) return;
-
 	OBSSourceAutoRelease obs_source;
 
 	switch (sub()) {
 		case TRANSITION_CURRENT:
+			if (type() != TYPE_INPUT) break;
 			num_display->setVisible(!transitionFixed());
 			num_display->setDescription(obstr("Basic.TransitionDuration"));
 			num_display->setOptions(MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
@@ -207,12 +206,14 @@ void MMGActionTransitions::onList1Change()
 
 		case TRANSITION_SOURCE_SHOW:
 		case TRANSITION_SOURCE_HIDE:
+			if (type() != TYPE_INPUT) break;
 			scene_display->setVisible(true);
 			scene_display->setDescription(obstr("Basic.Scene"));
 			scene_display->setBounds(MMGActionScenes::enumerate());
 			break;
 
 		case TRANSITION_CUSTOM:
+		case TRANSITION_CUSTOM_CHANGED:
 			obs_source = sourceByName(transition);
 			if (!obs_source_configurable(obs_source)) break;
 
@@ -362,9 +363,13 @@ void MMGActionTransitions::execute(const MMGMessage *midi) const
 void MMGActionTransitions::connectSignals(bool _connect)
 {
 	MMGAction::connectSignals(_connect);
-	if (!_connected) return;
+	if (!_connected && type() == TYPE_OUTPUT) return;
 
-	connectSourceSignal(mmgsignals()->requestSourceSignal(OBSSourceAutoRelease(sourceByName(transition))));
+	OBSSourceAutoRelease obs_source = sourceByName(transition);
+
+	if (type() == TYPE_OUTPUT) connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
+
+	MMGOBSFields::registerSource(obs_source, _json);
 }
 
 void MMGActionTransitions::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
@@ -395,7 +400,7 @@ void MMGActionTransitions::sourceEventReceived(MMGSourceSignal::Event event, QVa
 			obs_source = sourceByName(transition);
 			if (data.value<void *>() != obs_source) return;
 
-			triggerEvent();
+			triggerEvent(MMGOBSFields::customEventReceived(obs_source, _json));
 			return;
 
 		default:
