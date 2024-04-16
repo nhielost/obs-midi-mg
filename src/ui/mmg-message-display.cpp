@@ -24,45 +24,53 @@ MMGMessageDisplay::MMGMessageDisplay(QWidget *parent) : QWidget(parent)
 {
 	setFixedSize(330, 440);
 
+	QVBoxLayout *layout = new QVBoxLayout(this);
+	layout->setSpacing(10);
+	layout->setSizeConstraint(QLayout::SetMinimumSize);
+	layout->setContentsMargins(0, 0, 0, 0);
+
 	device_display = new MMGStringDisplay(this);
-	device_display->move(0, 5);
 	device_display->setDescription(mmgtr("Device.Name"));
 	device_display->setStorage(&_device);
 	connect(device_display, &MMGStringDisplay::stringChanged, this, &MMGMessageDisplay::setDevice);
+	layout->addWidget(device_display);
 
 	type_display = new MMGStringDisplay(this);
 	type_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-	type_display->move(0, 55);
 	type_display->setDescription(mmgtr("Message.Type.Text"));
 	type_display->setBounds(MMGMessage::acceptedTypes());
 	type_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
 	connect(type_display, &MMGStringDisplay::stringChanged, this, &MMGMessageDisplay::setLabels);
+	layout->addWidget(type_display);
 
 	channel_display = new MMGNumberDisplay(this);
-	channel_display->move(0, 150);
 	channel_display->setDescription(mmgtr("Message.Channel"));
 	channel_display->setBounds(1, 16);
 	channel_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
+	layout->addWidget(channel_display);
 
 	note_display = new MMGNumberDisplay(this);
-	note_display->move(0, 235);
 	note_display->setDescription(mmgtr("Message.Note"));
 	note_display->setBounds(0, 127);
 	note_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
+	layout->addWidget(note_display);
 
 	value_display = new MMGNumberDisplay(this);
-	value_display->move(0, 320);
 	value_display->setDescription(mmgtr("Message.Velocity"));
 	value_display->setBounds(0, 127);
 	value_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
 	value_display->lower();
+	layout->addWidget(value_display);
+
+	layout->addStretch(1);
 
 	listen_button = new QPushButton(this);
-	listen_button->setGeometry(0, 407, 330, 30);
+	listen_button->setFixedHeight(30);
 	listen_button->setCursor(Qt::PointingHandCursor);
 	listen_button->setCheckable(true);
 	listen_button->setText(mmgtr("UI.Listen.Execution"));
 	connect(listen_button, &QPushButton::clicked, this, &MMGMessageDisplay::onListenClick);
+	layout->addWidget(listen_button, 0, Qt::AlignBottom);
 }
 
 void MMGMessageDisplay::setStorage(MMGMessage *storage)
