@@ -38,8 +38,6 @@ MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	_messages->load(json_obj["messages"].toArray());
 	_actions->setType(_type);
 	_actions->load(json_obj["actions"].toArray());
-
-	setEnabled(_enabled);
 }
 
 void MMGBinding::setType(DeviceType type)

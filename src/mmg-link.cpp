@@ -57,9 +57,11 @@ void MMGLink::establish(bool _connect)
 			} else {
 				disconnect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::actionFulfilled);
 			}
-			binding->actions(0)->connectSignals(_connect);
 			break;
 	}
+
+	for (MMGAction *action : *binding->actions())
+		action->connectSignals(_connect);
 }
 
 void MMGLink::execute()

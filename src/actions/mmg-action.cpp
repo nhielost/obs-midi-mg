@@ -95,6 +95,7 @@ void MMGAction::connectSignals(bool _connect)
 
 void MMGAction::connectSourceSignal(const MMGSourceSignal *signal)
 {
+	if (!signal || !signal->source()) return;
 	connect(signal, &MMGSourceSignal::sourceChanged, this, &MMGAction::sourceEventReceived);
 }
 
