@@ -83,7 +83,7 @@ void MMGActionAudioSources::createDisplay(QWidget *parent)
 void MMGActionAudioSources::setComboOptions(QComboBox *sub)
 {
 	MMGAction::setComboOptions(sub);
-	if (type() == TYPE_OUTPUT) enable_combo_option(sub, 1, false);
+	if (type() == TYPE_OUTPUT) MMGInterface::setComboBoxItemEnabled(sub, 1, false);
 }
 
 void MMGActionAudioSources::setActionParams()

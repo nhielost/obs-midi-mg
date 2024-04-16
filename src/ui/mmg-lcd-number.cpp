@@ -55,7 +55,7 @@ MMGLCDNumber::MMGLCDNumber(QWidget *parent) : QWidget(parent)
 				  "border-radius: 0; "
 				  "border-top-left-radius: 3px; "
 				  "border-top-right-radius: 3px;");
-	inc_button->setIcon(mmg_icon("increase"));
+	inc_button->setIcon(MMGInterface::icon("increase"));
 	inc_button->setIconSize(QSize(7, 7));
 	connect(inc_button, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeatInc);
 	connect(inc_button, &QAbstractButton::released, this, &MMGLCDNumber::autoRepeatCancel);
@@ -66,7 +66,7 @@ MMGLCDNumber::MMGLCDNumber(QWidget *parent) : QWidget(parent)
 				  "border-radius: 0; "
 				  "border-bottom-left-radius: 3px; "
 				  "border-bottom-right-radius: 3px;");
-	dec_button->setIcon(mmg_icon("decrease"));
+	dec_button->setIcon(MMGInterface::icon("decrease"));
 	dec_button->setIconSize(QSize(7, 7));
 	connect(dec_button, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeatDec);
 	connect(dec_button, &QAbstractButton::released, this, &MMGLCDNumber::autoRepeatCancel);

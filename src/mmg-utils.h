@@ -100,8 +100,6 @@ public:
 
 	double map(const MMGNumber &other, bool round = true) const;
 	bool acceptable(double val) const;
-
-	static bool isBetween();
 };
 using MMGNumberList = QList<MMGNumber>;
 
@@ -185,10 +183,13 @@ public slots:
 	void reset(int time);
 };
 
-void enable_combo_option(QComboBox *combo, int index, bool enable);
-QIcon mmg_icon(const QString &icon_name);
+class MMGInterface {
 
-bool open_message_box(const QString &message, bool information = true);
+public:
+	static void setComboBoxItemEnabled(QComboBox *combo, int index, bool enable);
+	static QIcon icon(const QString &icon_name);
+	static bool promptUser(const QString &message_name, bool question = true);
+};
 
 } // namespace MMGUtils
 

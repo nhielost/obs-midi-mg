@@ -62,7 +62,7 @@ void MMGDevice::setActive(DeviceType type, bool active)
 	!isActive(type) ? openPort(type) : closePort(type);
 	// Is the port not in the correct state?
 	if (isPortOpen(type) == isActive(type)) {
-		open_message_box("PortOpenError");
+		MMGInterface::promptUser("PortOpenError");
 		return;
 	}
 

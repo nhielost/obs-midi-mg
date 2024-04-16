@@ -36,7 +36,7 @@ MMGEchoWindow::MMGEchoWindow(QWidget *parent) : QDialog(parent, Qt::Dialog), ui(
 
 	menu_binding_groups = new QMenu(this);
 	menu_binding_groups->setTitle(mmgtr("UI.Buttons.Move"));
-	menu_binding_groups->setIcon(mmg_icon("move"));
+	menu_binding_groups->setIcon(MMGInterface::icon("move"));
 
 	message_display = new MMGMessageDisplay(ui->message_frame);
 	message_display->move(10, 10);
@@ -310,12 +310,12 @@ void MMGEchoWindow::onDeviceCheck()
 {
 	current_device->checkCapable();
 	deviceShow();
-	open_message_box("DeviceCheck");
+	MMGInterface::promptUser("DeviceCheck", false);
 }
 
 void MMGEchoWindow::onDeviceRemove()
 {
-	if (!open_message_box("DeviceRemove", false)) return;
+	if (!MMGInterface::promptUser("DeviceRemove")) return;
 
 	manager(device)->remove(current_device);
 	device_control->refresh();
@@ -425,7 +425,7 @@ void MMGEchoWindow::onBindingSwitch(bool toggled)
 	if (!ui->button_switch->signalsBlocked()) {
 		QSignalBlocker blocker_switch(ui->button_switch);
 		ui->button_switch->setChecked(!toggled);
-		if (!open_message_box("BindingSwitch", false)) return;
+		if (!MMGInterface::promptUser("BindingSwitch")) return;
 		ui->button_switch->setChecked(toggled);
 	}
 

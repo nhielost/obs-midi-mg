@@ -130,7 +130,7 @@ template<typename T> void MMGManagerControl<T>::itemCopied()
 template<typename T> void MMGManagerControl<T>::itemRemoved()
 {
 	if (!isEnabled() || !currentValue()) return;
-	if (!open_message_box("PermanentRemove", false)) return;
+	if (!MMGInterface::promptUser("PermanentRemove")) return;
 
 	current_manager->remove(currentValue());
 	current_value = nullptr;

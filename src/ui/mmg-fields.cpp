@@ -286,7 +286,7 @@ MMGOBSBooleanField::MMGOBSBooleanField(QWidget *p, const MMGOBSFieldInit &init) 
 	button = new QPushButton(this);
 	button->setCheckable(true);
 	button->setGeometry(220, 20, 50, 50);
-	button->setIcon(mmg_icon("confirm"));
+	button->setIcon(MMGInterface::icon("confirm"));
 	button->setIconSize(QSize(28, 28));
 	button->setCursor(Qt::PointingHandCursor);
 
@@ -417,12 +417,12 @@ MMGOBSColorField::MMGOBSColorField(QWidget *p, const MMGOBSFieldInit &init, bool
 
 void MMGOBSColorField::jsonUpdate(QJsonObject &json_obj) const
 {
-	json_obj[_name] = (double)convertColor(color.rgba());
+	json_obj[_name] = convertColor(color.rgba());
 }
 
 void MMGOBSColorField::jsonData(QJsonObject &json_obj) const
 {
-	json_obj["color"] = (double)convertColor(color.rgba());
+	json_obj["color"] = convertColor(color.rgba());
 }
 
 void MMGOBSColorField::apply(const QJsonObject &json_obj)
@@ -455,10 +455,9 @@ void MMGOBSColorField::callback()
 	emit saveData();
 }
 
-double MMGOBSColorField::convertColor(double rgb)
+qint64 MMGOBSColorField::convertColor(qint64 rgb)
 {
-	uint val = rgb;
-	return (val & 0xFF000000) | ((val & 0xFF0000) >> 16) | (val & 0xFF00) | ((val & 0xFF) << 16);
+	return (rgb & 0xFF000000) | ((rgb & 0xFF0000) >> 16) | (rgb & 0xFF00) | ((rgb & 0xFF) << 16);
 }
 // End MMGOBSColorField
 
@@ -779,7 +778,7 @@ QList<MMGOBSFields *> MMGOBSFields::all_fields;
 MMGOBSFields::MMGOBSFields(obs_source_t *source)
 {
 	if (!source) {
-		open_message_box("FieldsError");
+		MMGInterface::promptUser("FieldsError", false);
 		return;
 	}
 

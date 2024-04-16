@@ -203,7 +203,7 @@ private:
 	QFrame *frame;
 	QPushButton *button;
 
-	static double convertColor(double rgb);
+	static qint64 convertColor(qint64 rgb);
 };
 
 class MMGOBSFontField : public MMGOBSField {

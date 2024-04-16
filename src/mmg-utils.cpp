@@ -292,26 +292,26 @@ void MMGTimer::reset(int time)
 }
 // End MMGTimer
 
-bool open_message_box(const QString &message, bool information)
+bool MMGInterface::promptUser(const QString &message, bool question)
 {
 	QString title = MMGText::join(TEXT_MMG, "UI.MessageBox.Title", message);
 	QString text = MMGText::join(TEXT_MMG, "UI.MessageBox.Text", message);
 
-	if (information) {
-		QMessageBox::information(nullptr, title, text);
-		return true;
-	} else {
+	if (question) {
 		return QMessageBox::question(nullptr, title, text, QMessageBox::Ok | QMessageBox::Cancel,
 					     QMessageBox::Ok) == QMessageBox::Ok;
+	} else {
+		QMessageBox::information(nullptr, title, text);
+		return true;
 	}
 }
 
-void enable_combo_option(QComboBox *combo, int index, bool enable)
+void MMGInterface::setComboBoxItemEnabled(QComboBox *combo, int index, bool enable)
 {
 	qobject_cast<QStandardItemModel *>(combo->model())->item(index)->setEnabled(enable);
 }
 
-QIcon mmg_icon(const QString &icon_name)
+QIcon MMGInterface::icon(const QString &icon_name)
 {
 	return QIcon(QString(":/icons/%1.svg").arg(icon_name));
 }
