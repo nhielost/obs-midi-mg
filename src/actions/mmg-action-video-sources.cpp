@@ -313,7 +313,8 @@ void MMGActionVideoSources::onList2Change()
 			break;
 
 		case SOURCE_VIDEO_CUSTOM:
-			display()->setFields(MMGOBSFields::registerSource(OBSSourceAutoRelease(currentSource()), _json));
+			display()->setFields(
+				MMGOBSFields::registerSource(OBSSourceAutoRelease(currentSource()), _json));
 			break;
 
 		default:

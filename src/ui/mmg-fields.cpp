@@ -119,7 +119,7 @@ void MMGOBSNumberField::execute(QJsonObject &data, const MMGMessage *message) co
 void MMGOBSNumberField::customEventReceived(MMGNumberList &nums, const QJsonObject &data) const
 {
 	if (number.state() == STATE_IGNORE) return;
-	
+
 	MMGNumber _number = number;
 	double val = data[_name].toDouble();
 

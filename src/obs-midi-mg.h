@@ -30,7 +30,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 class MMGConfig;
 MMGConfig *config();
 
-#define OBS_MIDIMG_VERSION "v3.0.2"
+#define OBS_MIDIMG_VERSION "v3.0.3"
 
 #define qtocs() toUtf8().constData()
 #define mmgtocs() value().qtocs()
