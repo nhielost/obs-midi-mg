@@ -429,7 +429,7 @@ void MMGActionVideoSources::updateTransform() const
 	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
 	if (!obs_sceneitem) return;
 
-	obs_sceneitem_get_info(obs_sceneitem, &at->ti);
+	obs_sceneitem_get_info2(obs_sceneitem, &at->ti);
 	obs_sceneitem_get_crop(obs_sceneitem, &at->crop);
 	at->scale_type = obs_sceneitem_get_scale_filter(obs_sceneitem);
 	at->blend_type = obs_sceneitem_get_blending_mode(obs_sceneitem);

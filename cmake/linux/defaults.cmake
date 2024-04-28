@@ -7,7 +7,20 @@
 
 include_guard(GLOBAL)
 
+include(FetchContent)
 include(GNUInstallDirs)
+
+# libremidi dependency for pipewire support
+# cmake-format: off
+if (NOT TARGET readerwriterqueue)
+  FetchContent_Declare(
+    readerwriterqueue
+    GIT_REPOSITORY https://github.com/cameron314/readerwriterqueue
+    GIT_TAG        master
+  )
+  FetchContent_MakeAvailable(readerwriterqueue)
+endif()
+# cmake-format: on
 
 # Enable find_package targets to become globally available targets
 set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)

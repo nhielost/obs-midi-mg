@@ -39,10 +39,9 @@ if(ENABLE_QT)
 endif()
 
 # Include libremidi library
+set(CMAKE_CXX_STANDARD 20)
 add_subdirectory(libremidi EXCLUDE_FROM_ALL)
 target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PRIVATE libremidi/include)
-# Prevent libremidi from causing MIDI 2 and C++20 errors when compiling
-set_target_properties(libremidi PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS ON)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE libremidi)
 
 target_sources(
