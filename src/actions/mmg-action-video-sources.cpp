@@ -41,7 +41,7 @@ const QStringList MMGActionVideoSources::subNames() const
 {
 	return subModuleTextList({"Move", "Display", "Locking", "Crop", "Align", "Scale", "ScaleFiltering", "Rotate",
 				  "BoundingBoxType", "BoundingBoxSize", "BoundingBoxAlign", "BlendingMode",
-				  "Screenshot", "Custom"});
+				  "Screenshot", "Reset", "Custom"});
 }
 
 void MMGActionVideoSources::json(QJsonObject &json_obj) const
@@ -437,6 +437,7 @@ void MMGActionVideoSources::updateTransform() const
 
 void MMGActionVideoSources::execute(const MMGMessage *midi) const
 {
+
 	OBSSceneAutoRelease obs_scene = currentScene();
 	OBSSourceAutoRelease obs_source = currentSource();
 	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
@@ -529,6 +530,12 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 		case SOURCE_VIDEO_SCREENSHOT:
 			obs_frontend_take_source_screenshot(obs_source);
 			break;
+
+		case SOURCE_VIDEO_RESET: {
+			OBSDataAutoRelease settings = obs_source_get_settings(obs_source);
+			if (settings) obs_source_update(obs_source, settings);
+			break;
+		}
 
 		case SOURCE_VIDEO_CUSTOM:
 			MMGOBSFields::execute(obs_source, _json, midi);
