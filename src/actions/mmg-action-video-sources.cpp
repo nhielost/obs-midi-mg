@@ -41,7 +41,7 @@ const QStringList MMGActionVideoSources::subNames() const
 {
 	return subModuleTextList({"Move", "Display", "Locking", "Crop", "Align", "Scale", "ScaleFiltering", "Rotate",
 				  "BoundingBoxType", "BoundingBoxSize", "BoundingBoxAlign", "BlendingMode",
-				  "Screenshot", "Custom"});
+				  "Screenshot", "Reset", "Custom"});
 }
 
 void MMGActionVideoSources::json(QJsonObject &json_obj) const
@@ -435,8 +435,63 @@ void MMGActionVideoSources::updateTransform() const
 	at->blend_type = obs_sceneitem_get_blending_mode(obs_sceneitem);
 }
 
+struct SourceResetTask {
+	std::string scene_name;
+	std::string source_name;
+};
+
+void reset_source_in_background(SourceResetTask task) {
+	std::thread([task]() {
+	    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Delay before reset
+
+	    obs_scene_t *scene = obs_get_scene_by_name(task.scene_name.c_str());
+	    if (!scene) {
+		blog(LOG_ERROR, "Scene not found: %s", task.scene_name.c_str());
+		return;
+	    }
+
+	    obs_sceneitem_t *sceneitem = obs_scene_find_source_recursive(scene, task.source_name.c_str());
+	    if (!sceneitem) {
+		blog(LOG_ERROR, "Source not found: %s", task.source_name.c_str());
+		obs_scene_release(scene);
+		return;
+	    }
+
+	    obs_source_t *source = obs_sceneitem_get_source(sceneitem);
+	    if (!source) {
+		blog(LOG_ERROR, "Could not get source from sceneitem: %s", task.source_name.c_str());
+		obs_scene_release(scene);
+		return;
+	    }
+
+	    // Do the reset: Clear and restore the device
+	    obs_data_t *settings = obs_source_get_settings(source);
+	    if (settings) {
+		const char *device_id = obs_data_get_string(settings, "device");
+		const char *device_name = obs_data_get_string(settings, "device_name");
+
+		blog(LOG_INFO, "Resetting source %s in scene %s", task.source_name.c_str(), task.scene_name.c_str());
+
+		obs_data_set_string(settings, "device", "");
+		obs_data_set_string(settings, "device_name", "");
+		obs_source_update(source, settings);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Give OBS time to process
+
+		obs_data_set_string(settings, "device", device_id);
+		obs_data_set_string(settings, "device_name", device_name);
+		obs_source_update(source, settings);
+
+		obs_data_release(settings);
+	    }
+
+	    obs_scene_release(scene);
+	}).detach();
+}
+
 void MMGActionVideoSources::execute(const MMGMessage *midi) const
 {
+
 	OBSSceneAutoRelease obs_scene = currentScene();
 	OBSSourceAutoRelease obs_source = currentSource();
 	ACTION_ASSERT(obs_source && obs_scene, "Scene or source does not exist.");
@@ -529,6 +584,12 @@ void MMGActionVideoSources::execute(const MMGMessage *midi) const
 		case SOURCE_VIDEO_SCREENSHOT:
 			obs_frontend_take_source_screenshot(obs_source);
 			break;
+
+		case SOURCE_VIDEO_RESET: {
+			OBSDataAutoRelease settings = obs_source_get_settings(obs_source);
+			if (settings) obs_source_update(obs_source, settings);
+			break;
+		}
 
 		case SOURCE_VIDEO_CUSTOM:
 			MMGOBSFields::execute(obs_source, _json, midi);
