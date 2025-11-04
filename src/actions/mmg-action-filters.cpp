@@ -138,7 +138,10 @@ void MMGActionFilters::onList2Change()
 		case FILTER_CUSTOM:
 			obs_source = obs_get_source_by_name(source.mmgtocs());
 			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
+			// Only register if both source and filter exist to prevent crashes
+			if (obs_source) {
+				display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
+			}
 			break;
 
 		default:
