@@ -1004,31 +1004,67 @@ void MMGOBSFields::jsonData()
 	auto field = qobject_cast<MMGOBSField *>(sender());
 	if (!field) return;
 
+	blog(LOG_INFO, "[MMGOBSFields] jsonData() called - field '%s' changed by USER", field->name().qtocs());
+	
 	QJsonObject json_obj;
 	field->jsonData(json_obj);
 	data_json[field->name()] = json_obj;
 
+	blog(LOG_INFO, "[MMGOBSFields]   Emitting dataChanged signal (will save to action JSON)");
 	emit dataChanged(data_json);
 }
 
 void MMGOBSFields::apply(MMGJsonObject *json)
 {
+	blog(LOG_INFO, "[MMGOBSFields] apply() called for source: %s", source_name.qtocs());
+	blog(LOG_INFO, "[MMGOBSFields]   JSON isEmpty: %s, keys: %s", 
+		json ? (json->isEmpty() ? "true" : "false") : "null",
+		json ? json->keys().join(", ").qtocs() : "null");
+	
 	disconnect(this, &MMGOBSFields::dataChanged, nullptr, nullptr);
 	if (!json) return;
-	connect(this, &MMGOBSFields::dataChanged, json, &MMGJsonObject::setJson);
+	// Use Qt::QueuedConnection to prevent crashes if the json object is deleted
+	// while signals are still being processed
+	connect(this, &MMGOBSFields::dataChanged, json, &MMGJsonObject::setJson, Qt::QueuedConnection);
 
-	if (property_json.keys() != json->keys()) json->clear();
 	bool do_apply = !json->isEmpty();
 
-	data_json = {};
-	QSignalBlocker blocker_this(this);
-
+	// Disconnect field signals to prevent them from saving during apply
+	blog(LOG_INFO, "[MMGOBSFields]   Disconnecting all field signals");
 	for (MMGOBSField *field : fields) {
-		if (do_apply) field->apply(json->value(field->name()).toObject());
-		emit field->saveData();
+		disconnect(field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
+		disconnect(field, &MMGOBSField::saveUpdates, this, &MMGOBSFields::jsonUpdate);
 	}
 
-	emit dataChanged(data_json);
+	// Block ALL signals during apply
+	const QSignalBlocker blocker(this);
+
+	// First, reset all fields to empty to clear old data
+	blog(LOG_INFO, "[MMGOBSFields]   Resetting all %d fields to empty", fields.size());
+	for (MMGOBSField *field : fields) {
+		field->apply(QJsonObject());
+	}
+	
+	// Then load only the configured fields
+	if (do_apply) {
+		blog(LOG_INFO, "[MMGOBSFields]   Loading configured fields from JSON");
+		for (MMGOBSField *field : fields) {
+			QJsonValue field_value = json->value(field->name());
+			if (!field_value.isNull() && !field_value.toObject().isEmpty()) {
+				blog(LOG_INFO, "[MMGOBSFields]     - Field '%s' has data", field->name().qtocs());
+			}
+			field->apply(field_value.toObject());
+		}
+	}
+	
+	// Reconnect field signals
+	blog(LOG_INFO, "[MMGOBSFields]   Reconnecting field signals");
+	for (MMGOBSField *field : fields) {
+		connect(field, &MMGOBSField::saveData, this, &MMGOBSFields::jsonData);
+		connect(field, &MMGOBSField::saveUpdates, this, &MMGOBSFields::jsonUpdate);
+	}
+	
+	blog(LOG_INFO, "[MMGOBSFields] apply() complete");
 }
 
 void MMGOBSFields::updateField()
@@ -1093,17 +1129,37 @@ void MMGOBSFields::execute(obs_source_t *source, const MMGJsonObject *json, cons
 	MMGOBSFields *fields = findFields(source);
 	if (!fields) return;
 
+	const char *source_name = obs_source_get_name(source);
+	blog(LOG_INFO, "[MMGOBSFields] execute() called for source: %s", source_name);
+	blog(LOG_INFO, "[MMGOBSFields]   Action JSON keys: %s", json->keys().join(", ").qtocs());
+
 	std::lock_guard custom_guard(custom_update);
 	QJsonObject final_json = sourceDataJson(source);
 	bool apply_json = !json->isEmpty();
 
+	// Block all signals and disconnect during execute to prevent any UI corruption
+	blog(LOG_INFO, "[MMGOBSFields]   Disconnecting widget and blocking signals");
+	fields->disconnect(fields, &MMGOBSFields::dataChanged, nullptr, nullptr);
+	const QSignalBlocker blocker(fields);
+	
 	for (MMGOBSField *field : fields->fields) {
-		if (apply_json) field->apply(json->value(field->name()).toObject());
-		field->execute(final_json, message);
-		if (apply_json) field->apply(fields->data_json[field->name()].toObject());
+		// Only execute fields that are configured in this action's JSON
+		// Otherwise unconfigured fields will add default values (like color_multiply: #000)
+		if (apply_json) {
+			QJsonObject field_json = json->value(field->name()).toObject();
+			if (!field_json.isEmpty()) {
+				blog(LOG_INFO, "[MMGOBSFields]     Executing field: %s", field->name().qtocs());
+				field->apply(field_json);
+				field->execute(final_json, message);
+			}
+		}
 	}
 
+	blog(LOG_INFO, "[MMGOBSFields]   Updating OBS source with new values");
 	obs_source_update(source, OBSDataAutoRelease(obs_data_create_from_json(MMGJsonObject::toString(final_json))));
+	
+	blog(LOG_INFO, "[MMGOBSFields] execute() complete (widget stays disconnected)");
+	// Widget stays disconnected - apply() will reconnect when user clicks a binding
 }
 
 MMGNumberList MMGOBSFields::customEventReceived(obs_source_t *source, const MMGJsonObject *json)

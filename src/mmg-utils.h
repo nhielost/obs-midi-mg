@@ -143,7 +143,7 @@ public:
 	QJsonValue value(const QString &key) const { return json_obj[key]; };
 
 	void json(QJsonObject &json, const QString &key) const { json[key] = json_obj; };
-	void setJson(const QJsonObject &json) { MMG_ENABLED json_obj = json; };
+	void setJson(const QJsonObject &json);  // Moved to cpp for logging
 	void copy(MMGJsonObject *dest) const { dest->json_obj = json_obj; };
 	void clear() { json_obj = {}; };
 
