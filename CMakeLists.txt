@@ -44,6 +44,11 @@ add_subdirectory(libremidi EXCLUDE_FROM_ALL)
 target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PRIVATE libremidi/include)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE libremidi)
 
+# Disable warnings as errors for libremidi (it's a third-party library)
+if(MSVC)
+  target_compile_options(libremidi PRIVATE /W0)
+endif()
+
 target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE ./src/actions/mmg-action.cpp
