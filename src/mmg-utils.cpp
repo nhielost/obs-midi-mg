@@ -279,7 +279,13 @@ QJsonObject MMGJsonObject::toObject(const QByteArray &str)
 
 void MMGJsonObject::setJson(const QJsonObject &json)
 {
-	if (!editable) return;	
+	if (!editable) return;
+	
+	// Log the JSON being saved to this action
+	blog(LOG_INFO, "[MMGJsonObject] setJson() called - saving to action");
+	blog(LOG_INFO, "[MMGJsonObject]   Keys: %s", json.keys().join(", ").qtocs());
+	blog(LOG_INFO, "[MMGJsonObject]   JSON: %s", toString(json).constData());
+	
 	json_obj = json;
 }
 // End MMGJsonObject
