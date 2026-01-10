@@ -19,7 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-device.h"
 #include "mmg-config.h"
 
-using namespace MMGUtils;
+#include "ui/mmg-value-widget.h"
 
 // MMGDevice
 MMGDevice::MMGDevice(MMGDeviceManager *parent, const QJsonObject &json_obj) : MMGMIDIPort(parent, json_obj)
@@ -31,14 +31,14 @@ void MMGDevice::json(QJsonObject &device_obj) const
 {
 	device_obj["name"] = objectName();
 	device_obj["active"] = (int)_active;
-	if (!_thru.isEmpty()) device_obj["thru"] = _thru;
+	device_obj["thru"] = !!_thru ? _thru->objectName() : "";
 }
 
 void MMGDevice::update(const QJsonObject &json_obj)
 {
 	setActive(TYPE_INPUT, json_obj["active"].toInt() & 0b01);
 	setActive(TYPE_OUTPUT, json_obj["active"].toInt() & 0b10);
-	_thru = json_obj["thru"].toString();
+	_thru = manager(device)->find(json_obj["thru"].toString());
 }
 
 bool MMGDevice::isActive(DeviceType type) const
@@ -62,77 +62,48 @@ void MMGDevice::setActive(DeviceType type, bool active)
 	!isActive(type) ? openPort(type) : closePort(type);
 	// Is the port not in the correct state?
 	if (isPortOpen(type) == isActive(type)) {
-		MMGInterface::promptUser("PortOpenError");
+		prompt_info("PortOpenError");
 		return;
 	}
 
 	switch (type) {
 		case TYPE_INPUT:
+		default:
 			_active ^= 0b01;
 			break;
 
 		case TYPE_OUTPUT:
 			_active ^= 0b10;
 			break;
-
-		default:
-			break;
 	}
+
+	emit activeStateChanged();
 }
 
-void MMGDevice::checkCapable()
+void MMGDevice::refreshPort()
 {
-	uint active = _active;
+	uint8_t active = _active;
 	_active = 0;
 
-	blog(LOG_INFO, "Checking device capabilities...");
-
 	closePort(TYPE_INPUT);
 	closePort(TYPE_OUTPUT);
 
-	openPort(TYPE_INPUT);
-	setCapable(TYPE_INPUT, isPortOpen(TYPE_INPUT));
-
-	openPort(TYPE_OUTPUT);
-	setCapable(TYPE_OUTPUT, isPortOpen(TYPE_OUTPUT));
-
-	closePort(TYPE_INPUT);
-	closePort(TYPE_OUTPUT);
-
-	blog(LOG_INFO, "Device capabilities checked. Re-opening active ports...");
+	refreshPortAPI();
 
 	setActive(TYPE_INPUT, active & 0b01);
 	setActive(TYPE_OUTPUT, active & 0b10);
 }
 // End MMGDevice
 
-// MMGDeviceManager
-MMGDevice *MMGDeviceManager::add(const QJsonObject &json_obj)
+MMGDevice *MMGDevice::generate(MMGDeviceManager *parent, const QJsonObject &json_obj)
 {
-	MMGDevice *current_device = find(json_obj["name"].toString());
+	MMGDevice *current_device = parent->find(json_obj["name"].toString());
 
 	if (current_device) {
 		current_device->update(json_obj);
-		return current_device;
+		return nullptr;
 	} else {
-		if (find(mmgtr("Device.Dummy"))) remove(find(mmgtr("Device.Dummy")));
-		return MMGManager::add(new MMGDevice(this, json_obj));
+		if (auto *found = parent->find(mmgtr("Device.Dummy")); !!found) parent->remove(found);
+		return new MMGDevice(parent, json_obj);
 	}
 }
-
-MMGDevice *MMGDeviceManager::add(const QString &name)
-{
-	QJsonObject json_obj;
-	json_obj["name"] = name;
-	return add(json_obj);
-}
-
-const QStringList MMGDeviceManager::capableDevices(DeviceType type) const
-{
-	QStringList devices;
-	for (MMGDevice *device : _list) {
-		if (device->isCapable(type)) devices += device->objectName();
-	}
-	return devices;
-}
-// End MMGDeviceManager

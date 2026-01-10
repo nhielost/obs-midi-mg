@@ -18,79 +18,69 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-virtualcam.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
+
+const MMGParams<bool> MMGActionVirtualCam::vircam_params {
+	.desc = mmgtr("Plugin.Status"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
 
 MMGActionVirtualCam::MMGActionVirtualCam(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj)
+	: MMGAction(parent, json_obj),
+	  vircam_state(json_obj, "vircam_state")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionVirtualCam::subNames() const
+void MMGActionVirtualCam::initOldData(const QJsonObject &json_obj)
 {
-	QStringList opts;
+	int sub = json_obj["sub"].toInt();
 
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartVirtualCam", "StopVirtualCam"})
-			     << subModuleText("Toggle");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Started", "Stopped", "Toggle"});
-			break;
-	}
-
-	return opts;
+	MMGCompatibility::initOldBooleanData(vircam_state, sub);
 }
 
-void MMGActionVirtualCam::execute(const MMGMessage *) const
+void MMGActionVirtualCam::json(QJsonObject &json_obj) const
 {
-	switch (sub()) {
-		case VIRCAM_ON:
-			if (!obs_frontend_virtualcam_active()) obs_frontend_start_virtualcam();
-			break;
+	MMGAction::json(json_obj);
 
-		case VIRCAM_OFF:
-			if (obs_frontend_virtualcam_active()) obs_frontend_stop_virtualcam();
-			break;
+	vircam_state->json(json_obj, "vircam_state");
+}
 
-		case VIRCAM_TOGGLE_ONOFF:
-			if (obs_frontend_virtualcam_active()) {
-				obs_frontend_stop_virtualcam();
-			} else {
-				obs_frontend_start_virtualcam();
-			}
-			break;
+void MMGActionVirtualCam::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
 
-		default:
-			break;
-	}
+	auto casted = dynamic_cast<MMGActionVirtualCam *>(dest);
+	if (!casted) return;
+
+	vircam_state.copy(casted->vircam_state);
+}
+
+void MMGActionVirtualCam::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &vircam_state, &vircam_params);
+}
+
+void MMGActionVirtualCam::execute(const MMGMappingTest &test) const
+{
+	bool value = obs_frontend_virtualcam_active();
+	ACTION_ASSERT(test.applicable(vircam_state, value),
+		      "A status could not be selected. Check the Status Field and try again.");
+
+	if (value && !obs_frontend_virtualcam_active())
+		obs_frontend_start_virtualcam();
+	else if (!value && obs_frontend_virtualcam_active())
+		obs_frontend_stop_virtualcam();
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionVirtualCam::frontendEventReceived(obs_frontend_event event)
+void MMGActionVirtualCam::processEvent(obs_frontend_event event) const
 {
-	switch (sub()) {
-		case VIRCAM_STARTED:
-			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED) return;
-			break;
-
-		case VIRCAM_STOPPED:
-			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED) return;
-			break;
-
-		case VIRCAM_TOGGLE_STARTED:
-			if (event != OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED &&
-			    event != OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED)
-				return;
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(vircam_state, event, OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED,
+				 OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED);
 }
+
+} // namespace MMGActions

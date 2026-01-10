@@ -19,38 +19,63 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionScenes : public MMGAction {
+namespace MMGActions {
+
+const MMGParams<MMGString> &sceneParams(char type = 0);
+
+const MMGStringTranslationMap enumerateScenes();
+const MMGStringTranslationMap enumerateSceneItems(const MMGString &scene_uuid, uint64_t bounds);
+MMGString currentScene(bool preview = false);
+
+class MMGActionScenesSwitch : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
-	MMGActionScenes(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionScenesSwitch(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { SCENE_CHANGE };
-	enum Events { SCENE_CHANGED };
+	static constexpr Id actionId() { return Id(0x1101); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const final override { return "Scenes"; };
+	const char *trActionName() const override { return "Switch"; };
 
-	Category category() const override { return MMGACTION_SCENE; };
-	const QString trName() const override { return "Scenes"; };
-	const QStringList subNames() const override { return {subModuleText("Switch")}; };
-
+	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
-	void setEditable(bool edit) override;
-	void toggle() override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
-
-	void execute(const MMGMessage *midi) const override;
-
-	static const QStringList enumerate();
-	static const QStringList enumerateItems(const QString &scene);
-	static const QString currentScene(bool preview = false);
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
 private:
-	MMGUtils::MMGString scene;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
 
-	static bool enumerateItems(obs_scene_t *, obs_sceneitem_t *, void *);
+private:
+	MMGBoolean use_preview;
+	MMGStringID scene;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event event) override;
+	static const MMGParams<bool> preview_params;
 };
+MMG_DECLARE_ACTION(MMGActionScenesSwitch);
+
+class MMGActionScenesScreenshot : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionScenesScreenshot(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x1111); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const final override { return "Scenes"; };
+	const char *trActionName() const override { return "Screenshot"; };
+
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override
+	{
+		if (event == OBS_FRONTEND_EVENT_SCREENSHOT_TAKEN) EventFulfillment fulfiller(this);
+	};
+};
+MMG_DECLARE_ACTION(MMGActionScenesScreenshot);
+
+} // namespace MMGActions

@@ -19,11 +19,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_CONFIG_H
 #define MMG_CONFIG_H
 
-#include "mmg-device.h"
 #include "mmg-binding.h"
-#include "mmg-settings.h"
+#include "mmg-device.h"
+#include "mmg-preference.h"
 
-class MMGOldConfig;
+#include <QDateTime>
 
 class MMGConfig : public QObject {
 	Q_OBJECT
@@ -31,52 +31,47 @@ class MMGConfig : public QObject {
 public:
 	MMGConfig();
 
+	enum FileVersion : uint8_t {
+		VERSION_0_0,
+		VERSION_1_0,
+		VERSION_2_0,
+		VERSION_3_0,
+		VERSION_3_1,
+	};
+
 	void blog(int log_status, const QString &message) const;
 
 	void load(const QString &path_str = QString());
 	void save(const QString &path_str = QString()) const;
+	void finishLoad();
 	void clearAllData();
+
+	FileVersion fileVersion() const { return file_version; };
 
 	MMGCollections *collections() const { return _collections; };
 	MMGDeviceManager *devices() const { return _devices; };
-	MMGSettings *settings() const { return _settings; };
+	MMGPreferenceManager *preferences() const { return _preferences; };
 
-	MMGSignals *mmgsignals() const { return _signals; };
-	MMGMIDI *midi() const { return _midi; };
-
-	static QString filename() { return "obs-midi-mg-config.json"; };
+	static const char *filename() { return "obs-midi-mg-config.json"; };
 	static QString filepath(const QString &path_str);
+	static FileVersion currentFileVersion() { return VERSION_3_1; };
+
+signals:
+	void refreshRequested();
+	void midiStateChanged();
+
+private:
+	void findFileVersion();
 
 private:
 	MMGCollections *_collections;
 	MMGDeviceManager *_devices;
-	MMGSettings *_settings;
+	MMGPreferenceManager *_preferences;
 
-	MMGSignals *_signals;
-	MMGMIDI *_midi;
-
-	MMGOldConfig *old_config;
+	mutable QJsonObject doc;
+	FileVersion file_version = currentFileVersion();
 };
 
-#define enum_manager(which) for (auto val : *manager(which))
 #define manager(which) config()->which##s()
-#define midi() config()->midi()
-
-class MMGOldConfig : public QObject {
-	Q_OBJECT
-
-public:
-	MMGOldConfig(MMGConfig *parent) : QObject(parent), new_config(parent) {}
-
-	void blog(int log_status, const QString &message) { new_config->blog(log_status, message); };
-	void load(QJsonObject &doc);
-	void postLoad();
-
-private:
-	void cleanDeviceName(QString &) const;
-
-	MMGConfig *new_config;
-	QMultiMap<QString, QString> old_internal_bindings;
-};
 
 #endif // MMG_CONFIG_H

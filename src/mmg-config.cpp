@@ -17,41 +17,57 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-config.h"
-#include "mmg-utils.h"
 
-#include <QDateTime>
 #include <QFile>
 
-using namespace MMGUtils;
+namespace MMGCompatibility {
+
+static QMultiMap<QString, QString> old_internal_bindings;
+static void oldConfigPreLoad(QJsonObject &);
+static void oldConfigPostLoad();
+
+} // namespace MMGCompatibility
 
 // MMGConfig
 MMGConfig::MMGConfig()
-	: _collections(new MMGCollections(this)),
-	  _devices(new MMGDeviceManager(this)),
-	  _settings(new MMGSettings(this)),
-
-	  _signals(new MMGSignals(this)),
-	  _midi(nullptr),
-
-	  old_config(new MMGOldConfig(this))
+	: _collections(new MMGCollections(this, "collections")),
+	  _devices(new MMGDeviceManager(this, "devices")),
+	  _preferences(new MMGPreferenceManager(this, "preferences"))
 {
+	MMGSignal::initSignals();
+
+	QJsonObject json_obj;
+	for (auto &[id, name] : MMGPreferences::availablePreferences()) {
+		MMGJson::setValue(json_obj, "id", id);
+		auto *preference = _preferences->add(json_obj);
+		preference->setObjectName(name.translate());
+	}
 }
 
 void MMGConfig::blog(int log_status, const QString &message) const
 {
-	MMGText::mmgblog(log_status, "[Configuration] " + message);
+	mmgblog(log_status, "[Configuration] " + message);
+}
+
+void MMGConfig::findFileVersion()
+{
+	if (doc.contains("file_version")) { // v3.1.0+
+		file_version = FileVersion(doc["file_version"].toInt());
+		if (file_version < VERSION_3_1 || file_version > currentFileVersion())
+			file_version = currentFileVersion();
+	} else if (doc.contains("collections")) { // v3.0.0 - v3.0.3
+		file_version = VERSION_3_0;
+	} else if (doc.contains("config") && doc["config"].isArray()) { // v2.0.0 - v2.3.0
+		file_version = VERSION_2_0;
+	} else { // For new configurations or file versions before v2.0.0
+		doc = {};
+		file_version = currentFileVersion();
+	}
 }
 
 void MMGConfig::load(const QString &path_str)
 {
-	// Init MIDI on first load, and clear old data on imports
-	if (!_midi) {
-		blog(LOG_INFO, "Initializing MIDI...");
-		_midi = new MMGMIDI(this);
-		blog(LOG_INFO, "MIDI initialized.");
-	} else {
-		clearAllData();
-	}
+	clearAllData();
 
 	blog(LOG_INFO, "Loading configuration...");
 
@@ -68,39 +84,63 @@ void MMGConfig::load(const QString &path_str)
 	file.close();
 
 	QJsonParseError parse_err;
-	QJsonObject doc = QJsonDocument::fromJson(config_contents, &parse_err).object();
+	doc = QJsonDocument::fromJson(config_contents, &parse_err).object();
 	if (parse_err.error != QJsonParseError::NoError) {
 		blog(LOG_INFO,
 		     "Configuration file data could not be loaded correctly. Reason: " + parse_err.errorString());
 	} else {
-		blog(LOG_INFO, "Configuration file data loaded. Extracting...");
+		blog(LOG_INFO, "Configuration file data loaded. Extraction will begin when "
+			       "OBS has finished loading.");
 	}
 
-	old_config->load(doc);
+	findFileVersion();
+}
 
-	_devices->load(doc["devices"].toArray());
-	_collections->load(doc["collections"].toArray());
-	_settings->load(doc["preferences"].toObject());
+void MMGConfig::finishLoad()
+{
+	blog(LOG_INFO, "Extracting configuration file data...");
 
-	old_config->postLoad();
+	FileVersion loading_file_version = file_version;
+	if (loading_file_version == VERSION_2_0) MMGCompatibility::oldConfigPreLoad(doc);
+
+	QJsonObject preferences_obj = doc["preferences"].toObject();
+	for (auto preference : *_preferences)
+		preference->load(preferences_obj);
+
+	_devices->load(doc);
+	_collections->load(doc);
+
+	doc = {};
+	file_version = currentFileVersion();
+
+	// Importing files from v2.x has special logic for Internal actions
+	// that must occur after fully loading everything else
+	if (loading_file_version == VERSION_2_0) MMGCompatibility::oldConfigPostLoad();
+
+	for (MMGBindingManager *manager : *_collections)
+		for (MMGBinding *binding : *manager)
+			binding->refresh();
 
 	blog(LOG_INFO, "Configuration loading complete.");
 }
 
 void MMGConfig::save(const QString &path_str) const
 {
-	QJsonObject save_obj;
+	QJsonObject preferences_obj;
+	for (auto preference : *_preferences)
+		preference->json(preferences_obj);
+	doc["preferences"] = preferences_obj;
 
-	_devices->json("devices", save_obj);
-	_collections->json("collections", save_obj);
-	_settings->json("preferences", save_obj);
+	_devices->json(doc);
+	_collections->json(doc);
 
-	save_obj["savedate"] = QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss-zzz");
-	save_obj["version"] = OBS_MIDIMG_VERSION;
+	doc["savedate"] = QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss-zzz");
+	doc["plugin_version"] = OBS_MIDIMG_VERSION;
+	doc["file_version"] = currentFileVersion();
 
 	QFile file(filepath(path_str));
 	file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
-	qlonglong result = file.write(MMGJsonObject::toString(save_obj));
+	qlonglong result = file.write(MMGJson::toString(doc));
 	if (result < 0) {
 		blog(LOG_INFO, "Configuration unable to be saved. Reason: " + file.errorString());
 	} else {
@@ -116,25 +156,36 @@ void MMGConfig::clearAllData()
 
 QString MMGConfig::filepath(const QString &path_str)
 {
-	auto default_path = obs_module_config_path("obs-midi-mg-config.json");
+	auto default_path = obs_module_config_path(filename());
 	QString full_path = !path_str.isEmpty() ? path_str : QString(default_path);
 	bfree(default_path);
 	return full_path;
 }
 // End MMGConfig
 
-// MMGOldConfig
-void MMGOldConfig::load(QJsonObject &doc)
-{
-	if (!doc["config"].isArray()) return;
+namespace MMGCompatibility {
 
-	// 2.0.0 - 2.3.1 JSON file (before 2.0.0 is not supported)
+static void cleanDeviceName(QString &device_name)
+{
+	QStringList split = device_name.split(" ");
+
+	bool ok;
+	split.last().toUInt(&ok);
+	if (!ok) return;
+
+	split.removeLast();
+	device_name = split.join(" ");
+}
+
+static void oldConfigPreLoad(QJsonObject &doc)
+{
+	// File version 3 = 2.0.0 - 2.3.1 JSON file (before 2.0.0 is not supported)
 	blog(LOG_INFO, "Old file data detected. Converting...");
 
 	QJsonArray device_array;
 	QJsonArray collection_array;
 
-	for (const QJsonValue &device_val : doc["config"].toArray()) {
+	for (QJsonValue device_val : doc["config"].toArray()) {
 		QJsonObject collection_obj;
 
 		// Get Proper Device Name and Setup
@@ -153,7 +204,7 @@ void MMGOldConfig::load(QJsonObject &doc)
 		// Get Bindings
 		QJsonArray binding_array;
 
-		for (const QJsonValue &binding_val : device_val["bindings"].toArray()) {
+		for (QJsonValue binding_val : device_val["bindings"].toArray()) {
 			QJsonObject binding_obj = binding_val.toObject();
 
 			QJsonArray message_array;
@@ -165,7 +216,7 @@ void MMGOldConfig::load(QJsonObject &doc)
 			QJsonObject action_obj = binding_obj["action"].toObject();
 			if (action_obj["category"].toInt() == 16) {
 				if (action_obj.contains("actions")) {
-					for (const QJsonValue &action_val : action_obj["actions"].toArray()) {
+					for (QJsonValue action_val : action_obj["actions"].toArray()) {
 						QJsonObject internal_obj;
 						internal_obj["name"] = action_val["action"];
 						action_array += internal_obj;
@@ -198,7 +249,7 @@ void MMGOldConfig::load(QJsonObject &doc)
 	blog(LOG_INFO, "Conversion completed successfully.");
 }
 
-void MMGOldConfig::postLoad()
+static void oldConfigPostLoad()
 {
 	for (const QString &collection_name : old_internal_bindings.keys()) {
 		MMGBindingManager *collection = manager(collection)->find(collection_name);
@@ -208,13 +259,15 @@ void MMGOldConfig::postLoad()
 			MMGBinding *binding = collection->find(binding_name);
 			if (!binding) continue;
 
-			QStringList action_list = binding->actions()->names();
+			MMGTranslationMap<MMGAction *> action_map = binding->actions()->names();
 			binding->actions()->clear();
-			for (const QString &action : action_list) {
-				MMGBinding *internal_action_binding = collection->find(action);
+			for (const MMGText &name : action_map.values()) {
+				MMGBinding *internal_action_binding = collection->find(name);
 				if (!internal_action_binding) continue;
 
-				binding->actions()->copy(internal_action_binding->actions(0))->setObjectName(action);
+				binding->actions()
+					->copy(internal_action_binding->actions(0))
+					->setObjectName(name.translate());
 			}
 		}
 	}
@@ -222,13 +275,4 @@ void MMGOldConfig::postLoad()
 	old_internal_bindings.clear();
 }
 
-void MMGOldConfig::cleanDeviceName(QString &device_name) const
-{
-	QStringList split = device_name.split(" ");
-
-	if (bool ok; split.last().toUInt(&ok) >= 0 && ok) {
-		split.removeLast();
-		device_name = split.join(" ");
-	}
-}
-// End MMGOldConfig
+} // namespace MMGCompatibility

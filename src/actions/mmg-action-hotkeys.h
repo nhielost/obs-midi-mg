@@ -19,40 +19,47 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionHotkeys : public MMGAction {
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateHotkeys(const MMGString &category);
+const MMGStringTranslationMap enumerateHotkeyCategories();
+
+class MMGActionHotkeys : public MMGAction, public MMGSignal::MMGHotkeyReceiver {
 	Q_OBJECT
 
 public:
 	MMGActionHotkeys(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { HOTKEY_PREDEF };
-	enum Events { HOTKEY_ACTIVATED };
+	static constexpr Id actionId() { return Id(0x1601); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Hotkeys"; };
+	const char *trActionName() const override { return "Activate"; };
 
-	Category category() const override { return MMGACTION_HOTKEY; };
-	const QString trName() const override { return "Hotkeys"; };
-	const QStringList subNames() const override { return {subModuleText("Activate")}; };
-
+	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
-	void setEditable(bool edit) override;
-	void toggle() override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
-
-	void execute(const MMGMessage *) const override;
-	void connectSignals(bool connect) override;
-
-	static const QMap<QString, QString> enumerate(const QString &category);
-	static const QStringList enumerateCategories();
-	static const QString registerer(obs_hotkey_t *hotkey);
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+	void onGroupChange() const;
 
 private:
-	MMGUtils::MMGString group;
-	MMGUtils::MMGString hotkey;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_hotkey_id id) const override;
 
-private slots:
-	void onList1Change();
+private:
+	MMGStringID hotkey_group;
+	MMGStringID hotkey;
 
-	void hotkeyEventReceived(obs_hotkey_id id);
+	mutable struct Request {
+		obs_hotkey_id id;
+		MMGString name;
+		bool found = false;
+	} hotkey_req;
+
+	static MMGParams<MMGString> group_params;
+	static MMGParams<MMGString> hotkey_params;
 };
+MMG_DECLARE_ACTION(MMGActionHotkeys);
+
+} // namespace MMGActions

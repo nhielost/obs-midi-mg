@@ -18,38 +18,53 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-collections.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateCollections()
+{
+	MMGStringTranslationMap map;
+
+	char **collection_names = obs_frontend_get_scene_collections();
+	for (int i = 0; collection_names[i] != 0; ++i) {
+		map.insert(collection_names[i], nontr(collection_names[i]));
+	}
+	bfree(collection_names);
+
+	return map;
+}
+
+const MMGString currentCollection()
+{
+	char *char_collection = obs_frontend_get_current_scene_collection();
+	MMGString collection_text(char_collection);
+	bfree(char_collection);
+	return collection_text;
+}
+
+MMGParams<MMGString> MMGActionCollections::collection_params {
+	.desc = obstr("Importer.Collection"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = "",
+	.bounds = {},
+};
 
 MMGActionCollections::MMGActionCollections(MMGActionManager *parent, const QJsonObject &json_obj)
 	: MMGAction(parent, json_obj),
-	  collection(json_obj, "collection", 1)
+	  collection(json_obj, "collection")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionCollections::subNames() const
+void MMGActionCollections::initOldData(const QJsonObject &json_obj)
 {
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << subModuleText("Switch");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
-			break;
-	}
-
-	return opts;
+	MMGCompatibility::initOldStringData(collection, json_obj, "collection", 1, enumerateCollections());
 }
 
 void MMGActionCollections::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
 
-	collection.json(json_obj, "collection");
+	collection->json(json_obj, "collection");
 }
 
 void MMGActionCollections::copy(MMGAction *dest) const
@@ -59,100 +74,35 @@ void MMGActionCollections::copy(MMGAction *dest) const
 	auto casted = dynamic_cast<MMGActionCollections *>(dest);
 	if (!casted) return;
 
-	casted->collection = collection.copy();
+	collection.copy(casted->collection);
 }
 
-void MMGActionCollections::setEditable(bool edit)
+void MMGActionCollections::createDisplay(MMGWidgets::MMGActionDisplay *display)
 {
-	collection.setEditable(edit);
+	collection_params.bounds = enumerateCollections();
+	collection_params.default_value = currentCollection();
+
+	MMGActions::createActionField(display, &collection, &collection_params);
 }
 
-void MMGActionCollections::toggle()
+void MMGActionCollections::execute(const MMGMappingTest &test) const
 {
-	collection.toggle();
-}
-
-void MMGActionCollections::createDisplay(QWidget *parent)
-{
-	MMGAction::createDisplay(parent);
-
-	display()->addNew(&collection)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-}
-
-void MMGActionCollections::setActionParams()
-{
-	MMGStringDisplay *collection_display = display()->stringDisplay(0);
-	collection_display->setVisible(true);
-	collection_display->setDescription(obstr("Importer.Collection"));
-	collection_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
-	collection_display->setBounds(enumerate());
-}
-
-const QStringList MMGActionCollections::enumerate()
-{
-	QStringList list;
-
-	char **collection_names = obs_frontend_get_scene_collections();
-	for (int i = 0; collection_names[i] != 0; ++i) {
-		list.append(collection_names[i]);
-	}
-	bfree(collection_names);
-
-	return list;
-}
-
-const QString MMGActionCollections::currentCollection()
-{
-	char *char_collection = obs_frontend_get_current_scene_collection();
-	QString q_collection = char_collection;
-	bfree(char_collection);
-	return q_collection;
-}
-
-void MMGActionCollections::execute(const MMGMessage *midi) const
-{
-	ACTION_ASSERT(sub() == COLLECTION_COLLECTION, "Invalid subcategory.");
-
-	QString name = collection.chooseFrom(midi, enumerate());
+	MMGString name = currentCollection();
+	ACTION_ASSERT(test.applicable(collection, name), "A scene collection could not be selected. Check the Scene "
+							 "Collection field and try again.");
 	ACTION_ASSERT(name != currentCollection(), "The scene collection is already active.");
 
-	obs_queue_task(
-		OBS_TASK_UI,
-		[](void *param) {
-			auto collection_name = (QString *)param;
-			obs_frontend_set_current_scene_collection(collection_name->qtocs());
-		},
-		&name, true);
+	runInMainThread([name]() { obs_frontend_set_current_scene_collection(name); });
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionCollections::frontendEventReceived(obs_frontend_event event)
+void MMGActionCollections::processEvent(obs_frontend_event event) const
 {
-	MMGNumber values;
-	const QStringList collections = enumerate();
+	if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) return;
 
-	switch (sub()) {
-		case COLLECTION_CHANGING:
-			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) return;
-			values = collections.indexOf(currentCollection());
-			break;
-
-		case COLLECTION_CHANGED:
-			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) return;
-			values = collections.indexOf(currentCollection());
-			break;
-
-		case COLLECTION_TOGGLE_CHANGING:
-			if (event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING &&
-			    event != OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED)
-				return;
-			break;
-
-		default:
-			return;
-	}
-
-	if (collection.chooseTo(values, collections)) return;
-	triggerEvent({values});
+	EventFulfillment fulfillment(this);
+	fulfillment->addAcceptable(collection, currentCollection());
 }
+
+} // namespace MMGActions

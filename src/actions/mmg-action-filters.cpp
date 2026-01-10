@@ -18,33 +18,80 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-filters.h"
 #include "mmg-action-scenes.h"
-#include "../ui/mmg-fields.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateFilters(const MMGString &source_uuid)
+{
+	MMGStringTranslationMap map;
+	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
+
+	obs_source_enum_filters(
+		obs_source,
+		[](obs_source_t *, obs_source_t *obs_filter, void *param) {
+			auto _map = reinterpret_cast<MMGStringTranslationMap *>(param);
+			_map->insert(obs_source_get_uuid(obs_filter), nontr(obs_source_get_name(obs_filter)));
+		},
+		&map);
+
+	return map;
+}
+
+const MMGStringTranslationMap enumerateSourcesWithFilters()
+{
+	MMGStringTranslationMap map;
+
+	obs_enum_all_sources(
+		[](void *param, obs_source_t *obs_source) {
+			auto _map = reinterpret_cast<MMGStringTranslationMap *>(param);
+
+			if (obs_obj_is_private(obs_source)) return true;
+			if (obs_source_filter_count(obs_source) < 1) return true;
+
+			_map->insert(obs_source_get_uuid(obs_source), nontr(obs_source_get_name(obs_source)));
+			return true;
+		},
+		&map);
+
+	return map;
+}
+
+// MMGActionFilters
+MMGParams<MMGString> MMGActionFilters::source_params {
+	.desc = obstr("Basic.Main.Source"),
+	.options = OPTION_NONE,
+	.default_value = "",
+	.bounds = {},
+	.placeholder = obstr("NoSources.Title"),
+};
+
+MMGParams<MMGString> MMGActionFilters::filter_params {
+	.desc = mmgtr("Actions.Filters.Filter"),
+	.options = OPTION_NONE,
+	.default_value = "",
+	.bounds = {},
+};
 
 MMGActionFilters::MMGActionFilters(MMGActionManager *parent, const QJsonObject &json_obj)
 	: MMGAction(parent, json_obj),
-	  source(json_obj, "source", 1),
-	  filter(json_obj, "filter", 2),
-	  num(json_obj, "num", 1),
-	  _json(new MMGJsonObject(this, json_obj))
+	  source(json_obj, "source"),
+	  filter(json_obj, "filter")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionFilters::subNames() const
+void MMGActionFilters::initOldData(const QJsonObject &json_obj)
 {
-	return subModuleTextList({"Show", "Hide", "ToggleDisplay", "Reorder", "Custom"});
+	MMGCompatibility::initOldStringData(source, json_obj, "source", 1, enumerateSourcesWithFilters());
+	MMGCompatibility::initOldStringData(filter, json_obj, "filter", 2, enumerateFilters(source));
 }
 
 void MMGActionFilters::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
 
-	source.json(json_obj, "source", false);
-	filter.json(json_obj, "filter", false);
-	num.json(json_obj, "num");
-	_json->json(json_obj, "json");
+	source->json(json_obj, "source");
+	filter->json(json_obj, "filter");
 }
 
 void MMGActionFilters::copy(MMGAction *dest) const
@@ -54,220 +101,254 @@ void MMGActionFilters::copy(MMGAction *dest) const
 	auto casted = dynamic_cast<MMGActionFilters *>(dest);
 	if (!casted) return;
 
-	casted->source = source.copy();
-	casted->filter = filter.copy();
-	casted->num = num.copy();
-	_json->copy(casted->_json);
+	source.copy(casted->source);
+	filter.copy(casted->filter);
 }
 
-void MMGActionFilters::setEditable(bool edit)
+void MMGActionFilters::createDisplay(MMGWidgets::MMGActionDisplay *display)
 {
-	source.setEditable(edit);
-	filter.setEditable(edit);
-	num.setEditable(edit);
-	_json->setEditable(edit);
+	source_params.bounds = enumerateSourcesWithFilters();
+
+	MMGActions::createActionField(display, &source, &source_params,
+				      std::bind(&MMGActionFilters::onSourceChanged, this));
+	MMGActions::createActionField(display, &filter, &filter_params,
+				      std::bind(&MMGActionFilters::onFilterChanged, this));
 }
 
-void MMGActionFilters::toggle()
+void MMGActionFilters::onSourceChanged() const
 {
-	num.toggle();
+	emit refreshRequested();
+	filter_params.bounds = enumerateFilters(source);
 }
 
-void MMGActionFilters::createDisplay(QWidget *parent)
+void MMGActionFilters::onFilterChanged() const
 {
-	MMGAction::createDisplay(parent);
-
-	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this, &MMGActionFilters::onList1Change);
-	connect(display()->addNew(&filter), &MMGStringDisplay::stringChanged, this, &MMGActionFilters::onList2Change);
-
-	display()->addNew(&num);
+	emit refreshRequested();
+	OBSSourceAutoRelease obs_filter = obs_get_source_by_uuid(MMGString(filter));
+	onFilterFixedChanged(obs_filter);
 }
 
-void MMGActionFilters::setActionParams()
+void MMGActionFilters::execute(const MMGMappingTest &test) const
 {
-	display()->hideAll();
+	OBSSourceAutoRelease obs_filter = obs_get_source_by_uuid(MMGString(filter));
+	ACTION_ASSERT(obs_filter, "The specified filter does not exist. Check the "
+				  "Filter field and try again.");
 
-	MMGStringDisplay *source_display = display()->stringDisplay(0);
-	source_display->setVisible(true);
-	source_display->setDescription(obstr("Basic.Main.Source"));
-	source_display->setBounds(enumerateEligible());
+	execute(test, obs_filter);
 }
 
-void MMGActionFilters::onList1Change()
+void MMGActionFilters::processEvent(const calldata_t *cd) const
 {
-	connectSignals(true);
+	obs_source_t *signal_source = (obs_source_t *)(calldata_ptr(cd, "source"));
+	current_uuid = obs_source_get_uuid(signal_source);
 
-	MMGStringDisplay *filter_display = display()->stringDisplay(1);
-	filter_display->setVisible(true);
-	filter_display->setDescription(mmgtr("Actions.Filters.Filter"));
-	filter_display->setBounds(enumerate(source));
-}
-
-void MMGActionFilters::onList2Change()
-{
-	connectSignals(true);
-
-	display()->reset();
-	display()->stringDisplay(1)->setVisible(true);
-
-	MMGNumberDisplay *num_display = display()->numberDisplay(0);
-	num_display->setVisible(false);
-
-	OBSSourceAutoRelease obs_source;
-
-	switch (sub()) {
-		case FILTER_SHOW:
-		case FILTER_HIDE:
-		case FILTER_TOGGLE_SHOWHIDE:
-			break;
-
-		case FILTER_REORDER:
-			if (type() == TYPE_OUTPUT) {
-				display()->stringDisplay(1)->setVisible(false);
-			} else {
-				num_display->setVisible(!filter.value().isEmpty());
-				num_display->setDescription(obstr("Basic.TransformWindow.Position"));
-				num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
-				num_display->setBounds(1.0, enumerate(source).size());
-				num_display->setStep(1.0);
-				num_display->setDefaultValue(1.0);
-				num_display->reset();
-			}
-			break;
-
-		case FILTER_CUSTOM:
-			obs_source = obs_get_source_by_name(source.mmgtocs());
-			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
-			break;
-
-		default:
-			return;
+	if (current_uuid == source) {
+		OBSSourceAutoRelease obs_filter = obs_get_source_by_uuid(MMGString(filter));
+		processEvent(obs_filter);
+	} else {
+		processEvent(signal_source);
 	}
 }
+// End MMGActionFilters
 
-const QStringList MMGActionFilters::enumerate(const QString &source)
+// MMGActionFiltersVisible
+MMGParams<bool> MMGActionFiltersVisible::visible_params {
+	.desc = obstr("Basic.Main.Sources.Visibility"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
+
+MMGActionFiltersVisible::MMGActionFiltersVisible(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGActionFilters(parent, json_obj),
+	  visible(json_obj, "visible")
 {
-	QStringList list;
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.qtocs());
-	obs_source_enum_filters(
-		obs_source,
-		[](obs_source_t *, obs_source_t *filter, void *param) {
-			auto _list = reinterpret_cast<QStringList *>(param);
-			_list->append(obs_source_get_name(filter));
-		},
-		&list);
-	return list;
+	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionFilters::enumerateEligible()
+void MMGActionFiltersVisible::initOldData(const QJsonObject &json_obj)
 {
-	QStringList list;
+	MMGActionFilters::initOldData(json_obj);
 
-	obs_enum_all_sources(
-		[](void *param, obs_source_t *source) {
-			auto _list = reinterpret_cast<QStringList *>(param);
-
-			if (obs_obj_is_private(source)) return true;
-			if (obs_source_filter_count(source) < 1) return true;
-
-			_list->append(obs_source_get_name(source));
-			return true;
-		},
-		&list);
-
-	return list;
+	MMGCompatibility::initOldBooleanData(visible, json_obj["sub"].toInt());
 }
 
-void MMGActionFilters::execute(const MMGMessage *midi) const
+void MMGActionFiltersVisible::json(QJsonObject &json_obj) const
 {
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-	ACTION_ASSERT(obs_filter, "Filter in source does not exist.");
+	MMGActionFilters::json(json_obj);
 
-	switch (sub()) {
-		case FILTER_SHOW:
-			obs_source_set_enabled(obs_filter, true);
-			break;
-
-		case FILTER_HIDE:
-			obs_source_set_enabled(obs_filter, false);
-			break;
-
-		case FILTER_TOGGLE_SHOWHIDE:
-			obs_source_set_enabled(obs_filter, !obs_source_enabled(obs_filter));
-			break;
-
-		case FILTER_REORDER:
-			obs_source_filter_set_order(obs_source, obs_filter, OBS_ORDER_MOVE_TOP);
-			for (int i = 0; i < num.chooseFrom(midi, true) - 1; ++i) {
-				obs_source_filter_set_order(obs_source, obs_filter, OBS_ORDER_MOVE_DOWN);
-			}
-			break;
-
-		case FILTER_CUSTOM:
-			MMGOBSFields::execute(obs_filter, _json, midi);
-			break;
-
-		default:
-			break;
-	}
-
-	blog(LOG_DEBUG, "Successfully executed.");
+	visible->json(json_obj, "visible");
 }
 
-void MMGActionFilters::connectSignals(bool _connect)
+void MMGActionFiltersVisible::copy(MMGAction *dest) const
 {
-	MMGAction::connectSignals(_connect);
-	if (!_connected && type() == TYPE_OUTPUT) return;
+	MMGActionFilters::copy(dest);
 
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-	OBSSourceAutoRelease obs_filter = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
+	auto casted = dynamic_cast<MMGActionFiltersVisible *>(dest);
+	if (!casted) return;
 
-	if (type() == TYPE_OUTPUT) {
-		connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
-		connectSourceSignal(mmgsignals()->requestSourceSignal(obs_filter));
-	}
-
-	MMGOBSFields::registerSource(obs_filter, _json);
+	visible.copy(casted->visible);
 }
 
-void MMGActionFilters::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+void MMGActionFiltersVisible::createDisplay(MMGWidgets::MMGActionDisplay *display)
 {
-	OBSSourceAutoRelease obs_source;
+	MMGActionFilters::createDisplay(display);
 
-	switch (sub()) {
-		case FILTER_SHOWN:
-			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
-			if (!data.toBool()) return;
-			break;
-
-		case FILTER_HIDDEN:
-			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
-			if (data.toBool()) return;
-			break;
-
-		case FILTER_TOGGLE_SHOWN:
-			if (event != MMGSourceSignal::SIGNAL_FILTER_ENABLE) return;
-			break;
-
-		case FILTER_REORDERED:
-			if (event != MMGSourceSignal::SIGNAL_FILTER_REORDER) return;
-			break;
-
-		case FILTER_CUSTOM_CHANGED:
-			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
-
-			obs_source = obs_get_source_by_name(source.mmgtocs());
-			obs_source = obs_source_get_filter_by_name(obs_source, filter.mmgtocs());
-			if (data.value<void *>() != obs_source) return;
-
-			triggerEvent(MMGOBSFields::customEventReceived(obs_source, _json));
-			return;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
+	MMGActions::createActionField(display, &visible, &visible_params);
 }
+
+void MMGActionFiltersVisible::onFilterFixedChanged(const obs_source_t *obs_filter) const
+{
+	visible_params.default_value = !obs_source_enabled(obs_filter);
+}
+
+void MMGActionFiltersVisible::execute(const MMGMappingTest &test, obs_source_t *obs_filter) const
+{
+	bool is_visible = obs_source_enabled(obs_filter);
+	ACTION_ASSERT(test.applicable(visible, is_visible), "A visibility state could not be selected. Check the "
+							    "Visibility field and try again.");
+	obs_source_set_enabled(obs_filter, is_visible);
+}
+
+void MMGActionFiltersVisible::processEvent(const obs_source_t *obs_filter) const
+{
+	EventFulfillment fulfillment(this);
+	fulfillment->addAcceptable(visible, obs_source_enabled(obs_filter));
+}
+// End MMGActionFiltersVisible
+
+// MMGActionFiltersReorder
+MMGParams<uint64_t> MMGActionFiltersReorder::reorder_params {
+	.desc = obstr("Basic.TransformWindow.Position"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_RANGE | OPTION_ALLOW_TOGGLE | OPTION_ALLOW_INCREMENT,
+	.default_value = 1,
+	.lower_bound = 1.0,
+	.upper_bound = 1.0,
+	.step = 1.0,
+	.incremental_bound = 1.0,
+};
+
+MMGActionFiltersReorder::MMGActionFiltersReorder(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGActionFilters(parent, json_obj),
+	  index(json_obj, "index")
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionFiltersReorder::initOldData(const QJsonObject &json_obj)
+{
+	MMGActionFilters::initOldData(json_obj);
+
+	MMGCompatibility::initOldNumberData(index, json_obj, "num", 1);
+}
+
+void MMGActionFiltersReorder::json(QJsonObject &json_obj) const
+{
+	MMGActionFilters::json(json_obj);
+
+	index->json(json_obj, "index");
+}
+
+void MMGActionFiltersReorder::copy(MMGAction *dest) const
+{
+	MMGActionFilters::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionFiltersReorder *>(dest);
+	if (!casted) return;
+
+	index.copy(casted->index);
+}
+
+void MMGActionFiltersReorder::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActionFilters::createDisplay(display);
+
+	MMGActions::createActionField(display, &index, &reorder_params);
+}
+
+void MMGActionFiltersReorder::onFilterFixedChanged(const obs_source_t *obs_filter) const
+{
+	reorder_params.upper_bound = obs_source_filter_count(sourceParent());
+	reorder_params.default_value =
+		obs_source_filter_get_index(sourceParent(), const_cast<obs_source_t *>(obs_filter));
+}
+
+void MMGActionFiltersReorder::execute(const MMGMappingTest &test, obs_source_t *obs_filter) const
+{
+	uint64_t new_index;
+	ACTION_ASSERT(test.applicable(index, new_index), "A position could not be selected. Check the Position field "
+							 "and try again.");
+	obs_source_filter_set_index(sourceParent(), obs_filter, new_index);
+}
+
+void MMGActionFiltersReorder::processEvent(const obs_source_t *obs_filter) const
+{
+	uint64_t prev_index = current_index;
+	current_index = obs_source_filter_get_index(sourceParent(), const_cast<obs_source_t *>(obs_filter));
+
+	EventFulfillment fulfillment(this);
+	fulfillment->addCondition(current_index != prev_index);
+
+	// In OBS, indices are 0-based ordered from bottom to top
+	// In obs-midi-mg, indices are 1-based from top to bottom
+	// This accounts for the difference between the two
+	fulfillment->addAcceptable(index, obs_source_filter_count(sourceParent()) - current_index);
+}
+// End MMGActionFiltersReorder
+
+// MMGActionFiltersCustom
+MMGActionFiltersCustom::MMGActionFiltersCustom(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGActionFilters(parent, json_obj),
+	  custom_data(new MMGOBSFields::MMGOBSObject(this, sourceId(), json_obj))
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionFiltersCustom::initOldData(const QJsonObject &json_obj)
+{
+	MMGActionFilters::initOldData(json_obj);
+
+	custom_data->changeSource(sourceId(), json_obj);
+}
+
+void MMGActionFiltersCustom::json(QJsonObject &json_obj) const
+{
+	MMGActionFilters::json(json_obj);
+
+	custom_data->json(json_obj);
+}
+
+void MMGActionFiltersCustom::copy(MMGAction *dest) const
+{
+	MMGActionFilters::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionFiltersCustom *>(dest);
+	if (!casted) return;
+
+	custom_data->copy(casted->custom_data);
+}
+
+void MMGActionFiltersCustom::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActionFilters::createDisplay(display);
+
+	custom_data->createDisplay(display);
+}
+
+void MMGActionFiltersCustom::onFilterFixedChanged(const obs_source_t *obs_filter) const
+{
+	custom_data->changeSource(obs_source_get_uuid(obs_filter));
+}
+
+void MMGActionFiltersCustom::execute(const MMGMappingTest &test, obs_source_t *) const
+{
+	custom_data->execute(test);
+}
+
+void MMGActionFiltersCustom::processEvent(const obs_source_t *) const
+{
+	EventFulfillment fulfiller(this);
+	custom_data->processEvent(*fulfiller);
+}
+// End MMGActionFiltersCustom
+
+} // namespace MMGActions

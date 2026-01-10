@@ -6,11 +6,9 @@
 !/build-aux
 !/cmake
 !/data
-!/docs
-!/libremidi
+!/deps
 !/src
 !.clang-format
-!.cmake-format.json
 !.gitignore
 !buildspec.json
 !CMakeLists.txt

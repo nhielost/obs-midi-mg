@@ -18,423 +18,308 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-transitions.h"
 #include "mmg-action-scenes.h"
-#include "../ui/mmg-fields.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
 
-static struct MMGTBarTimer {
-	MMGTBarTimer()
-	{
-		timer->connect(timer, &MMGTimer::stopping, [&]() { obs_frontend_release_tbar(); });
-	}
-	~MMGTBarTimer() { delete timer; };
+static MMGParams<MMGString> transition_params {
+	.desc = obstr("Transition"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = "",
+	.bounds = {},
+};
 
-	MMGTimer *timer = new MMGTimer;
-	bool available = true;
-} tbar_timer;
-
-// MMGActionTransitions
-MMGActionTransitions::MMGActionTransitions(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj),
-	  transition(json_obj, "transition", 1),
-	  parent_scene(json_obj, "scene", 2),
-	  source(json_obj, "source", 3),
-	  num(json_obj, "num", 1),
-	  _json(new MMGJsonObject(this, json_obj))
+const MMGStringTranslationMap enumerateTransitions()
 {
-	blog(LOG_DEBUG, "Action created.");
-}
-
-const QStringList MMGActionTransitions::subNames() const
-{
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << subModuleTextList(
-				{"CurrentChange", "SourceShow", "SourceHide", "TBarChange", "ReleaseTBar"});
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"CurrentChange", "DurationChange", "Started", "Stopped",
-						   "ToggleStarted", "TBarChange"});
-			break;
-	}
-
-	opts << subModuleText("Custom");
-	return opts;
-}
-
-void MMGActionTransitions::json(QJsonObject &json_obj) const
-{
-	MMGAction::json(json_obj);
-
-	transition.json(json_obj, "transition", false);
-	parent_scene.json(json_obj, "scene", false);
-	source.json(json_obj, "source", false);
-	num.json(json_obj, "num");
-	_json->json(json_obj, "json");
-}
-
-void MMGActionTransitions::copy(MMGAction *dest) const
-{
-	MMGAction::copy(dest);
-
-	auto casted = dynamic_cast<MMGActionTransitions *>(dest);
-	if (!casted) return;
-
-	casted->transition = transition.copy();
-	casted->parent_scene = parent_scene.copy();
-	casted->source = source.copy();
-	casted->num = num.copy();
-	_json->copy(casted->_json);
-}
-
-void MMGActionTransitions::setEditable(bool edit)
-{
-	transition.setEditable(edit);
-	parent_scene.setEditable(edit);
-	source.setEditable(edit);
-	num.setEditable(edit);
-	_json->setEditable(edit);
-}
-
-void MMGActionTransitions::toggle()
-{
-	num.toggle();
-}
-
-void MMGActionTransitions::createDisplay(QWidget *parent)
-{
-	MMGAction::createDisplay(parent);
-
-	connect(display()->addNew(&transition), &MMGStringDisplay::stringChanged, this,
-		&MMGActionTransitions::onList1Change);
-	connect(display()->addNew(&parent_scene), &MMGStringDisplay::stringChanged, this,
-		&MMGActionTransitions::onList2Change);
-	connect(display()->addNew(&source), &MMGStringDisplay::stringChanged, this,
-		&MMGActionTransitions::onList3Change);
-
-	display()->addNew(&num);
-}
-
-void MMGActionTransitions::setActionParams()
-{
-	display()->hideAll();
-
-	MMGNumberDisplay *num_display = display()->numberDisplay(0);
-	num_display->setVisible(false);
-
-	if (type() != TYPE_OUTPUT) {
-		switch (sub()) {
-			case TRANSITION_TBAR_ACTIVATE:
-				display()->reset();
-
-				num_display->setVisible(true);
-				num_display->setDescription(obstr("Basic.TransformWindow.Position"));
-				num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
-				num_display->setBounds(0.0, 1024.0);
-				num_display->setStep(1.0);
-				num_display->setDefaultValue(0.0);
-				num_display->reset();
-				return;
-
-			case TRANSITION_TBAR_TOGGLE:
-				display()->reset();
-				return;
-
-			default:
-				break;
-		}
-	} else {
-		switch (sub()) {
-			case TRANSITION_CURRENT_DURATION_CHANGED:
-				num_display->setVisible(!transitionFixed());
-				num_display->setDescription(obstr("Basic.TransitionDuration"));
-				num_display->setOptions(MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
-				num_display->setBounds(25.0, 20000.0);
-				num_display->setStep(25.0);
-				num_display->setDefaultValue(obs_frontend_get_transition_duration());
-				num_display->reset();
-				return;
-
-			case TRANSITION_TBAR_CHANGED:
-				num_display->setVisible(true);
-				num_display->setDescription(obstr("Basic.TransformWindow.Position"));
-				num_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM);
-				num_display->setBounds(0.0, 1024.0);
-				num_display->setStep(1.0);
-				num_display->setDefaultValue(0.0);
-				num_display->reset();
-				return;
-
-			default:
-				break;
-		}
-	}
-
-	MMGStringDisplay *transition_display = display()->stringDisplay(0);
-	transition_display->setVisible(true);
-	transition_display->setDescription(obstr("Transition"));
-	transition_display->setBounds(enumerate());
-}
-
-void MMGActionTransitions::onList1Change()
-{
-	connectSignals(true);
-
-	display()->reset();
-
-	MMGStringDisplay *scene_display = display()->stringDisplay(1);
-	MMGNumberDisplay *num_display = display()->numberDisplay(0);
-	num_display->setVisible(false);
-
-	OBSSourceAutoRelease obs_source;
-
-	switch (sub()) {
-		case TRANSITION_CURRENT:
-			if (type() != TYPE_INPUT) break;
-			num_display->setVisible(!transitionFixed());
-			num_display->setDescription(obstr("Basic.TransitionDuration"));
-			num_display->setOptions(MIDIBUTTON_IGNORE | MIDIBUTTON_TOGGLE);
-			num_display->setBounds(25.0, 20000.0);
-			num_display->setStep(25.0);
-			num_display->setDefaultValue(obs_frontend_get_transition_duration());
-			num_display->reset();
-			break;
-
-		case TRANSITION_SOURCE_SHOW:
-		case TRANSITION_SOURCE_HIDE:
-			if (type() != TYPE_INPUT) break;
-			scene_display->setVisible(true);
-			scene_display->setDescription(obstr("Basic.Scene"));
-			scene_display->setBounds(MMGActionScenes::enumerate());
-			break;
-
-		case TRANSITION_CUSTOM:
-		case TRANSITION_CUSTOM_CHANGED:
-			obs_source = sourceByName(transition);
-			if (!obs_source_configurable(obs_source)) break;
-
-			display()->setFields(MMGOBSFields::registerSource(obs_source, _json));
-			break;
-
-		default:
-			return;
-	}
-}
-
-void MMGActionTransitions::onList2Change()
-{
-	MMGStringDisplay *source_display = display()->stringDisplay(2);
-
-	switch (sub()) {
-		case TRANSITION_SOURCE_SHOW:
-		case TRANSITION_SOURCE_HIDE:
-			source_display->setVisible(true);
-			source_display->setDescription(obstr("Basic.Main.Source"));
-			source_display->setBounds(MMGActionScenes::enumerateItems(parent_scene));
-			break;
-
-		default:
-			return;
-	}
-}
-
-void MMGActionTransitions::onList3Change()
-{
-	MMGNumberDisplay *num_display = display()->numberDisplay(0);
-
-	switch (sub()) {
-		case TRANSITION_SOURCE_SHOW:
-		case TRANSITION_SOURCE_HIDE:
-			num_display->setVisible(!transitionFixed() && !source.value().isEmpty());
-			num_display->setDescription(obstr("Basic.TransitionDuration"));
-			num_display->setOptions(MIDIBUTTON_IGNORE);
-			num_display->setBounds(25.0, 20000.0);
-			num_display->setStep(25.0);
-			num_display->setDefaultValue(obs_frontend_get_transition_duration());
-			num_display->reset();
-			return;
-
-		default:
-			return;
-	}
-}
-
-const QStringList MMGActionTransitions::enumerate()
-{
-	QStringList list;
+	MMGStringTranslationMap list;
 	obs_frontend_source_list transition_list = {0};
+
 	obs_frontend_get_transitions(&transition_list);
 	for (size_t i = 0; i < transition_list.sources.num; ++i) {
-		list.append(obs_source_get_name(transition_list.sources.array[i]));
+		obs_source_t *transition = transition_list.sources.array[i];
+		list.insert(obs_source_get_name(transition), nontr(obs_source_get_name(transition)));
 	}
+
 	obs_frontend_source_list_free(&transition_list);
 	return list;
 }
 
-const QString MMGActionTransitions::currentTransition()
+const MMGString findTransitionId(const MMGString &name)
+{
+	if (name.isEmpty()) return "";
+
+	MMGString uuid;
+	obs_frontend_source_list transition_list = {0};
+
+	obs_frontend_get_transitions(&transition_list);
+	for (size_t i = 0; i < transition_list.sources.num; ++i) {
+		obs_source_t *transition = transition_list.sources.array[i];
+		if (obs_source_get_name(transition) != name) continue;
+
+		uuid = obs_source_get_uuid(transition);
+		break;
+	}
+
+	obs_frontend_source_list_free(&transition_list);
+	return uuid;
+}
+
+MMGString currentTransition()
 {
 	return obs_source_get_name(OBSSourceAutoRelease(obs_frontend_get_current_transition()));
 }
 
-obs_source_t *MMGActionTransitions::sourceByName(const QString &name)
-{
-	obs_frontend_source_list transition_list = {0};
-	obs_frontend_get_transitions(&transition_list);
-	obs_source_t *source = nullptr;
+// MMGActionTransitionsCurrent
+MMGParams<int32_t> MMGActionTransitionsCurrent::duration_params {
+	.desc = obstr("Basic.TransitionDuration"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE | OPTION_ALLOW_IGNORE,
+	.default_value = 0,
+	.lower_bound = 25.0,
+	.upper_bound = 20000.0,
+	.step = 5.0,
+};
 
-	for (size_t i = 0; i < transition_list.sources.num; ++i) {
-		if (obs_source_get_name(transition_list.sources.array[i]) == name) {
-			source = obs_source_get_ref(transition_list.sources.array[i]);
-			break;
-		}
+MMGActionTransitionsCurrent::MMGActionTransitionsCurrent(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  transition(json_obj, "transition"),
+	  duration(json_obj, "duration")
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionTransitionsCurrent::initOldData(const QJsonObject &json_obj)
+{
+	MMGCompatibility::initOldStringData(transition, json_obj, "transition", 1, enumerateTransitions());
+	MMGCompatibility::initOldNumberData(duration, json_obj, "num", 1);
+}
+
+void MMGActionTransitionsCurrent::json(QJsonObject &json_obj) const
+{
+	MMGAction::json(json_obj);
+
+	transition->json(json_obj, "transition");
+	duration->json(json_obj, "duration");
+}
+
+void MMGActionTransitionsCurrent::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionTransitionsCurrent *>(dest);
+	if (!casted) return;
+
+	transition.copy(casted->transition);
+	duration.copy(casted->duration);
+}
+
+void MMGActionTransitionsCurrent::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	transition_params.options.setFlag(OPTION_ALLOW_MIDI, true);
+	transition_params.options.setFlag(OPTION_ALLOW_TOGGLE, true);
+	transition_params.options.setFlag(OPTION_ALLOW_IGNORE, type() == TYPE_OUTPUT);
+
+	transition_params.bounds = enumerateTransitions();
+	transition_params.default_value = currentTransition();
+
+	MMGActions::createActionField(display, &transition, &transition_params,
+				      std::bind(&MMGActionTransitionsCurrent::onTransitionChanged, this));
+	MMGActions::createActionField(display, &duration, &duration_params);
+}
+
+void MMGActionTransitionsCurrent::onTransitionChanged() const
+{
+	if (transition->state() == STATE_FIXED)
+		duration_params.options.setFlag(OPTION_HIDDEN,
+						obs_transition_fixed(OBSSourceAutoRelease(
+							obs_get_source_by_uuid(findTransitionId(transition)))));
+
+	duration_params.default_value = obs_frontend_get_transition_duration();
+}
+
+void MMGActionTransitionsCurrent::execute(const MMGMappingTest &test) const
+{
+	MMGString transition_name;
+	ACTION_ASSERT(test.applicable(transition, transition_name),
+		      "A transition could not be selected. Check the Transition "
+		      "field and try again.");
+
+	OBSSourceAutoRelease obs_transition = obs_get_source_by_uuid(findTransitionId(transition_name));
+	ACTION_ASSERT(obs_transition, "This transition does not exist.");
+
+	if (!obs_transition_fixed(obs_transition)) {
+		int32_t current_duration = obs_frontend_get_transition_duration();
+		ACTION_ASSERT(test.applicable(duration, current_duration),
+			      "A transition duration could not be selected. Check the "
+			      "Duration field and try again.");
+		obs_frontend_set_transition_duration(current_duration);
 	}
-	obs_frontend_source_list_free(&transition_list);
-	return source;
+	obs_frontend_set_current_transition(obs_transition);
 }
 
-bool MMGActionTransitions::transitionFixed() const
+void MMGActionTransitionsCurrent::processEvent(obs_frontend_event event) const
 {
-	return obs_transition_fixed(OBSSourceAutoRelease(sourceByName(transition)));
-}
-
-void MMGActionTransitions::execute(const MMGMessage *midi) const
-{
-	OBSSourceAutoRelease obs_transition = sourceByName(transition);
-	if (sub() != 3 && sub() != 4) ACTION_ASSERT(obs_transition, "Transition does not exist.");
-
-	int time = num.chooseFrom(midi, false, obs_frontend_get_transition_duration());
-	bool fixed = obs_transition_fixed(obs_transition);
-
-	OBSSourceAutoRelease obs_source = obs_get_source_by_name(source.mmgtocs());
-	OBSSceneAutoRelease obs_scene = obs_get_scene_by_name(parent_scene.mmgtocs());
-	obs_sceneitem_t *obs_sceneitem = obs_scene_find_source_recursive(obs_scene, obs_source_get_name(obs_source));
-
-	switch (sub()) {
-		case TRANSITION_CURRENT:
-			obs_frontend_set_current_transition(obs_transition);
-			if (!fixed) obs_frontend_set_transition_duration(time);
-			break;
-
-		case TRANSITION_SOURCE_SHOW:
-			ACTION_ASSERT(obs_sceneitem, "Source in scene does not exist.");
-
-			obs_sceneitem_set_transition(obs_sceneitem, true, obs_transition);
-			if (!fixed) obs_sceneitem_set_transition_duration(obs_sceneitem, true, time);
-			break;
-
-		case TRANSITION_SOURCE_HIDE:
-			ACTION_ASSERT(obs_sceneitem, "Source in scene does not exist.");
-
-			obs_sceneitem_set_transition(obs_sceneitem, false, obs_transition);
-			if (!fixed) obs_sceneitem_set_transition_duration(obs_sceneitem, false, time);
-			break;
-
-		case TRANSITION_TBAR_ACTIVATE:
-			ACTION_ASSERT(obs_frontend_preview_program_mode_active(), "Studio mode is inactive.");
-
-			if (!tbar_timer.available) return;
-
-			obs_frontend_set_tbar_position(time);
-			tbar_timer.timer->reset(1000);
-			break;
-
-		case TRANSITION_TBAR_TOGGLE:
-			ACTION_ASSERT(obs_frontend_preview_program_mode_active(), "Studio mode is inactive.");
-
-			tbar_timer.available = !tbar_timer.available;
-			if (!tbar_timer.available) tbar_timer.timer->stopTimer();
-			break;
-
-		case TRANSITION_CUSTOM:
-			MMGOBSFields::execute(obs_transition, _json, midi);
-			break;
-
-		default:
-			break;
+	if (event == OBS_FRONTEND_EVENT_TRANSITION_CHANGED) {
+		EventFulfillment fulfiller(this);
+		fulfiller->addCondition(transition->state() != STATE_IGNORE);
+		fulfiller->addAcceptable(transition, currentTransition());
+		fulfiller->addAcceptable(duration, obs_frontend_get_transition_duration());
+	} else if (event == OBS_FRONTEND_EVENT_TRANSITION_DURATION_CHANGED) {
+		EventFulfillment fulfiller(this);
+		fulfiller->addCondition(duration->state() != STATE_IGNORE);
+		fulfiller->addAcceptable(transition, currentTransition());
+		fulfiller->addAcceptable(duration, obs_frontend_get_transition_duration());
 	}
-
-	blog(LOG_DEBUG, "Successfully executed.");
 }
+// End MMGActionTransitionsCurrent
 
-void MMGActionTransitions::connectSignals(bool _connect)
+// MMGActionTransitionsTBar
+MMGParams<int32_t> MMGActionTransitionsTBar::tbar_params {
+	.desc = obstr("Basic.TransformWindow.Position"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_RANGE | OPTION_ALLOW_TOGGLE,
+	.default_value = 0,
+	.lower_bound = 0.0,
+	.upper_bound = 1024.0,
+	.step = 1.0,
+	.incremental_bound = 256.0,
+};
+
+MMGParams<int32_t> MMGActionTransitionsTBar::held_duration_params {
+	.desc = mmgtr("Actions.Transitions.HeldDuration"),
+	.options = OPTION_NONE,
+	.default_value = 1000,
+	.lower_bound = 10.0,
+	.upper_bound = 5000.0,
+	.step = 10.0,
+	.incremental_bound = 0.0,
+};
+
+MMGActionTransitionsTBar::Timer MMGActionTransitionsTBar::tbar_timer;
+
+MMGActionTransitionsTBar::MMGActionTransitionsTBar(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  tbar(json_obj, "tbar"),
+	  held_duration(json_obj, "held_duration")
 {
-	MMGAction::connectSignals(_connect);
-	if (!_connected && type() == TYPE_OUTPUT) return;
-
-	OBSSourceAutoRelease obs_source = sourceByName(transition);
-
-	if (type() == TYPE_OUTPUT) connectSourceSignal(mmgsignals()->requestSourceSignal(obs_source));
-
-	MMGOBSFields::registerSource(obs_source, _json);
+	blog(LOG_DEBUG, "Action created.");
 }
 
-void MMGActionTransitions::sourceEventReceived(MMGSourceSignal::Event event, QVariant data)
+void MMGActionTransitionsTBar::initOldData(const QJsonObject &json_obj)
 {
-	OBSSourceAutoRelease obs_source;
-
-	switch (sub()) {
-		case TRANSITION_STARTED:
-			if (event != MMGSourceSignal::SIGNAL_TRANSITION_START) return;
-			if (transition != currentTransition()) return;
-			break;
-
-		case TRANSITION_STOPPED:
-			if (event != MMGSourceSignal::SIGNAL_TRANSITION_STOP) return;
-			if (transition != currentTransition()) return;
-			break;
-
-		case TRANSITION_TOGGLE_STARTED:
-			if (event != MMGSourceSignal::SIGNAL_TRANSITION_START &&
-			    event != MMGSourceSignal::SIGNAL_TRANSITION_STOP)
-				return;
-			if (transition != currentTransition()) return;
-			break;
-
-		case TRANSITION_CUSTOM_CHANGED:
-			if (event != MMGSourceSignal::SIGNAL_UPDATE) return;
-
-			obs_source = sourceByName(transition);
-			if (data.value<void *>() != obs_source) return;
-
-			triggerEvent(MMGOBSFields::customEventReceived(obs_source, _json));
-			return;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
+	MMGCompatibility::initOldNumberData(tbar, json_obj, "num", 1);
+	held_duration = 1000;
 }
 
-void MMGActionTransitions::frontendEventReceived(obs_frontend_event event)
+void MMGActionTransitionsTBar::json(QJsonObject &json_obj) const
 {
-	MMGNumber values;
+	MMGAction::json(json_obj);
 
-	switch (sub()) {
-		case TRANSITION_CURRENT_CHANGED:
-			if (event != OBS_FRONTEND_EVENT_TRANSITION_CHANGED) return;
-			if (transition != currentTransition()) return;
-			break;
-
-		case TRANSITION_CURRENT_DURATION_CHANGED:
-			if (event != OBS_FRONTEND_EVENT_TRANSITION_DURATION_CHANGED) return;
-			if (num.state() != STATE_IGNORE && num != obs_frontend_get_transition_duration()) return;
-			break;
-
-		case TRANSITION_TBAR_CHANGED:
-			if (event != OBS_FRONTEND_EVENT_TBAR_VALUE_CHANGED) return;
-			if (!num.acceptable(obs_frontend_get_tbar_position())) return;
-			values = num;
-			values = obs_frontend_get_tbar_position();
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent({values});
+	tbar->json(json_obj, "tbar");
+	held_duration->json(json_obj, "held_duration");
 }
+
+void MMGActionTransitionsTBar::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionTransitionsTBar *>(dest);
+	if (!casted) return;
+
+	tbar.copy(casted->tbar);
+	held_duration.copy(casted->held_duration);
+}
+
+void MMGActionTransitionsTBar::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &tbar, &tbar_params);
+	if (type() != TYPE_OUTPUT) MMGActions::createActionField(display, &held_duration, &held_duration_params);
+}
+
+void MMGActionTransitionsTBar::execute(const MMGMappingTest &test) const
+{
+	ACTION_ASSERT(obs_frontend_preview_program_mode_active(), "Studio mode is inactive.");
+
+	int32_t tbar_dst = 0;
+	ACTION_ASSERT(test.applicable(tbar, tbar_dst), "A transition bar distance could not be selected. Check the "
+						       "Position field and try again.");
+
+	runInMainThread([=, this]() {
+		tbar_timer.restart(held_duration);
+		obs_frontend_set_tbar_position(tbar_dst);
+	});
+}
+
+void MMGActionTransitionsTBar::processEvent(obs_frontend_event event) const
+{
+	if (event != OBS_FRONTEND_EVENT_TBAR_VALUE_CHANGED) return;
+
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(tbar, obs_frontend_get_tbar_position());
+}
+// End MMGActionTransitionsTBar
+
+// MMGActionTransitionsCustom
+MMGActionTransitionsCustom::MMGActionTransitionsCustom(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  transition(json_obj, "transition"),
+	  custom_data(new MMGOBSFields::MMGOBSObject(this, sourceFromName(), json_obj))
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionTransitionsCustom::initOldData(const QJsonObject &json_obj)
+{
+	MMGCompatibility::initOldStringData(transition, json_obj, "transition", 1, enumerateTransitions());
+	custom_data->changeSource(sourceFromName(), json_obj);
+}
+
+void MMGActionTransitionsCustom::json(QJsonObject &json_obj) const
+{
+	MMGAction::json(json_obj);
+
+	transition->json(json_obj, "transition");
+	custom_data->json(json_obj);
+}
+
+void MMGActionTransitionsCustom::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionTransitionsCustom *>(dest);
+	if (!casted) return;
+
+	transition.copy(casted->transition);
+	custom_data->copy(casted->custom_data);
+}
+
+void MMGActionTransitionsCustom::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	transition_params.options.setFlag(OPTION_ALLOW_MIDI, false);
+	transition_params.options.setFlag(OPTION_ALLOW_TOGGLE, false);
+	transition_params.options.setFlag(OPTION_ALLOW_IGNORE, false);
+
+	transition_params.bounds = enumerateTransitions();
+	transition_params.default_value = currentTransition();
+
+	MMGActions::createActionField(display, &transition, &transition_params,
+				      std::bind(&MMGActionTransitionsCustom::onTransitionChanged, this));
+	custom_data->createDisplay(display);
+}
+
+void MMGActionTransitionsCustom::onTransitionChanged() const
+{
+	emit refreshRequested();
+	custom_data->changeSource(sourceFromName());
+}
+
+void MMGActionTransitionsCustom::execute(const MMGMappingTest &test) const
+{
+	custom_data->execute(test);
+}
+
+void MMGActionTransitionsCustom::processEvent(const calldata_t *) const
+{
+	EventFulfillment fulfiller(this);
+	custom_data->processEvent(*fulfiller);
+}
+// End MMGActionTransitionsCustom
+
+} // namespace MMGActions

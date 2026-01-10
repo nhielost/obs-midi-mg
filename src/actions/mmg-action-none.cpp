@@ -18,9 +18,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-none.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
 
 MMGActionNone::MMGActionNone(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
 {
 	blog(LOG_DEBUG, "Action created.");
 }
+
+} // namespace MMGActions

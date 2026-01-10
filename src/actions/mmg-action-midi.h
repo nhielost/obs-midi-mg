@@ -17,64 +17,71 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #pragma once
+#include "../messages/mmg-message.h"
 #include "mmg-action.h"
-#include "../ui/mmg-message-display.h"
 
-#include <QThread>
-#include <QQueue>
-#include <mutex>
+class MMGDevice;
 
-class MMGConnectionQueue;
+namespace MMGActions {
 
-class MMGActionMIDI : public MMGAction {
+class MMGActionMIDISend : public MMGAction {
 	Q_OBJECT
 
 public:
-	MMGActionMIDI(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionMIDISend(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { MIDI_SEND_MESSAGES };
-	enum Events { MIDI_MESSAGES_SENT };
-
-	Category category() const override { return MMGACTION_MIDI; };
-	const QString trName() const override { return "MIDI"; };
-	const QStringList subNames() const override { return {subModuleText("Message")}; };
+	static constexpr Id actionId() { return Id(0xf001); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "MIDI"; };
+	const char *trActionName() const override { return "Input.Message"; };
 
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
-	void execute(const MMGMessage *midi) const override;
-	void connectSignals(bool connect) override;
+private:
+	void execute(const MMGMappingTest &test) const override;
+
+	void connectSignal(bool) override {};
 
 private:
 	MMGMessageManager *messages;
-	MMGConnectionQueue *_queue;
-
-	MMGMessageDisplay *message_display = nullptr;
-
-	friend class MMGConnectionQueue;
 };
+MMG_DECLARE_ACTION(MMGActionMIDISend);
 
-class MMGConnectionQueue : public QObject {
+class MMGActionMIDIConnection : public MMGAction {
 	Q_OBJECT
 
 public:
-	MMGConnectionQueue(MMGActionMIDI *parent);
+	MMGActionMIDIConnection(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	void blog(int log_status, const QString &message) const;
+	static constexpr Id actionId() { return Id(0xf011); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "MIDI"; };
+	const char *trActionName() const override { return "Connection"; };
 
-	void disconnectQueue();
-	void connectQueue();
-	void resetQueue();
-	void resetConnections();
+	MMGDevice *device() const;
 
-private slots:
-	void messageFound(const MMGSharedMessage &);
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+	void onDeviceChange();
 
 private:
-	QQueue<MMGMessage *> queue;
+	void execute(const MMGMappingTest &test) const override;
 
-	MMGActionMIDI *action;
+	void connectSignal(bool connect) override;
+	void processMIDIState();
+
+private:
+	MMGStringID _device;
+	MMGBoolean in_status;
+	MMGBoolean out_status;
+
+	QMetaObject::Connection device_connection;
 };
+MMG_DECLARE_ACTION(MMGActionMIDIConnection);
+
+} // namespace MMGActions

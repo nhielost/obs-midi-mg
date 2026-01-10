@@ -18,77 +18,194 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-midi.h"
 #include "mmg-config.h"
+#include "mmg-preference-defs.h"
 
-#include <QMetaMethod>
+static std::unique_ptr<libremidi::observer> observer;
+static bool api_changing = false;
 
-using namespace MMGUtils;
+static void midiblog(int log_status, const QString &message)
+{
+	mmgblog(log_status, "[MIDI] " + message);
+}
 
-MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj)
-	: QObject(parent),
-	  midi_in(midi()->inputConfig(this)),
-	  midi_out(midi()->outputConfig())
+static libremidi_api getCurrentAPI()
+{
+	return libremidi_api(MMGPreferences::MMGPreferenceMIDI::currentAPI());
+}
+
+static void backendError(std::string_view msg, const libremidi::source_location &loc)
+{
+	midiblog(LOG_INFO, QString("ERROR: ") + msg.data());
+	midiblog(LOG_DEBUG,
+		 QString("Debug Info: %1 at %2:%3").arg(loc.function_name()).arg(loc.file_name()).arg(loc.line()));
+}
+
+static QString getPortDisplayName(const libremidi::port_information &pi)
+{
+	switch (getCurrentAPI()) {
+		case WINDOWS_MM:
+		case WINDOWS_MIDI_SERVICES:
+			return QString::fromStdString(pi.port_name);
+
+		default:
+			return QString::fromStdString(pi.display_name);
+	}
+}
+
+static MMGDevice *addDetectedDevice(const QString &name)
+{
+	QJsonObject json_obj;
+	json_obj["name"] = name;
+	return manager(device)->add(json_obj);
+}
+
+static void inputAdded(const libremidi::input_port &port)
+{
+	QString port_name = getPortDisplayName(port);
+
+	MMGDevice *adding_device = manager(device)->find(port_name);
+	if (!adding_device) {
+		adding_device = addDetectedDevice(port_name);
+		midiblog(LOG_INFO, QString("Device <%1> detected.").arg(port_name));
+	}
+
+	adding_device->in_port_info.reset(new libremidi::input_port(port));
+	adding_device->refreshPort();
+	if (!api_changing) emit config() -> midiStateChanged();
+}
+
+static void inputRemoved(const libremidi::input_port &port)
+{
+	QString port_name = getPortDisplayName(port);
+
+	MMGDevice *removing_device = manager(device)->find(port_name);
+	if (!removing_device) return;
+
+	removing_device->in_port_info.reset();
+	removing_device->refreshPort();
+	if (!removing_device->isCapable(TYPE_NONE)) return;
+
+	manager(device)->remove(removing_device);
+	midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	if (!api_changing) emit config() -> midiStateChanged();
+}
+
+static void outputAdded(const libremidi::output_port &port)
+{
+	QString port_name = getPortDisplayName(port);
+
+	MMGDevice *adding_device = manager(device)->find(port_name);
+	if (!adding_device) {
+		adding_device = addDetectedDevice(port_name);
+		midiblog(LOG_INFO, QString("Device <%1> detected.").arg(port_name));
+	}
+
+	adding_device->out_port_info.reset(new libremidi::output_port(port));
+	adding_device->refreshPort();
+	if (!api_changing) emit config() -> midiStateChanged();
+}
+
+static void outputRemoved(const libremidi::output_port &port)
+{
+	QString port_name = getPortDisplayName(port);
+
+	MMGDevice *removing_device = manager(device)->find(port_name);
+	if (!removing_device) return;
+
+	removing_device->out_port_info.reset();
+	removing_device->refreshPort();
+	if (!removing_device->isCapable(TYPE_NONE)) return;
+
+	manager(device)->remove(removing_device);
+	midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	if (!api_changing) emit config() -> midiStateChanged();
+}
+
+template <typename T> static void callInMainThread(const std::function<void(const T &)> f, const T &arg)
+{
+	runInMainThread(std::bind(f, arg));
+}
+
+void resetMIDIAPI(libremidi_api api)
+{
+	auto &p1 = std::placeholders::_1;
+	api_changing = true;
+
+	for (MMGMIDIPort *device : *manager(device)) {
+		device->in_port_info.reset();
+		device->out_port_info.reset();
+	}
+
+	observer.reset(new libremidi::observer(
+		{
+			.on_error = backendError,
+			.on_warning = backendError,
+			.input_added = std::bind(callInMainThread<libremidi::input_port>, inputAdded, p1),
+			.input_removed = std::bind(callInMainThread<libremidi::input_port>, inputRemoved, p1),
+			.output_added = std::bind(callInMainThread<libremidi::output_port>, outputAdded, p1),
+			.output_removed = std::bind(callInMainThread<libremidi::output_port>, outputRemoved, p1),
+			.track_virtual = true,
+			.track_any = true,
+		},
+		api));
+
+	for (MMGDevice *device : *manager(device))
+		device->refreshPort();
+
+	api_changing = false;
+	emit config() -> midiStateChanged();
+}
+
+// MMGMIDIPort
+MMGMIDIPort::MMGMIDIPort(QObject *parent, const QJsonObject &json_obj) : QObject(parent)
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Device.Dummy")));
 }
 
 void MMGMIDIPort::blog(int log_status, const QString &_message) const
 {
-	MMGText::mmgblog(log_status, QString("[MIDI] <%1> %2").arg(objectName()).arg(_message));
-}
-
-void MMGMIDIPort::connectNotify(const QMetaMethod &signal)
-{
-	if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageListened)) {
-		listening++;
-	} else if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageReceived)) {
-		connections++;
-	}
-}
-
-void MMGMIDIPort::disconnectNotify(const QMetaMethod &signal)
-{
-	if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageListened)) {
-		listening--;
-	} else if (signal == QMetaMethod::fromSignal(&MMGMIDIPort::messageReceived)) {
-		connections--;
-	}
+	mmgblog(log_status, QString("[MIDI] <%1> %2").arg(objectName()).arg(_message));
 }
 
 void MMGMIDIPort::openPort(DeviceType type)
 {
+	if (!isCapable(type)) return;
+
 	switch (type) {
 		case TYPE_INPUT:
 		default:
-			if (midi_in.is_port_open()) return;
+			if (midi_in->is_port_open()) return;
 
 			blog(LOG_INFO, "Opening input port...");
-			midi_in.open_port(in_port_info);
-			if (midi_in.is_port_open()) blog(LOG_INFO, "Input port successfully opened.");
+			midi_in->open_port(*in_port_info);
+			if (midi_in->is_port_open()) blog(LOG_INFO, "Input port successfully opened.");
 			break;
 
 		case TYPE_OUTPUT:
-			if (midi_out.is_port_open()) return;
+			if (midi_out->is_port_open()) return;
 
 			blog(LOG_INFO, "Opening output port...");
-			midi_out.open_port(out_port_info);
-			if (midi_out.is_port_open()) blog(LOG_INFO, "Output port successfully opened.");
+			midi_out->open_port(*out_port_info);
+			if (midi_out->is_port_open()) blog(LOG_INFO, "Output port successfully opened.");
 			break;
 	}
 }
 
 void MMGMIDIPort::closePort(DeviceType type)
 {
+	if (!isCapable(type)) return;
+
 	switch (type) {
 		case TYPE_INPUT:
 		default:
-			if (!midi_in.is_port_open()) return;
-			midi_in.close_port();
+			if (!midi_in || !midi_in->is_port_open()) return;
+			midi_in->close_port();
 			blog(LOG_INFO, "Input port closed.");
 			break;
 
 		case TYPE_OUTPUT:
-			if (!midi_out.is_port_open()) return;
-			midi_out.close_port();
+			if (!midi_out || !midi_out->is_port_open()) return;
+			midi_out->close_port();
 			blog(LOG_INFO, "Output port closed.");
 			break;
 	}
@@ -99,10 +216,10 @@ bool MMGMIDIPort::isPortOpen(DeviceType type) const
 	switch (type) {
 		case TYPE_INPUT:
 		default:
-			return midi_in.is_port_open();
+			return !!midi_in && midi_in->is_port_open();
 
 		case TYPE_OUTPUT:
-			return midi_out.is_port_open();
+			return !!midi_out && midi_out->is_port_open();
 	}
 }
 
@@ -110,185 +227,103 @@ bool MMGMIDIPort::isCapable(DeviceType type) const
 {
 	switch (type) {
 		case TYPE_INPUT:
-			return _capable & 0b01;
+			return bool(in_port_info);
 
 		case TYPE_OUTPUT:
-			return _capable & 0b10;
+			return bool(out_port_info);
 
 		default:
-			return _capable > 0;
-	}
-}
-
-void MMGMIDIPort::setCapable(DeviceType type, bool capable)
-{
-	if (isCapable(type) == capable) return;
-
-	switch (type) {
-		case TYPE_INPUT:
-			_capable ^= 0b01;
-			break;
-
-		case TYPE_OUTPUT:
-			_capable ^= 0b10;
-			break;
-
-		default:
-			break;
+			return bool(in_port_info) || bool(out_port_info);
 	}
 }
 
 QString MMGMIDIPort::status(DeviceType type) const
 {
 	if (!isCapable(type)) return mmgtr("Plugin.Unavailable");
-	return MMGText::choose("Device.Status", "Connected", "Disconnected", isPortOpen(type));
+	return mmgtr(choosetr("Device.Status", "Connected", "Disconnected", isPortOpen(type)));
 }
 
-void MMGMIDIPort::sendMessage(const MMGMessage *midi)
+void MMGMIDIPort::connectReceiver(MMGMessageReceiver *rec, bool connect)
 {
-	if (!midi_out.is_port_open()) {
+	if (connect) {
+		if (!recs.contains(rec)) recs += rec;
+	} else {
+		recs.removeOne(rec);
+	}
+}
+
+void MMGMIDIPort::sendMessage(const MMGMessageData &midi) const
+{
+	if (!midi_out->is_port_open()) {
 		blog(LOG_INFO, "Cannot send message: Output device is not connected. "
 			       "(Is the output device enabled?)");
 		return;
 	}
 
-	libremidi::message _message;
-	int channel = midi->channel();
-	int note = midi->note();
-	int value = midi->value();
-
-	if (midi->type() == mmgtr("Message.Type.NoteOn")) {
-		_message = libremidi::channel_events::note_on(channel, note, value);
-	} else if (midi->type() == mmgtr("Message.Type.NoteOff")) {
-		_message = libremidi::channel_events::note_off(channel, note, value);
-	} else if (midi->type() == mmgtr("Message.Type.ControlChange")) {
-		_message = libremidi::channel_events::control_change(channel, note, value);
-	} else if (midi->type() == mmgtr("Message.Type.ProgramChange")) {
-		_message = libremidi::channel_events::program_change(channel, value);
-	} else if (midi->type() == mmgtr("Message.Type.PitchBend")) {
-		_message = libremidi::channel_events::pitch_bend(channel, value);
+	if (MMGMessages::usingMIDI2()) {
+		midi_out->send_ump(midi);
+	} else {
+		midi_out->send_message(midi);
 	}
-
-	midi_out.send_message(_message);
 }
 
-void MMGMIDIPort::sendThru()
+void MMGMIDIPort::refreshPortAPI()
 {
-	if (_thru.isEmpty()) return;
+	if (MMGMessages::usingMIDI2()) {
+		midi_in.reset(new libremidi::midi_in(
+			{
+				.on_message = [this](libremidi::ump &&incoming) { callback(MMGMessageData(incoming)); },
+				.on_error = backendError,
+				.on_warning = backendError,
+			},
+			getCurrentAPI()));
+	} else {
+		midi_in.reset(new libremidi::midi_in(
+			{
+				.on_message =
+					[this](libremidi::message &&incoming) { callback(MMGMessageData(incoming)); },
+				.on_error = backendError,
+				.on_warning = backendError,
+			},
+			getCurrentAPI()));
+	}
 
-	MMGMIDIPort *port = manager(device)->find(_thru);
-	if (!port) {
-		blog(LOG_INFO, "Thru device is not connected or does not exist.");
+	midi_out.reset(new libremidi::midi_out(
+		{
+			.on_error = backendError,
+			.on_warning = backendError,
+		},
+		getCurrentAPI()));
+}
+
+void MMGMIDIPort::setThru(MMGMIDIPort *device)
+{
+	if (!!_thru) disconnect(_thru, &QObject::destroyed, this, nullptr);
+
+	_thru = device;
+	if (!device) return;
+
+	connect(_thru, &QObject::destroyed, this, [&]() { _thru = nullptr; });
+}
+
+void MMGMIDIPort::sendThru(const MMGMessageData &incoming)
+{
+	if (!_thru) return;
+	_thru->sendMessage(incoming);
+}
+
+void MMGMIDIPort::callback(const MMGMessageData &incoming)
+{
+	if (!incoming.isCV()) return; // Only using Channel Voice Messages
+
+	if (!!blocking_rec) {
+		blocking_rec->processMessage(incoming);
 		return;
-	}
-	port->sendMessage(message.get());
-}
+	};
 
-void MMGMIDIPort::callback(const libremidi::message &msg)
-{
-	message.reset(new MMGMessage(this, msg));
+	for (auto *rec : recs)
+		rec->processMessage(incoming);
 
-	if (listening) {
-		emit messageListened(message);
-	} else if (connections) {
-		emit messageReceived(message);
-		sendThru();
-	}
+	sendThru(incoming);
 }
 // End MMGMIDIPort
-
-// MMGMIDI
-MMGMIDI::MMGMIDI(QObject *parent)
-	: QObject(parent),
-	  observer({.on_error = backendError,
-		    .on_warning = backendError,
-		    .input_added = [&](libremidi::input_port port) { inputAdded(port); },
-		    .input_removed = [&](libremidi::input_port port) { inputRemoved(port); },
-		    .output_added = [&](libremidi::output_port port) { outputAdded(port); },
-		    .output_removed = [&](libremidi::output_port port) { outputRemoved(port); },
-		    .track_virtual = true})
-{
-}
-
-void MMGMIDI::blog(int log_status, const QString &message) const
-{
-	MMGText::mmgblog(log_status, "[MIDI] " + message);
-}
-
-const libremidi::input_configuration MMGMIDI::inputConfig(MMGMIDIPort *port) const
-{
-	return {.on_message = [port](libremidi::message &&message) { port->callback(message); },
-		.on_error = backendError,
-		.on_warning = backendError};
-}
-
-const libremidi::output_configuration MMGMIDI::outputConfig() const
-{
-	return {.on_error = backendError, .on_warning = backendError};
-}
-
-void MMGMIDI::inputAdded(const libremidi::input_port &port)
-{
-	QString port_name = QString::fromStdString(port.port_name);
-
-	MMGDevice *adding_device = manager(device)->find(port_name);
-	if (!adding_device) {
-		adding_device = manager(device)->add(port_name);
-		blog(LOG_INFO, QString("Device <%1> detected.").arg(port_name));
-	}
-
-	adding_device->in_port_info = port;
-	adding_device->setCapable(TYPE_INPUT, true);
-	emit deviceCapableChange();
-}
-
-void MMGMIDI::inputRemoved(const libremidi::input_port &port)
-{
-	QString port_name = QString::fromStdString(port.port_name);
-
-	MMGDevice *removing_device = manager(device)->find(port_name);
-	if (!removing_device) return;
-	removing_device->setCapable(TYPE_INPUT, false);
-
-	if (!removing_device->isCapable(TYPE_NONE)) return;
-	manager(device)->remove(removing_device);
-	blog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
-	emit deviceCapableChange();
-}
-
-void MMGMIDI::outputAdded(const libremidi::output_port &port)
-{
-	QString port_name = QString::fromStdString(port.port_name);
-
-	MMGDevice *adding_device = manager(device)->find(port_name);
-	if (!adding_device) {
-		adding_device = manager(device)->add(port_name);
-		blog(LOG_INFO, QString("Device <%1> detected.").arg(port_name));
-	}
-
-	adding_device->out_port_info = port;
-	adding_device->setCapable(TYPE_OUTPUT, true);
-	emit deviceCapableChange();
-}
-
-void MMGMIDI::outputRemoved(const libremidi::output_port &port)
-{
-	QString port_name = QString::fromStdString(port.port_name);
-
-	MMGDevice *removing_device = manager(device)->find(port_name);
-	if (!removing_device) return;
-	removing_device->setCapable(TYPE_OUTPUT, false);
-
-	if (!removing_device->isCapable(TYPE_NONE)) return;
-	manager(device)->remove(removing_device);
-	blog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
-	emit deviceCapableChange();
-}
-
-void MMGMIDI::backendError(std::string_view msg, const libremidi::source_location &loc)
-{
-	midi()->blog(LOG_INFO, QString("ERROR: ") + msg.data());
-	midi()->blog(LOG_DEBUG,
-		     QString("Debug Info: %1 at %2:%3").arg(loc.function_name()).arg(loc.file_name()).arg(loc.line()));
-}
-// End MMGMIDI

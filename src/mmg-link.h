@@ -19,8 +19,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_LINK_H
 #define MMG_LINK_H
 
-#include "mmg-utils.h"
-#include "mmg-message.h"
+#include "messages/mmg-message-data.h"
+#include "mmg-mapping.h"
 
 #include <QThread>
 #include <mutex>
@@ -41,24 +41,21 @@ public:
 	void establish(bool connect);
 
 private:
-	void execute();
+	void execute(const MMGMappingTest &);
 
 	void run() override;
 	void executeInput();
 	void executeOutput();
 
-public slots:
-	void messageReceived(const MMGSharedMessage &);
-	void actionFulfilled(const MMGUtils::MMGNumberList &);
+	void changeName(const QString &name);
 
 private:
 	MMGBinding *binding;
-	MMGMessage *incoming_message;
-	MMGUtils::MMGNumberList incoming_nums;
+	MMGMappingTest _test;
 
 	std::timed_mutex mutex;
 	bool locked = false;
 
-	static short thread_count;
+	static uint16_t thread_count;
 };
 #endif // MMG_LINK_H

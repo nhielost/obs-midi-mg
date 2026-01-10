@@ -18,92 +18,70 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-stream.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
 
-MMGActionStream::MMGActionStream(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
+const MMGParams<bool> MMGActionStream::stream_params {
+	.desc = mmgtr("Plugin.Status"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
+
+MMGActionStream::MMGActionStream(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  stream_state(json_obj, "stream_state")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionStream::subNames() const
+void MMGActionStream::initOldData(const QJsonObject &json_obj)
 {
-	QStringList opts;
+	int sub = json_obj["sub"].toInt();
+	if (json_obj["type"].toInt() == TYPE_OUTPUT) sub /= 2;
 
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartStreaming", "StopStreaming"})
-			     << subModuleText("Toggle");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList(
-				{"Starting", "Started", "Stopping", "Stopped", "ToggleStarting", "ToggleStarted"});
-			break;
-	}
-
-	return opts;
+	MMGCompatibility::initOldBooleanData(stream_state, sub);
 }
 
-void MMGActionStream::execute(const MMGMessage *) const
+void MMGActionStream::json(QJsonObject &json_obj) const
 {
-	switch (sub()) {
-		case STREAM_ON:
-			if (!obs_frontend_streaming_active()) obs_frontend_streaming_start();
-			break;
+	MMGAction::json(json_obj);
 
-		case STREAM_OFF:
-			if (obs_frontend_streaming_active()) obs_frontend_streaming_stop();
-			break;
+	stream_state->json(json_obj, "stream_state");
+}
 
-		case STREAM_TOGGLE_ONOFF:
-			if (obs_frontend_streaming_active()) {
-				obs_frontend_streaming_stop();
-			} else {
-				obs_frontend_streaming_start();
-			}
-			break;
+void MMGActionStream::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
 
-		default:
-			break;
-	}
+	auto casted = dynamic_cast<MMGActionStream *>(dest);
+	if (!casted) return;
+
+	stream_state.copy(casted->stream_state);
+}
+
+void MMGActionStream::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &stream_state, &stream_params);
+}
+
+void MMGActionStream::execute(const MMGMappingTest &test) const
+{
+	bool value = obs_frontend_streaming_active();
+	ACTION_ASSERT(test.applicable(stream_state, value),
+		      "A status could not be selected. Check the Status Field and try again.");
+
+	if (value && !obs_frontend_streaming_active())
+		obs_frontend_streaming_start();
+	else if (!value && obs_frontend_streaming_active())
+		obs_frontend_streaming_stop();
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionStream::frontendEventReceived(obs_frontend_event event)
+void MMGActionStream::processEvent(obs_frontend_event event) const
 {
-	switch (sub()) {
-		case STREAM_STARTING:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTING) return;
-			break;
-
-		case STREAM_STARTED:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTED) return;
-			break;
-		case STREAM_STOPPING:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STOPPING) return;
-			break;
-
-		case STREAM_STOPPED:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STOPPED) return;
-			break;
-
-		case STREAM_TOGGLE_STARTING:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTING &&
-			    event != OBS_FRONTEND_EVENT_STREAMING_STOPPING)
-				return;
-			break;
-
-		case STREAM_TOGGLE_STARTED:
-			if (event != OBS_FRONTEND_EVENT_STREAMING_STARTED &&
-			    event != OBS_FRONTEND_EVENT_STREAMING_STOPPED)
-				return;
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(stream_state, event, OBS_FRONTEND_EVENT_STREAMING_STARTED,
+				 OBS_FRONTEND_EVENT_STREAMING_STOPPED);
 }
+
+} // namespace MMGActions

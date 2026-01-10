@@ -18,130 +18,15 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-hotkeys.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
 
-struct MMGHotkeyRequest {
-	obs_hotkey_id hotkey_id;
-	QString hotkey_group;
-	QString hotkey_name;
-	bool hotkey_found = false;
-};
-
-MMGActionHotkeys::MMGActionHotkeys(MMGActionManager *parent, const QJsonObject &json_obj)
-	: MMGAction(parent, json_obj),
-	  group(json_obj, "hotkey_group", 0),
-	  hotkey(json_obj, "hotkey", 1)
-{
-	blog(LOG_DEBUG, "Action created.");
-}
-
-void MMGActionHotkeys::json(QJsonObject &json_obj) const
-{
-	MMGAction::json(json_obj);
-
-	group.json(json_obj, "hotkey_group", false);
-	hotkey.json(json_obj, "hotkey");
-}
-
-void MMGActionHotkeys::copy(MMGAction *dest) const
-{
-	MMGAction::copy(dest);
-
-	auto casted = dynamic_cast<MMGActionHotkeys *>(dest);
-	if (!casted) return;
-
-	casted->group = group.copy();
-	casted->hotkey = hotkey.copy();
-}
-
-void MMGActionHotkeys::setEditable(bool edit)
-{
-	group.setEditable(edit);
-	hotkey.setEditable(edit);
-}
-
-void MMGActionHotkeys::toggle()
-{
-	hotkey.toggle();
-}
-
-void MMGActionHotkeys::createDisplay(QWidget *parent)
-{
-	MMGAction::createDisplay(parent);
-
-	connect(display()->addNew(&group), &MMGStringDisplay::stringChanged, this, &MMGActionHotkeys::onList1Change);
-
-	display()->addNew(&hotkey)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-}
-
-void MMGActionHotkeys::setActionParams()
-{
-	display()->hideAll();
-
-	MMGStringDisplay *group_display = display()->stringDisplay(0);
-	group_display->setVisible(true);
-	group_display->setDescription(mmgtr("Actions.Hotkeys.Group"));
-	group_display->setBounds(enumerateCategories());
-}
-
-void MMGActionHotkeys::onList1Change()
-{
-	MMGStringDisplay *hotkey_display = display()->stringDisplay(1);
-	hotkey_display->setVisible(true);
-	hotkey_display->setDescription(mmgtr("Actions.Hotkeys.Hotkey"));
-	hotkey_display->setOptions(MIDIBUTTON_TOGGLE);
-	hotkey_display->setBounds(enumerate(group).values());
-}
-
-const QMap<QString, QString> MMGActionHotkeys::enumerate(const QString &category)
-{
-	struct MMGHotkeyEnumeration {
-		QString category;
-		QMap<QString, QString> list;
-	} req{category};
-
-	obs_enum_hotkeys(
-		[](void *param, obs_hotkey_id id, obs_hotkey_t *hotkey) {
-			Q_UNUSED(id);
-			auto _req = reinterpret_cast<MMGHotkeyEnumeration *>(param);
-
-			if (_req->category != registerer(hotkey)) return true;
-
-			_req->list.insert(obs_hotkey_get_name(hotkey), obs_hotkey_get_description(hotkey));
-			return true;
-		},
-		&req);
-
-	return req.list;
-}
-
-const QStringList MMGActionHotkeys::enumerateCategories()
-{
-	QStringList list;
-
-	obs_enum_hotkeys(
-		[](void *param, obs_hotkey_id id, obs_hotkey_t *hotkey) {
-			Q_UNUSED(id);
-			auto _list = reinterpret_cast<QStringList *>(param);
-			QString hotkey_group = registerer(hotkey);
-
-			if (_list->contains(hotkey_group)) return true;
-
-			_list->append(hotkey_group);
-			return true;
-		},
-		&list);
-
-	return list;
-}
-
-const QString MMGActionHotkeys::registerer(obs_hotkey_t *hotkey)
+static const MMGString registerer(obs_hotkey_t *hotkey)
 {
 #define HOTKEY_REGISTERER_GET_NAME(kind)                                                     \
 	ptr_##kind = obs_weak_##kind##_get_##kind(                                           \
 		reinterpret_cast<obs_weak_##kind##_t *>(obs_hotkey_get_registerer(hotkey))); \
 	if (!ptr_##kind) return "";                                                          \
-	return obs_##kind##_get_name(ptr_##kind);
+	return obs_##kind##_get_name(ptr_##kind)
 
 	OBSSourceAutoRelease ptr_source;
 	OBSOutputAutoRelease ptr_output;
@@ -150,7 +35,7 @@ const QString MMGActionHotkeys::registerer(obs_hotkey_t *hotkey)
 
 	switch (obs_hotkey_get_registerer_type(hotkey)) {
 		case OBS_HOTKEY_REGISTERER_FRONTEND:
-			return mmgtr("Actions.Hotkeys.Frontend");
+			return mmgtr("Actions.Hotkeys.Frontend").translate();
 		case OBS_HOTKEY_REGISTERER_SOURCE:
 			HOTKEY_REGISTERER_GET_NAME(source);
 		case OBS_HOTKEY_REGISTERER_OUTPUT:
@@ -164,71 +49,163 @@ const QString MMGActionHotkeys::registerer(obs_hotkey_t *hotkey)
 	}
 
 #undef HOTKEY_REGISTERER_GET_NAME
-}
+};
 
-void MMGActionHotkeys::execute(const MMGMessage *) const
+const MMGStringTranslationMap enumerateHotkeys(const MMGString &category)
 {
-	ACTION_ASSERT(sub() == HOTKEY_PREDEF, "Invalid action.");
-
-	MMGHotkeyRequest req;
-	req.hotkey_group = group;
-	req.hotkey_name = enumerate(group).key(hotkey);
+	struct MMGHotkeyEnumeration {
+		MMGString category;
+		MMGStringTranslationMap list;
+	} req {category};
 
 	obs_enum_hotkeys(
-		[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey) {
-			auto _req = reinterpret_cast<MMGHotkeyRequest *>(data);
+		[](void *param, obs_hotkey_id, obs_hotkey_t *hotkey) {
+			auto _req = reinterpret_cast<MMGHotkeyEnumeration *>(param);
 
-			if (obs_hotkey_get_name(hotkey) != _req->hotkey_name) return true;
-			if (registerer(hotkey) != _req->hotkey_group) return true;
+			if (_req->category != registerer(hotkey)) return true;
 
-			_req->hotkey_found = true;
-			_req->hotkey_id = id;
-			return false;
+			_req->list.insert(obs_hotkey_get_name(hotkey), nontr(obs_hotkey_get_description(hotkey)));
+			return true;
 		},
 		&req);
 
-	ACTION_ASSERT(req.hotkey_found, "Hotkey does not exist.");
+	return req.list;
+}
 
-	obs_queue_task(
-		OBS_TASK_UI,
-		[](void *param) {
-			auto id = (size_t *)param;
-			obs_hotkey_trigger_routed_callback(*id, false);
-			obs_hotkey_trigger_routed_callback(*id, true);
-			obs_hotkey_trigger_routed_callback(*id, false);
+const MMGStringTranslationMap enumerateHotkeyCategories()
+{
+	MMGStringTranslationMap list;
+
+	obs_enum_hotkeys(
+		[](void *param, obs_hotkey_id, obs_hotkey_t *hotkey) {
+			auto _list = reinterpret_cast<MMGStringTranslationMap *>(param);
+
+			MMGString reg = registerer(hotkey);
+			if (_list->contains(reg)) return true;
+
+			_list->insert(reg, nontr(reg));
+			return true;
 		},
-		&req.hotkey_id, true);
+		&list);
+
+	return list;
+}
+
+MMGParams<MMGString> MMGActionHotkeys::group_params {
+	.desc = mmgtr("Actions.Hotkeys.Group"),
+	.options = OPTION_NONE,
+	.default_value = "",
+	.bounds = {},
+};
+
+MMGParams<MMGString> MMGActionHotkeys::hotkey_params {
+	.desc = mmgtr("Actions.Hotkeys.Hotkey"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = "",
+	.bounds = {},
+};
+
+MMGActionHotkeys::MMGActionHotkeys(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  hotkey_group(json_obj, "hotkey_group"),
+	  hotkey(json_obj, "hotkey")
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionHotkeys::initOldData(const QJsonObject &json_obj)
+{
+	MMGCompatibility::initOldStringData(hotkey_group, json_obj, "hotkey_group", 0, enumerateHotkeyCategories());
+	MMGCompatibility::initOldStringData(hotkey, json_obj, "hotkey", 1, enumerateHotkeys(hotkey_group));
+}
+
+void MMGActionHotkeys::json(QJsonObject &json_obj) const
+{
+	MMGAction::json(json_obj);
+
+	hotkey_group->json(json_obj, "hotkey_group");
+	hotkey->json(json_obj, "hotkey");
+}
+
+void MMGActionHotkeys::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionHotkeys *>(dest);
+	if (!casted) return;
+
+	hotkey_group.copy(casted->hotkey_group);
+	hotkey.copy(casted->hotkey);
+}
+
+void MMGActionHotkeys::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	group_params.bounds = enumerateHotkeyCategories();
+	group_params.default_value = !group_params.bounds.isEmpty() ? group_params.bounds.firstKey() : MMGString();
+
+	MMGActions::createActionField(display, &hotkey_group, &group_params,
+				      std::bind(&MMGActionHotkeys::onGroupChange, this));
+	MMGActions::createActionField(display, &hotkey, &hotkey_params);
+}
+
+void MMGActionHotkeys::onGroupChange() const
+{
+	hotkey_params.options.setFlag(OPTION_HIDDEN, group_params.bounds.isEmpty());
+	if (group_params.bounds.isEmpty()) return;
+
+	hotkey_params.bounds = enumerateHotkeys(hotkey_group);
+	hotkey_params.default_value = hotkey_params.bounds.firstKey();
+}
+
+void MMGActionHotkeys::execute(const MMGMappingTest &test) const
+{
+	hotkey_req.found = false;
+	ACTION_ASSERT(test.applicable(hotkey, hotkey_req.name),
+		      "A hotkey could not be selected. Check the Hotkey field and try again.");
+
+	obs_enum_hotkeys(
+		[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey) {
+			auto _req = reinterpret_cast<Request *>(data);
+
+			if (obs_hotkey_get_name(hotkey) != _req->name) return true;
+
+			_req->found = true;
+			_req->id = id;
+			return false;
+		},
+		&hotkey_req);
+
+	ACTION_ASSERT(hotkey_req.found, "This hotkey does not exist.");
+
+	runInMainThread([this]() {
+		obs_hotkey_trigger_routed_callback(hotkey_req.id, false);
+		obs_hotkey_trigger_routed_callback(hotkey_req.id, true);
+		obs_hotkey_trigger_routed_callback(hotkey_req.id, false);
+	});
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionHotkeys::connectSignals(bool _connect)
+void MMGActionHotkeys::processEvent(obs_hotkey_id id) const
 {
-	MMGAction::connectSignals(_connect);
-	if (!_connect) return;
-
-	connect(mmgsignals(), &MMGSignals::hotkeyEvent, this, &MMGActionHotkeys::hotkeyEventReceived);
-}
-
-void MMGActionHotkeys::hotkeyEventReceived(obs_hotkey_id id)
-{
-	MMGHotkeyRequest req;
-	req.hotkey_id = id;
-	req.hotkey_group = group;
-	req.hotkey_name = MMGActionHotkeys::enumerate(group).key(hotkey);
+	hotkey_req.found = false;
+	hotkey_req.id = id;
 
 	obs_enum_hotkeys(
 		[](void *param, obs_hotkey_id id, obs_hotkey_t *hotkey) {
-			auto _req = reinterpret_cast<MMGHotkeyRequest *>(param);
+			auto _req = reinterpret_cast<Request *>(param);
 
-			if (id != _req->hotkey_id) return true;
+			if (id != _req->id) return true;
 
-			if (registerer(hotkey) != _req->hotkey_group) return false;
-
-			_req->hotkey_found = obs_hotkey_get_name(hotkey) == _req->hotkey_name;
+			_req->found = true;
+			_req->name = obs_hotkey_get_name(hotkey);
 			return false;
 		},
-		&req);
+		&hotkey_req);
 
-	if (req.hotkey_found) triggerEvent();
+	EventFulfillment fulfiller(this);
+	fulfiller->addCondition(hotkey_req.found);
+	fulfiller->addAcceptable(hotkey, hotkey_req.name);
 }
+
+} // namespace MMGActions

@@ -19,31 +19,64 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionRecord : public MMGAction {
+namespace MMGActions {
+
+class MMGActionRecordRunState : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
-	MMGActionRecord(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionRecordRunState(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { RECORD_ON, RECORD_OFF, RECORD_TOGGLE_ONOFF, RECORD_PAUSE, RECORD_RESUME, RECORD_TOGGLE_PAUSE };
-	enum Events {
-		RECORD_STARTING,
-		RECORD_STARTED,
-		RECORD_STOPPING,
-		RECORD_STOPPED,
-		RECORD_TOGGLE_STARTING,
-		RECORD_TOGGLE_STARTED,
-		RECORD_PAUSED,
-		RECORD_RESUMED,
-		RECORD_TOGGLE_PAUSED
-	};
+	static constexpr Id actionId() { return Id(0x0201); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Recording"; };
+	const char *trActionName() const override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_RECORD; };
-	const QString trName() const override { return "Recording"; };
-	const QStringList subNames() const override;
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
 
-	void execute(const MMGMessage *) const override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event event) override;
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGBoolean record_state;
+
+	static const MMGParams<bool> record_params;
 };
+MMG_DECLARE_ACTION(MMGActionRecordRunState);
+
+class MMGActionRecordPauseState : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionRecordPauseState(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x0281); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Recording"; };
+	const char *trActionName() const override { return "PauseState"; };
+
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGBoolean pause_state;
+
+	static const MMGParams<bool> pause_params;
+};
+MMG_DECLARE_ACTION(MMGActionRecordPauseState);
+
+} // namespace MMGActions

@@ -19,18 +19,24 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
+namespace MMGActions {
+
 class MMGActionNone : public MMGAction {
 	Q_OBJECT
 
 public:
 	MMGActionNone(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { NONE_DO_NONE };
-	enum Events { NONE_NONE_DONE };
+	static constexpr Id actionId() { return Id(0x0000); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const final override { return "None"; };
+	const char *trActionName() const final override { return "None"; };
 
-	Category category() const override { return MMGACTION_NONE; };
-	const QString trName() const override { return "None"; };
-	const QStringList subNames() const override { return {mmgtr("Actions.Titles.None")}; };
+private:
+	void execute(const MMGMappingTest &) const override { blog(LOG_DEBUG, "Successfully executed."); };
 
-	void execute(const MMGMessage *) const override { blog(LOG_DEBUG, "Successfully executed."); };
+	void connectSignal(bool) final override {};
 };
+MMG_DECLARE_ACTION(MMGActionNone);
+
+} // namespace MMGActions

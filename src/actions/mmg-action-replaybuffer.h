@@ -19,29 +19,56 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionReplayBuffer : public MMGAction {
+namespace MMGActions {
+
+class MMGActionReplayBufferRunState : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
-	MMGActionReplayBuffer(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionReplayBufferRunState(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { REPBUF_ON, REPBUF_OFF, REPBUF_TOGGLE_ONOFF, REPBUF_SAVE };
-	enum Events {
-		REPBUF_STARTING,
-		REPBUF_STARTED,
-		REPBUF_STOPPING,
-		REPBUF_STOPPED,
-		REPBUF_TOGGLE_STARTING,
-		REPBUF_TOGGLE_STARTED,
-		REPBUF_SAVED
-	};
+	static constexpr Id actionId() { return Id(0x0401); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "ReplayBuffer"; };
+	const char *trActionName() const override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_REPBUF; };
-	const QString trName() const override { return "ReplayBuffer"; };
-	const QStringList subNames() const override;
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
 
-	void execute(const MMGMessage *midi) const override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
 private:
-	void frontendEventReceived(obs_frontend_event event) override;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGBoolean repbuf_state;
+
+	static const MMGParams<bool> repbuf_params;
 };
+MMG_DECLARE_ACTION(MMGActionReplayBufferRunState);
+
+class MMGActionReplayBufferSave : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionReplayBufferSave(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x0481); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "ReplayBuffer"; };
+	const char *trActionName() const override { return "Save"; };
+
+private:
+	void execute(const MMGMappingTest &) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override
+	{
+		if (event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED) EventFulfillment fulfiller(this);
+	};
+};
+MMG_DECLARE_ACTION(MMGActionReplayBufferSave);
+
+} // namespace MMGActions

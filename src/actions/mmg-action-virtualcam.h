@@ -19,21 +19,35 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionVirtualCam : public MMGAction {
+namespace MMGActions {
+
+class MMGActionVirtualCam : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
 	MMGActionVirtualCam(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { VIRCAM_ON, VIRCAM_OFF, VIRCAM_TOGGLE_ONOFF };
-	enum Events { VIRCAM_STARTED, VIRCAM_STOPPED, VIRCAM_TOGGLE_STARTED };
+	static constexpr Id actionId() { return Id(0x0301); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const final override { return "VirtualCamera"; };
+	const char *trActionName() const final override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_VIRCAM; };
-	const QString trName() const override { return "VirtualCamera"; };
-	const QStringList subNames() const override;
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
 
-	void execute(const MMGMessage *) const override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event event) override;
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGBoolean vircam_state;
+
+	static const MMGParams<bool> vircam_params;
 };
+MMG_DECLARE_ACTION(MMGActionVirtualCam);
+
+} // namespace MMGActions

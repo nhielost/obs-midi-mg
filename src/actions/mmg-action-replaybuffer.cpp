@@ -20,109 +20,101 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <util/config-file.h>
 
-using namespace MMGUtils;
+namespace MMGActions {
 
-MMGActionReplayBuffer::MMGActionReplayBuffer(MMGActionManager *parent, const QJsonObject &json_obj)
+static bool replayBufferEnabled()
+{
+	config_t *obs_config = obs_frontend_get_profile_config();
+
+	return (MMGString(config_get_string(obs_config, "Output", "Mode")) == "Simple" &&
+		config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
+	       (MMGString(config_get_string(obs_config, "Output", "Mode")) == "Advanced" &&
+		config_get_bool(obs_config, "AdvOut", "RecRB"));
+};
+
+// MMGActionReplayBufferRunState
+const MMGParams<bool> MMGActionReplayBufferRunState::repbuf_params {
+	.desc = mmgtr("Plugin.Status"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
+
+MMGActionReplayBufferRunState::MMGActionReplayBufferRunState(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  repbuf_state(json_obj, "repbuf_state")
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionReplayBufferRunState::initOldData(const QJsonObject &json_obj)
+{
+	int sub = json_obj["sub"].toInt();
+	if (json_obj["type"].toInt() == TYPE_OUTPUT) sub /= 2;
+
+	MMGCompatibility::initOldBooleanData(repbuf_state, sub);
+}
+
+void MMGActionReplayBufferRunState::json(QJsonObject &json_obj) const
+{
+	MMGAction::json(json_obj);
+
+	repbuf_state->json(json_obj, "repbuf_state");
+}
+
+void MMGActionReplayBufferRunState::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionReplayBufferRunState *>(dest);
+	if (!casted) return;
+
+	repbuf_state.copy(casted->repbuf_state);
+}
+
+void MMGActionReplayBufferRunState::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &repbuf_state, &repbuf_params);
+}
+
+void MMGActionReplayBufferRunState::execute(const MMGMappingTest &test) const
+{
+	ACTION_ASSERT(replayBufferEnabled(), "Replay buffers are not enabled.");
+
+	bool value = obs_frontend_replay_buffer_active();
+	ACTION_ASSERT(test.applicable(repbuf_state, value),
+		      "A status could not be selected. Check the Status Field and try again.");
+
+	if (value && !obs_frontend_replay_buffer_active())
+		obs_frontend_replay_buffer_start();
+	else if (!value && obs_frontend_replay_buffer_active())
+		obs_frontend_replay_buffer_stop();
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionReplayBufferRunState::processEvent(obs_frontend_event event) const
+{
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(repbuf_state, event, OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED,
+				 OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED);
+}
+// End MMGActionReplayBufferRunState
+
+// MMGActionReplayBufferSave
+MMGActionReplayBufferSave::MMGActionReplayBufferSave(MMGActionManager *parent, const QJsonObject &json_obj)
 	: MMGAction(parent, json_obj)
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionReplayBuffer::subNames() const
+void MMGActionReplayBufferSave::execute(const MMGMappingTest &) const
 {
-	QStringList opts;
+	ACTION_ASSERT(replayBufferEnabled(), "Replay buffers are not enabled.");
 
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartReplayBuffer", "StopReplayBuffer"})
-			     << subModuleText("Toggle") << subModuleText("Save");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
-						   "ToggleStarted", "Save"});
-			break;
-	}
-
-	return opts;
-}
-
-void MMGActionReplayBuffer::execute(const MMGMessage *) const
-{
-	config_t *obs_config = obs_frontend_get_profile_config();
-	ACTION_ASSERT((QString(config_get_string(obs_config, "Output", "Mode")) == "Simple" &&
-		       config_get_bool(obs_config, "SimpleOutput", "RecRB")) ||
-			      (QString(config_get_string(obs_config, "Output", "Mode")) == "Advanced" &&
-			       config_get_bool(obs_config, "AdvOut", "RecRB")),
-		      "Replay buffers are not enabled.");
-
-	switch (sub()) {
-		case REPBUF_ON:
-			if (!obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_start();
-			break;
-
-		case REPBUF_OFF:
-			if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_stop();
-			break;
-
-		case REPBUF_TOGGLE_ONOFF:
-			if (obs_frontend_replay_buffer_active()) {
-				obs_frontend_replay_buffer_stop();
-			} else {
-				obs_frontend_replay_buffer_start();
-			}
-			break;
-
-		case REPBUF_SAVE:
-			if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_save();
-			break;
-
-		default:
-			break;
-	}
+	if (obs_frontend_replay_buffer_active()) obs_frontend_replay_buffer_save();
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
+// End MMGActionReplayBufferSave
 
-void MMGActionReplayBuffer::frontendEventReceived(obs_frontend_event event)
-{
-	switch (sub()) {
-		case REPBUF_STARTING:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING) return;
-			break;
-
-		case REPBUF_STARTED:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED) return;
-			break;
-
-		case REPBUF_STOPPING:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPING) return;
-			break;
-
-		case REPBUF_STOPPED:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED) return;
-			break;
-
-		case REPBUF_TOGGLE_STARTING:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTING &&
-			    event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPING)
-				return;
-			break;
-
-		case REPBUF_TOGGLE_STARTED:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED &&
-			    event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED)
-				return;
-			break;
-
-		case REPBUF_SAVED:
-			if (event != OBS_FRONTEND_EVENT_REPLAY_BUFFER_SAVED) return;
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
-}
+} // namespace MMGActions

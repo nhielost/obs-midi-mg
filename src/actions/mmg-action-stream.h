@@ -19,27 +19,35 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionStream : public MMGAction {
+namespace MMGActions {
+
+class MMGActionStream : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
 
 public:
 	MMGActionStream(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { STREAM_ON, STREAM_OFF, STREAM_TOGGLE_ONOFF };
-	enum Events {
-		STREAM_STARTING,
-		STREAM_STARTED,
-		STREAM_STOPPING,
-		STREAM_STOPPED,
-		STREAM_TOGGLE_STARTING,
-		STREAM_TOGGLE_STARTED
-	};
+	static constexpr Id actionId() { return Id(0x0101); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const final override { return "Streaming"; };
+	const char *trActionName() const override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_STREAM; };
-	const QString trName() const override { return "Streaming"; };
-	const QStringList subNames() const override;
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
 
-	void execute(const MMGMessage *) const override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event event) override;
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGBoolean stream_state;
+
+	static const MMGParams<bool> stream_params;
 };
+MMG_DECLARE_ACTION(MMGActionStream);
+
+} // namespace MMGActions

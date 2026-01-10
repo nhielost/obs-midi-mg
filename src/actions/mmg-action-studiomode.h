@@ -19,38 +19,62 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionStudioMode : public MMGAction {
+namespace MMGActions {
+
+class MMGActionStudioModeRunState : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
-	MMGActionStudioMode(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionStudioModeRunState(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions {
-		STUDIOMODE_ON,
-		STUDIOMODE_OFF,
-		STUDIOMODE_TOGGLE_ONOFF,
-		STUDIOMODE_CHANGEPREVIEW,
-		STUDIOMODE_TRANSITION
-	};
-	enum Events { STUDIOMODE_ENABLED, STUDIOMODE_DISABLED, STUDIOMODE_TOGGLE_ENABLED, STUDIOMODE_PREVIEWCHANGED };
+	static constexpr Id actionId() { return Id(0x1001); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "StudioMode"; };
+	const char *trActionName() const override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_STUDIOMODE; };
-	const QString trName() const override { return "StudioMode"; };
-	const QStringList subNames() const override;
-
+	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
-	void setEditable(bool edit) override;
-	void toggle() override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
-
-	void execute(const MMGMessage *midi) const override;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
 private:
-	MMGUtils::MMGString scene;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event event) override;
+private:
+	MMGBoolean studio_state;
+
+	static const MMGParams<bool> studio_params;
 };
+MMG_DECLARE_ACTION(MMGActionStudioModeRunState);
+
+class MMGActionStudioModePreview : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionStudioModePreview(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x1002); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "StudioMode"; };
+	const char *trActionName() const override { return "PreviewChange"; };
+
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGStringID scene;
+};
+MMG_DECLARE_ACTION(MMGActionStudioModePreview);
+
+} // namespace MMGActions

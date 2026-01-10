@@ -18,38 +18,53 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-profiles.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateProfiles()
+{
+	MMGStringTranslationMap map;
+
+	char **profile_names = obs_frontend_get_profiles();
+	for (int i = 0; profile_names[i] != 0; ++i) {
+		map.insert(profile_names[i], nontr(profile_names[i]));
+	}
+	bfree(profile_names);
+
+	return map;
+}
+
+const MMGString currentProfile()
+{
+	char *char_profile = obs_frontend_get_current_profile();
+	MMGString profile_text(char_profile);
+	bfree(char_profile);
+	return profile_text;
+}
+
+MMGParams<MMGString> MMGActionProfiles::profile_params {
+	.desc = obstr("TitleBar.Profile"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = "",
+	.bounds = {},
+};
 
 MMGActionProfiles::MMGActionProfiles(MMGActionManager *parent, const QJsonObject &json_obj)
 	: MMGAction(parent, json_obj),
-	  profile(json_obj, "profile", 1)
+	  profile(json_obj, "profile")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionProfiles::subNames() const
+void MMGActionProfiles::initOldData(const QJsonObject &json_obj)
 {
-	QStringList opts;
-
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << subModuleText("Switch");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Changing", "Changed", "Toggle"});
-			break;
-	}
-
-	return opts;
+	MMGCompatibility::initOldStringData(profile, json_obj, "profile", 1, enumerateProfiles());
 }
 
 void MMGActionProfiles::json(QJsonObject &json_obj) const
 {
 	MMGAction::json(json_obj);
 
-	profile.json(json_obj, "profile");
+	profile->json(json_obj, "profile");
 }
 
 void MMGActionProfiles::copy(MMGAction *dest) const
@@ -59,104 +74,39 @@ void MMGActionProfiles::copy(MMGAction *dest) const
 	auto casted = dynamic_cast<MMGActionProfiles *>(dest);
 	if (!casted) return;
 
-	casted->profile = profile.copy();
+	profile.copy(casted->profile);
 }
 
-void MMGActionProfiles::setEditable(bool edit)
+void MMGActionProfiles::createDisplay(MMGWidgets::MMGActionDisplay *display)
 {
-	profile.setEditable(edit);
+	profile_params.bounds = enumerateProfiles();
+	profile_params.default_value = currentProfile();
+
+	MMGActions::createActionField(display, &profile, &profile_params);
 }
 
-void MMGActionProfiles::toggle()
+void MMGActionProfiles::execute(const MMGMappingTest &test) const
 {
-	profile.toggle();
-}
-
-void MMGActionProfiles::createDisplay(QWidget *parent)
-{
-	MMGAction::createDisplay(parent);
-
-	display()->addNew(&profile)->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-}
-
-void MMGActionProfiles::setActionParams()
-{
-	MMGStringDisplay *profile_display = display()->stringDisplay(0);
-	profile_display->setVisible(true);
-	profile_display->setDescription(obstr("TitleBar.Profile"));
-	profile_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
-	profile_display->setBounds(enumerate());
-}
-
-const QStringList MMGActionProfiles::enumerate()
-{
-	QStringList list;
-
-	char **profile_names = obs_frontend_get_profiles();
-	for (int i = 0; profile_names[i] != 0; ++i) {
-		list.append(profile_names[i]);
-	}
-	bfree(profile_names);
-
-	return list;
-}
-
-const QString MMGActionProfiles::currentProfile()
-{
-	char *char_profile = obs_frontend_get_current_profile();
-	QString q_profile = char_profile;
-	bfree(char_profile);
-	return q_profile;
-}
-
-void MMGActionProfiles::execute(const MMGMessage *midi) const
-{
-	ACTION_ASSERT(sub() == PROFILE_PROFILE, "Invalid action.");
-
 	ACTION_ASSERT(!obs_frontend_streaming_active(), "Profiles cannot be changed when streaming.");
 	ACTION_ASSERT(!obs_frontend_recording_active(), "Profiles cannot be changed when recording.");
 	ACTION_ASSERT(!obs_frontend_virtualcam_active(), "Profiles cannot be changed when using the virtual camera.");
 
-	QString name = profile.chooseFrom(midi, enumerate());
+	MMGString name = currentProfile();
+	ACTION_ASSERT(test.applicable(profile, name), "A profile could not be selected. Check the Profile field and "
+						      "try again.");
 	ACTION_ASSERT(name != currentProfile(), "The profile is already active.");
 
-	obs_queue_task(
-		OBS_TASK_UI,
-		[](void *param) {
-			auto profile_name = (QString *)param;
-			obs_frontend_set_current_profile(profile_name->qtocs());
-		},
-		&name, true);
+	runInMainThread([name]() { obs_frontend_set_current_profile(name); });
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionProfiles::frontendEventReceived(obs_frontend_event event)
+void MMGActionProfiles::processEvent(obs_frontend_event event) const
 {
-	MMGNumber values;
-	const QStringList profiles = enumerate();
+	if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGED) return;
 
-	switch (sub()) {
-		case PROFILE_CHANGING:
-			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGING) return;
-			values = profiles.indexOf(currentProfile());
-			break;
-
-		case PROFILE_CHANGED:
-			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGED) return;
-			values = profiles.indexOf(currentProfile());
-			break;
-
-		case PROFILE_TOGGLE_CHANGING:
-			if (event != OBS_FRONTEND_EVENT_PROFILE_CHANGING && event != OBS_FRONTEND_EVENT_PROFILE_CHANGED)
-				return;
-			values = profiles.indexOf(currentProfile());
-			break;
-
-		default:
-			return;
-	}
-
-	if (profile.chooseTo(values, profiles)) return;
-	triggerEvent({values});
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(profile, currentProfile());
 }
+
+} // namespace MMGActions

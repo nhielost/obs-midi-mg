@@ -18,120 +18,137 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-action-record.h"
 
-using namespace MMGUtils;
+namespace MMGActions {
 
-MMGActionRecord::MMGActionRecord(MMGActionManager *parent, const QJsonObject &json_obj) : MMGAction(parent, json_obj)
+// MMGActionRecordRunState
+const MMGParams<bool> MMGActionRecordRunState::record_params {
+	.desc = mmgtr("Plugin.Status"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
+
+MMGActionRecordRunState::MMGActionRecordRunState(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  record_state(json_obj, "record_state")
 {
 	blog(LOG_DEBUG, "Action created.");
 }
 
-const QStringList MMGActionRecord::subNames() const
+void MMGActionRecordRunState::initOldData(const QJsonObject &json_obj)
 {
-	QStringList opts;
+	int sub = json_obj["sub"].toInt();
+	if (json_obj["type"].toInt() == TYPE_OUTPUT) sub /= 2;
 
-	switch (type()) {
-		case TYPE_INPUT:
-		default:
-			opts << MMGText::batch(TEXT_OBS, "Basic.Main", {"StartRecording", "StopRecording"})
-			     << subModuleText("Toggle")
-			     << MMGText::batch(TEXT_OBS, "Basic.Main", {"PauseRecording", "UnpauseRecording"})
-			     << subModuleText("TogglePause");
-			break;
-
-		case TYPE_OUTPUT:
-			opts << subModuleTextList({"Starting", "Started", "Stopping", "Stopped", "ToggleStarting",
-						   "ToggleStarted", "Paused", "Resumed", "TogglePaused"});
-			break;
-	}
-
-	return opts;
+	MMGCompatibility::initOldBooleanData(record_state, sub);
 }
 
-void MMGActionRecord::execute(const MMGMessage *) const
+void MMGActionRecordRunState::json(QJsonObject &json_obj) const
 {
-	switch (sub()) {
-		case RECORD_ON:
-			if (!obs_frontend_recording_active()) obs_frontend_recording_start();
-			break;
+	MMGAction::json(json_obj);
 
-		case RECORD_OFF:
-			if (obs_frontend_recording_active()) obs_frontend_recording_stop();
-			break;
+	record_state->json(json_obj, "record_state");
+}
 
-		case RECORD_TOGGLE_ONOFF:
-			if (obs_frontend_recording_active()) {
-				obs_frontend_recording_stop();
-			} else {
-				obs_frontend_recording_start();
-			}
-			break;
+void MMGActionRecordRunState::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
 
-		case RECORD_PAUSE:
-			if (!obs_frontend_recording_paused()) obs_frontend_recording_pause(true);
-			break;
+	auto casted = dynamic_cast<MMGActionRecordRunState *>(dest);
+	if (!casted) return;
 
-		case RECORD_RESUME:
-			if (obs_frontend_recording_paused()) obs_frontend_recording_pause(false);
-			break;
+	record_state.copy(casted->record_state);
+}
 
-		case RECORD_TOGGLE_PAUSE:
-			obs_frontend_recording_pause(!obs_frontend_recording_paused());
-			break;
+void MMGActionRecordRunState::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &record_state, &record_params);
+}
 
-		default:
-			break;
-	}
+void MMGActionRecordRunState::execute(const MMGMappingTest &test) const
+{
+	bool value = obs_frontend_recording_active();
+	ACTION_ASSERT(test.applicable(record_state, value),
+		      "A status could not be selected. Check the Status Field and try again.");
+
+	if (value && !obs_frontend_recording_active())
+		obs_frontend_recording_start();
+	else if (!value && obs_frontend_recording_active())
+		obs_frontend_recording_stop();
 
 	blog(LOG_DEBUG, "Successfully executed.");
 }
 
-void MMGActionRecord::frontendEventReceived(obs_frontend_event event)
+void MMGActionRecordRunState::processEvent(obs_frontend_event event) const
 {
-	switch (sub()) {
-		case RECORD_STARTING:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTING) return;
-			break;
-
-		case RECORD_STARTED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTED) return;
-			break;
-
-		case RECORD_STOPPING:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STOPPING) return;
-			break;
-
-		case RECORD_STOPPED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STOPPED) return;
-			break;
-
-		case RECORD_TOGGLE_STARTING:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTING &&
-			    event != OBS_FRONTEND_EVENT_RECORDING_STOPPING)
-				return;
-			break;
-
-		case RECORD_TOGGLE_STARTED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_STARTED &&
-			    event != OBS_FRONTEND_EVENT_RECORDING_STOPPED)
-				return;
-			break;
-
-		case RECORD_PAUSED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_PAUSED) return;
-			break;
-		case RECORD_RESUMED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_UNPAUSED) return;
-			break;
-
-		case RECORD_TOGGLE_PAUSED:
-			if (event != OBS_FRONTEND_EVENT_RECORDING_PAUSED &&
-			    event != OBS_FRONTEND_EVENT_RECORDING_UNPAUSED)
-				return;
-			break;
-
-		default:
-			return;
-	}
-
-	triggerEvent();
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(record_state, event, OBS_FRONTEND_EVENT_RECORDING_STARTED,
+				 OBS_FRONTEND_EVENT_RECORDING_STOPPED);
 }
+// End MMGActionRecordRunState
+
+// MMGActionRecordPauseState
+const MMGParams<bool> MMGActionRecordPauseState::pause_params {
+	.desc = mmgtr("Plugin.Status"),
+	.options = OPTION_ALLOW_MIDI | OPTION_ALLOW_TOGGLE,
+	.default_value = true,
+};
+
+MMGActionRecordPauseState::MMGActionRecordPauseState(MMGActionManager *parent, const QJsonObject &json_obj)
+	: MMGAction(parent, json_obj),
+	  pause_state(json_obj, "pause_state")
+{
+	blog(LOG_DEBUG, "Action created.");
+}
+
+void MMGActionRecordPauseState::initOldData(const QJsonObject &json_obj)
+{
+	int sub = json_obj["sub"].toInt() % 3;
+
+	MMGCompatibility::initOldBooleanData(pause_state, sub);
+}
+
+void MMGActionRecordPauseState::json(QJsonObject &json_obj) const
+{
+	MMGAction::json(json_obj);
+
+	pause_state->json(json_obj, "pause_state");
+}
+
+void MMGActionRecordPauseState::copy(MMGAction *dest) const
+{
+	MMGAction::copy(dest);
+
+	auto casted = dynamic_cast<MMGActionRecordPauseState *>(dest);
+	if (!casted) return;
+
+	pause_state.copy(casted->pause_state);
+}
+
+void MMGActionRecordPauseState::createDisplay(MMGWidgets::MMGActionDisplay *display)
+{
+	MMGActions::createActionField(display, &pause_state, &pause_params);
+}
+
+void MMGActionRecordPauseState::execute(const MMGMappingTest &test) const
+{
+	bool value = obs_frontend_recording_paused();
+	ACTION_ASSERT(test.applicable(pause_state, value),
+		      "A status could not be selected. Check the Status Field and try again.");
+
+	if (value && !obs_frontend_recording_paused())
+		obs_frontend_recording_pause(true);
+	else if (!value && obs_frontend_recording_paused())
+		obs_frontend_recording_pause(false);
+
+	blog(LOG_DEBUG, "Successfully executed.");
+}
+
+void MMGActionRecordPauseState::processEvent(obs_frontend_event event) const
+{
+	EventFulfillment fulfiller(this);
+	fulfiller->addAcceptable(pause_state, event, OBS_FRONTEND_EVENT_RECORDING_PAUSED,
+				 OBS_FRONTEND_EVENT_RECORDING_UNPAUSED);
+}
+// End MMGActionRecordPauseState
+
+} // namespace MMGActions

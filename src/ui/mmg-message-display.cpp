@@ -18,51 +18,35 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-message-display.h"
 
-using namespace MMGUtils;
+#include "../messages/mmg-message.h"
+#include "../mmg-config.h"
 
-MMGMessageDisplay::MMGMessageDisplay(QWidget *parent) : QWidget(parent)
+namespace MMGWidgets {
+
+MMGParams<MMGMIDIPort *> MMGMessageDisplay::device_params {
+	.desc = mmgtr("Device.Name"),
+	.options = OPTION_NONE,
+	.default_value = nullptr,
+	.bounds = {},
+	.placeholder = mmgtr("Device.NoConnection"),
+};
+
+MMGParams<MMGMessages::Id> MMGMessageDisplay::id_params {
+	.desc = mmgtr("Message.CV.Status"),
+	.options = OPTION_NONE,
+	.default_value = MMGMessages::Id(0x0181),
+	.bounds = {},
+};
+
+MMGMessageDisplay::MMGMessageDisplay(QWidget *parent, MMGStateDisplay *state_display)
+	: MMGValueManager(parent, state_display)
 {
-	setFixedSize(330, 440);
+	if (!!state_display) state_display->setMessageReferences(state_infos);
 
-	QVBoxLayout *layout = new QVBoxLayout(this);
-	layout->setSpacing(10);
-	layout->setSizeConstraint(QLayout::SetMinimumSize);
-	layout->setContentsMargins(0, 0, 0, 0);
+	addFixed(&_device, &device_params, std::bind(&MMGMessageDisplay::setDevice, this));
+	addFixed(&_id, &id_params, std::bind(&MMGMessageDisplay::setType, this));
 
-	device_display = new MMGStringDisplay(this);
-	device_display->setDescription(mmgtr("Device.Name"));
-	device_display->setStorage(&_device);
-	connect(device_display, &MMGStringDisplay::stringChanged, this, &MMGMessageDisplay::setDevice);
-	layout->addWidget(device_display);
-
-	type_display = new MMGStringDisplay(this);
-	type_display->setDisplayMode(MMGStringDisplay::MODE_NORMAL);
-	type_display->setDescription(mmgtr("Message.Type.Text"));
-	type_display->setBounds(MMGMessage::acceptedTypes());
-	type_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_TOGGLE);
-	connect(type_display, &MMGStringDisplay::stringChanged, this, &MMGMessageDisplay::setLabels);
-	layout->addWidget(type_display);
-
-	channel_display = new MMGNumberDisplay(this);
-	channel_display->setDescription(mmgtr("Message.Channel"));
-	channel_display->setBounds(1, 16);
-	channel_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
-	layout->addWidget(channel_display);
-
-	note_display = new MMGNumberDisplay(this);
-	note_display->setDescription(mmgtr("Message.Note"));
-	note_display->setBounds(0, 127);
-	note_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
-	layout->addWidget(note_display);
-
-	value_display = new MMGNumberDisplay(this);
-	value_display->setDescription(mmgtr("Message.Velocity"));
-	value_display->setBounds(0, 127);
-	value_display->setOptions(MIDIBUTTON_MIDI | MIDIBUTTON_CUSTOM | MIDIBUTTON_TOGGLE);
-	value_display->lower();
-	layout->addWidget(value_display);
-
-	layout->addStretch(1);
+	id_params.bounds = MMGMessages::availableMessages(MMGMessages::Id(0x4000));
 
 	listen_button = new QPushButton(this);
 	listen_button->setFixedHeight(30);
@@ -70,72 +54,86 @@ MMGMessageDisplay::MMGMessageDisplay(QWidget *parent) : QWidget(parent)
 	listen_button->setCheckable(true);
 	listen_button->setText(mmgtr("UI.Listen.Execution"));
 	connect(listen_button, &QPushButton::clicked, this, &MMGMessageDisplay::onListenClick);
-	layout->addWidget(listen_button, 0, Qt::AlignBottom);
+	connect(this, &MMGValueManager::modifyRequested, listen_button, &QPushButton::setVisible);
+	bottom_layout->addWidget(listen_button, 0, Qt::AlignBottom);
 }
 
-void MMGMessageDisplay::setStorage(MMGMessage *storage)
+void MMGMessageDisplay::setStorage(DeviceType message_type, MMGMessageManager *parent, MMGMessage *storage)
 {
+	MMGTranslationMap<MMGMIDIPort *> typed_device_names;
+
+	for (const auto &[device, tr] : manager(device)->names())
+		if (device->isCapable(message_type)) typed_device_names.insert(device, tr);
+
+	device_params.bounds = typed_device_names;
+
+	if (_parent == parent && _storage == storage) {
+		refreshAll();
+		return;
+	}
+
+	if (listening_mode > 0) resetListening();
+
+	if (!!_storage) disconnect(_storage, &QObject::destroyed, this, nullptr);
+	_parent = parent;
 	_storage = storage;
-
-	MMGNoEdit no_edit_storage(storage);
-	_device = !!storage->device() ? storage->device()->objectName() : "";
-	type_display->setStorage(&storage->type());
-	channel_display->setStorage(&storage->channel());
-	note_display->setStorage(&storage->note());
-	value_display->setStorage(&storage->value());
-
-	device_display->setBounds(manager(device)->names());
-	setLabels();
-}
-
-void MMGMessageDisplay::connectDevice(bool connected)
-{
-	MMGMIDIPort *device = _storage->device();
-	if (!device) return;
-
-	if (connected) {
-		connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-	} else {
-		disconnect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
+	if (!parent || !storage) {
+		clear();
+		return;
 	}
-}
+	connect(_storage, &QObject::destroyed, this, [&]() { _storage = nullptr; });
 
-void MMGMessageDisplay::setLabels()
-{
-	if (!_storage) return;
+	_device = storage->device();
+	_id = storage->id();
 
-	if (_storage->type() == mmgtr("Message.Type.NoteOn") || _storage->type() == mmgtr("Message.Type.NoteOff")) {
-		note_display->setVisible(true);
-		note_display->setDescription(mmgtr("Message.Note"));
-		value_display->setDescription(mmgtr("Message.Velocity"));
-	} else if (_storage->type() == mmgtr("Message.Type.ControlChange")) {
-		note_display->setVisible(true);
-		note_display->setDescription(mmgtr("Message.Control"));
-		value_display->setDescription(mmgtr("Message.Value"));
-	} else if (_storage->type() == mmgtr("Message.Type.ProgramChange")) {
-		note_display->setVisible(false);
-		value_display->setDescription(mmgtr("Message.Program"));
-	} else if (_storage->type() == mmgtr("Message.Type.PitchBend")) {
-		note_display->setVisible(false);
-		value_display->setDescription(mmgtr("Message.PitchAdjust"));
-	}
+	resetMessage();
 }
 
 void MMGMessageDisplay::setDevice()
 {
+	if (!_storage) return;
 	connectDevice(false);
-	_storage->setDevice(manager(device)->find(_device));
+
+	_storage->setDevice(_device);
+	emit messageChanged();
+
+	listening_mode--;
+	onListenClick();
+}
+
+void MMGMessageDisplay::setType()
+{
+	if (MMGMessages::changeMessage(_parent, _storage, _id)) {
+		emit messageChanged();
+		resetMessage();
+	}
+}
+
+void MMGMessageDisplay::resetMessage()
+{
+	clear();
+
+	_storage->createDisplay(this);
+	refresh_sender = nullptr;
+	refreshAll();
+}
+
+void MMGMessageDisplay::resetListening()
+{
+	listening_mode = -1;
+	onListenClick();
+}
+
+void MMGMessageDisplay::connectDevice(bool connected)
+{
+	if (!_storage || !_storage->device()) return;
+	_storage->device()->blockReceiver(this, connected);
 }
 
 void MMGMessageDisplay::onListenClick()
 {
-	if (!_storage) return;
-
-	MMGMIDIPort *device = _storage->device();
-	if (!device) return;
-
 	listening_mode++;
-	deactivate();
+	connectDevice(false);
 
 	switch (listening_mode) {
 		default:
@@ -144,56 +142,50 @@ void MMGMessageDisplay::onListenClick()
 
 		case 0: // Listen for execution
 			listen_button->setChecked(false);
-			listen_button->setText(mmgtr("UI.Listen.Execution"));
-			MMGText::mmgblog(LOG_DEBUG, "Listening deactivated.");
+			listen_button->setText(mmgtr("Message.Listen.Execution"));
+			mmgblog(LOG_DEBUG, "Listening deactivated.");
 			break;
 
 		case 1: // Listen once
 			listen_button->setChecked(true);
-			listen_button->setText(mmgtr("UI.Listen.Once"));
-			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-			MMGText::mmgblog(LOG_DEBUG, "Single listen activated.");
+			listen_button->setText(mmgtr("Message.Listen.Once"));
+			connectDevice(true);
+			mmgblog(LOG_DEBUG, "Single listen activated.");
 			break;
 
 		case 2: // Listen continuously
 			listen_button->setChecked(true);
-			listen_button->setText(mmgtr("UI.Listen.Continuous"));
-			connect(device, &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-			MMGText::mmgblog(LOG_DEBUG, "Continuous listen activated.");
+			listen_button->setText(mmgtr("Message.Listen.Continuous"));
+			connectDevice(true);
+			mmgblog(LOG_DEBUG, "Continuous listen activated.");
 			break;
 	}
 }
 
-void MMGMessageDisplay::deactivate()
+void MMGMessageDisplay::processMessage(const MMGMessageData &incoming)
 {
-	if (!_storage) return;
-
-	disconnect(_storage->device(), &MMGMIDIPort::messageListened, this, &MMGMessageDisplay::updateMessage);
-}
-
-void MMGMessageDisplay::updateMessage(const MMGSharedMessage &incoming)
-{
-	if (!incoming || listening_mode < 1) {
-		deactivate();
+	if (listening_mode < 1) {
+		connectDevice(false);
 		return;
 	}
 
-	// Check the validity of the message type (whether it is one of the five supported types)
-	if (MMGMessage::acceptedTypes().indexOf(incoming->type()) == -1) return;
+	MMGMessages::Id old_id = _id;
+	MMGMessages::Id new_id = MMGMessages::Id(0x4000 | incoming.status());
+	if (!id_params.bounds.contains(new_id)) return;
 
-	if (listening_mode == 1) {
-		listening_mode = -1;
-		onListenClick();
+	if (listening_mode == 1) resetListening();
+	_id = new_id;
+
+	if (old_id == _id) {
+		_storage->copyFromMessageData(incoming);
+		refreshAll();
+	} else {
+		runInMainThread([this, incoming]() {
+			MMGMessages::changeMessage(_parent, _storage, _id);
+			_storage->copyFromMessageData(incoming);
+			resetMessage();
+		});
 	}
-
-	QString name = _storage->objectName();
-	incoming->copy(_storage);
-	_storage->setObjectName(name);
-	_storage->value().setMax(127);
-
-	MMGNoEdit no_edit_message(_storage);
-	type_display->display();
-	channel_display->display();
-	note_display->display();
-	value_display->display();
 }
+
+} // namespace MMGWidgets

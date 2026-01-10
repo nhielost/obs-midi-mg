@@ -19,35 +19,39 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_ACTION_DISPLAY_H
 #define MMG_ACTION_DISPLAY_H
 
-#include "../mmg-utils.h"
-#include "mmg-number-display.h"
-#include "mmg-string-display.h"
+#include "../actions/mmg-action.h"
+#include "mmg-value-manager.h"
 
-class MMGActionDisplay : public QWidget {
+namespace MMGWidgets {
+
+class MMGActionDisplay : public MMGValueManager {
 	Q_OBJECT
 
 public:
-	MMGActionDisplay(QWidget *parent);
-	~MMGActionDisplay() { reset(); };
+	MMGActionDisplay(QWidget *parent, MMGStateDisplay *state_display);
 
-	MMGStringDisplay *stringDisplay(int index) const { return string_fields.at(index); };
-	MMGNumberDisplay *numberDisplay(int index) const { return number_fields.at(index); };
+	void setStorage(DeviceType action_type, MMGActionManager *parent, MMGAction *storage);
 
-	MMGStringDisplay *addNew(MMGUtils::MMGString *storage, const QStringList &bounds = QStringList());
-	MMGNumberDisplay *addNew(MMGUtils::MMGNumber *storage);
-	void hideAll();
-
-	void setFields(QWidget *widget);
-	void reset();
+signals:
+	void actionChanged();
 
 private:
-	QScrollArea *scroll_area;
-	QWidget *scroll_widget;
-	QVBoxLayout *layout;
+	void setCategory();
+	void setSub();
+	void resetAction();
 
-	QList<MMGStringDisplay *> string_fields;
-	QList<MMGNumberDisplay *> number_fields;
-	QWidget *fields = nullptr;
+private:
+	MMGActionManager *_parent = nullptr;
+	MMGAction *_storage = nullptr;
+	DeviceType _type;
+
+	MMGValue<MMGActions::Id> cat;
+	MMGValue<MMGActions::Id> sub;
+
+	static MMGParams<MMGActions::Id> cat_params;
+	static MMGParams<MMGActions::Id> sub_params;
 };
+
+} // namespace MMGWidgets
 
 #endif // MMG_ACTION_DISPLAY_H

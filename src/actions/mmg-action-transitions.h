@@ -17,64 +17,125 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #pragma once
+#include "../mmg-obs-object.h"
 #include "mmg-action.h"
 
-class MMGActionTransitions : public MMGAction {
+#include <QTimer>
+
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateTransitions();
+const MMGString findTransitionId(const MMGString &name);
+MMGString currentTransition();
+
+class MMGActionTransitionsCurrent : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
-	MMGActionTransitions(MMGActionManager *parent, const QJsonObject &json_obj);
+	MMGActionTransitionsCurrent(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions {
-		TRANSITION_CURRENT,
-		TRANSITION_SOURCE_SHOW,
-		TRANSITION_SOURCE_HIDE,
-		TRANSITION_TBAR_ACTIVATE,
-		TRANSITION_TBAR_TOGGLE,
-		TRANSITION_CUSTOM
-	};
-	enum Events {
-		TRANSITION_CURRENT_CHANGED,
-		TRANSITION_CURRENT_DURATION_CHANGED,
-		TRANSITION_STARTED,
-		TRANSITION_STOPPED,
-		TRANSITION_TOGGLE_STARTED,
-		TRANSITION_TBAR_CHANGED,
-		TRANSITION_CUSTOM_CHANGED
-	};
+	static constexpr Id actionId() { return Id(0x1401); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Transitions"; };
+	const char *trActionName() const override { return "CurrentChange"; };
 
-	Category category() const override { return MMGACTION_TRANSITION; };
-	const QString trName() const override { return "Transitions"; };
-	const QStringList subNames() const override;
-
+	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
-	void setEditable(bool edit) override;
-	void toggle() override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
-
-	void execute(const MMGMessage *midi) const override;
-	void connectSignals(bool connect) override;
-
-	static const QStringList enumerate();
-	static const QString currentTransition();
-	static obs_source_t *sourceByName(const QString &name);
-	bool transitionFixed() const;
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+	void onTransitionChanged() const;
 
 private:
-	MMGUtils::MMGString transition;
-	MMGUtils::MMGString parent_scene;
-	MMGUtils::MMGString source;
-	MMGUtils::MMGNumber num;
-	MMGUtils::MMGJsonObject *_json;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
 
-private slots:
-	void onList1Change();
-	void onList2Change();
-	void onList3Change();
+private:
+	MMGStringID transition;
+	MMGInteger duration;
 
-	void frontendEventReceived(obs_frontend_event event) override;
-	void sourceEventReceived(MMGSourceSignal::Event, QVariant) override;
+	static MMGParams<int32_t> duration_params;
 };
+MMG_DECLARE_ACTION(MMGActionTransitionsCurrent);
+
+class MMGActionTransitionsTBar : public MMGAction, public MMGSignal::MMGFrontendReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionTransitionsTBar(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x1481); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Transitions"; };
+	const char *trActionName() const override { return "TBarChange"; };
+
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
+
+private:
+	MMGInteger tbar;
+	MMGInteger held_duration;
+
+	static MMGParams<int32_t> tbar_params;
+	static MMGParams<int32_t> held_duration_params;
+
+	static struct Timer {
+		Timer()
+		{
+			timer = new QTimer;
+			timer->setSingleShot(true);
+			timer->callOnTimeout(obs_frontend_release_tbar);
+		}
+		~Timer() { delete timer; };
+
+		void restart(int ms) { timer->start(ms); };
+
+		QTimer *timer;
+	} tbar_timer;
+};
+MMG_DECLARE_ACTION(MMGActionTransitionsTBar);
+
+class MMGActionTransitionsCustom : public MMGAction, public MMGSignal::MMGSourceReceiver {
+	Q_OBJECT
+
+public:
+	MMGActionTransitionsCustom(MMGActionManager *parent, const QJsonObject &json_obj);
+
+	static constexpr Id actionId() { return Id(0x14ff); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Transitions"; };
+	const char *trActionName() const override { return "Custom"; };
+
+	MMGString sourceId() const final override { return sourceFromName(); };
+	const char *sourceSignalName() const final override { return "update"; };
+
+	void initOldData(const QJsonObject &json_obj) override;
+	void json(QJsonObject &json_obj) const override;
+	void copy(MMGAction *dest) const override;
+
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
+	void onTransitionChanged() const;
+
+private:
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(const calldata_t *cd) const override;
+
+private:
+	MMGStringID transition;
+	MMGOBSFields::MMGOBSObject *custom_data;
+
+	MMGString sourceFromName() const { return findTransitionId(transition); }
+};
+MMG_DECLARE_ACTION(MMGActionTransitionsCustom);
+
+} // namespace MMGActions

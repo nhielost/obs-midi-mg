@@ -16,78 +16,97 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#pragma once
-#include <QToolButton>
+#ifndef MMG_LCD_NUMBER_H
+#define MMG_LCD_NUMBER_H
+
+#include "mmg-value-widget.h"
+
+#include <QKeyEvent>
 #include <QLCDNumber>
 #include <QTimer>
-#include <QWheelEvent>
-#include <QKeyEvent>
+#include <QToolButton>
 
-class MMGLCDNumber : public QWidget {
+namespace MMGWidgets {
+
+class MMGLCDNumber : public MMGValueWidget {
 	Q_OBJECT
 
 public:
 	MMGLCDNumber(QWidget *parent = nullptr);
 	~MMGLCDNumber() = default;
 
-	enum State { LCDNUMBER_ACTIVE, LCDNUMBER_0_127, LCDNUMBER_INACTIVE };
-
 	double value() const { return _value; };
 	double min() const { return _min; };
 	double max() const { return _max; };
 	double step() const { return _step; };
 
-	void setEditable(bool edit) { editable = edit; };
-	void setBounds(double lower, double upper);
-	void setStep(double step);
-	void setTimeFormat(bool time_format) { _time_format = time_format; };
-
 	void setValue(double val);
-	void display(State state);
+	void setBounds(double lower, double upper);
+	void setStep(double step) { _step = step; };
+
+	void setTimeFormat(bool time_format) { _time_format = time_format; };
+	void setIncrementing() { incrementing = true; };
+
+	void setDefaultValue(double default_val) { default_value = default_val; };
+	void reset() override { setValue(default_value); };
+
+	template <typename T> requires MMGIsNumeric<T> void setParams(const MMGParams<T> &params)
+	{
+		double lower_bound = incrementing ? -params.incremental_bound : params.lower_bound;
+		double upper_bound = incrementing ? +params.incremental_bound : params.upper_bound;
+
+		setDefaultValue(incrementing ? 0 : params.default_value);
+		setBounds(lower_bound, upper_bound);
+		setStep(params.step);
+		setTimeFormat(params.options & OPTION_SPECIAL_1);
+	};
 
 protected:
-	void wheelEvent(QWheelEvent *) override;
-	void mouseDoubleClickEvent(QMouseEvent *) override;
 	void keyPressEvent(QKeyEvent *) override;
-	void focusOutEvent(QFocusEvent *) override;
 
-signals:
-	void numberChanged(double);
+	bool focusAcquired() override;
+	bool focusLost() override;
+
+public slots:
+	void display() const override;
+
+private:
+	void setHeldValue(double inc);
+	void delayAutoRepeat();
+	void initAutoRepeat() { auto_repeat_timer->start(40); };
+	void autoRepeat();
+	void cancelAutoRepeat();
+
+	void blink();
+
+	short digitCount() const { return 11; };
+	qsizetype decimalsAllowed() const { return qCeil(-std::log10(_step)); };
 
 private:
 	QLCDNumber *lcd;
-	QToolButton *inc_button;
-	QToolButton *dec_button;
+	QToolButton *inc;
+	QToolButton *dec;
 
 	double _value = 0.0;
-	bool editable = true;
-
+	double held_value = 0.0;
+	double default_value = 0.0;
 	double _min = 0.0;
 	double _max = 100.0;
 	double _step = 1.0;
 
-	QTimer *repeat_delay_timer;
-	QTimer *auto_repeat_timer;
-	bool timer_kind = false;
-	double step_mult = 1;
-
+	bool incrementing = false;
 	bool _time_format = false;
+
+	bool blink_press = false;
+	bool auto_repeat_dir = false;
+	QTimer *auto_repeat_timer;
+	QTimer *auto_repeat_hold;
 
 	QTimer *blinking_timer;
 	QString edit_string;
 	QString original_value;
-	bool blink_press = false;
-
-	double adj_step() const { return _step * step_mult; };
-
-private slots:
-	void inc() { setValue(_value + adj_step()); };
-	void dec() { setValue(_value - adj_step()); };
-
-	void delayAutoRepeatInc();
-	void delayAutoRepeatDec();
-	void initAutoRepeat();
-	void autoRepeat();
-	void autoRepeatCancel();
-	void blink();
 };
+
+} // namespace MMGWidgets
+
+#endif // MMG_LCD_NUMBER_H

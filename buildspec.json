@@ -1,48 +1,48 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "30.1.2",
+            "version": "31.1.1",
             "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
-            "label": "OBS Studio source code",
+            "label": "OBS sources",
             "hashes": {
-                "macos": "490bae1c392b3b344b0270afd8cb887da4bc50bd92c0c426e96713c1ccb9701a",
-                "windows-x64": "c2dd03fa7fd01fad5beafce8f7156da11f9ed9a588373fd40b44a06f4c03b867"
+                "macos": "39751f067bacc13d44b116c5138491b5f1391f91516d3d590d874edd21292291",
+                "windows-x64": "2c8427c10b55ac6d68008df2e9a3e82f4647aaad18f105e30d4713c2de678ccf"
             }
         },
         "prebuilt": {
-            "version": "2024-03-19",
+            "version": "2025-08-23",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos": "2e9bfb55a5e0e4c1086fa1fda4cf268debfead473089df2aaea80e1c7a3ca7ff",
-                "windows-x64": "6e86068371526a967e805f6f9903f9407adb683c21820db5f07da8f30d11e998"
+                "macos": "9403bb43fb0a9bb215739a5659ca274fe884dbbbcd22bd9ca781c961fb041c42",
+                "windows-x64": "8de229cff6f1981508c0eb646b35e644633a5855787b9f5d3b90ae2aeb87ffc1"
             }
         },
         "qt6": {
-            "version": "2024-03-19",
+            "version": "2025-08-23",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built Qt6",
             "hashes": {
-                "macos": "694f1e639c017e3b1f456f735330dc5afae287cbea85757101af1368de3142c8",
-                "windows-x64": "72d1df34a0ef7413a681d5fcc88cae81da60adc03dcd23ef17862ab170bcc0dd"
+                "macos": "990f11638b80a4509e14e8c315f6e4caa0861e37fcd3113a256fbff835ffca29",
+                "windows-x64": "c62e82483bc7c0bf199e8ac3220c66a85a6e8a0cd69a05b6d44f873b830e415f"
             },
             "debugSymbols": {
-                "windows-x64": "fbddd1f659c360f2291911ac5709b67b6f8182e6bca519d24712e4f6fd3cc865"
+                "windows-x64": "aae88a17e0211cb37db6a8602f2e20d69255be1f9700c699008ca5adbce1dde2"
             }
         }
     },
     "platformConfig": {
+        "windows": {
+            "uuid": "922B5876-FEE6-4350-A483-DE24AB637FAF"
+        },
         "macos": {
             "bundleId": "com.nhielost.obs-midi-mg"
         }
     },
     "name": "obs-midi-mg",
     "displayName": "obs-midi-mg",
-    "version": "3.0.3",
+    "version": "3.1.0",
     "author": "nhielost",
     "email": "nhielost@gmail.com",
-    "website": "https://github.com/nhielost/obs-midi-mg",
-    "uuids": {
-        "windowsApp": "3C15961E-1303-4243-B467-82EA866275B4"
-    }
+    "website": "https://github.com/nhielost/obs-midi-mg"
 }

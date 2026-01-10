@@ -16,12 +16,10 @@ You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
-#ifndef MMG_MANAGER_CPP
-#define MMG_MANAGER_CPP
-
 #include "mmg-manager.h"
+#include "mmg-config.h"
 
-template<class T> T *MMGManager<T>::add(T *new_t)
+template <class T> T *MMGManager<T>::add(T *new_t)
 {
 	if (!new_t) return nullptr;
 	_list.append(new_t);
@@ -30,19 +28,21 @@ template<class T> T *MMGManager<T>::add(T *new_t)
 	return new_t;
 }
 
-template<class T> T *MMGManager<T>::copy(T *source)
+template <class T> T *MMGManager<T>::copy(T *source)
 {
-	return copy(source, add());
+	QJsonObject json_obj;
+	source->json(json_obj);
+	return copy(source, add(json_obj));
 }
 
-template<class T> T *MMGManager<T>::copy(T *source, T *dest)
+template <class T> T *MMGManager<T>::copy(T *source, T *dest)
 {
 	source->copy(dest);
 	if (!dest->objectName().isEmpty() && find(dest->objectName()) != dest) setUniqueName(dest);
 	return dest;
 }
 
-template<class T> T *MMGManager<T>::find(const QString &name) const
+template <class T> T *MMGManager<T>::find(const QString &name) const
 {
 	for (T *value : _list) {
 		if (value->objectName() == name) return value;
@@ -50,61 +50,75 @@ template<class T> T *MMGManager<T>::find(const QString &name) const
 	return nullptr;
 }
 
-template<class T> void MMGManager<T>::move(int from, int to)
+template <class T> void MMGManager<T>::move(int from, int to)
 {
 	if (from >= _list.size()) return;
 	to >= _list.size() ? _list.append(_list.takeAt(from)) : _list.move(from, to);
 }
 
-template<class T> void MMGManager<T>::setUniqueName(T *source, qulonglong count)
+template <class T> void MMGManager<T>::setUniqueName(T *source, qulonglong count)
 {
 	QString new_name = QString("%1 (%2)").arg(source->objectName()).arg(count);
 	if (find(new_name)) {
 		setUniqueName(source, ++count);
-		return;
+	} else {
+		source->setObjectName(new_name);
 	}
-	source->setObjectName(new_name);
 }
 
-template<class T> const QStringList MMGManager<T>::names() const
+template <class T> const MMGTranslationMap<T *> MMGManager<T>::names() const
 {
-	QStringList names;
-	for (T *val : _list) {
-		names += val->objectName();
-	}
+	MMGTranslationMap<T *> names;
+	for (T *val : _list)
+		names.insert(val, nontr(qUtf8Printable(val->objectName())));
 	return names;
 }
 
-template<class T> void MMGManager<T>::remove(T *source)
+template <class T> void MMGManager<T>::remove(T *source)
 {
 	_list.removeOne(source);
 	delete source;
 }
 
-template<class T> void MMGManager<T>::clear(bool full)
+template <class T> void MMGManager<T>::clear(bool full)
 {
 	qDeleteAll(_list);
 	_list.clear();
 	if (!full) add();
 }
 
-template<class T> void MMGManager<T>::load(const QJsonArray &json_arr)
+template <class T> void MMGManager<T>::load(const QJsonObject &json_obj)
 {
-	for (const QJsonValue &value : json_arr) {
+	for (const QJsonValue &value : json_obj[key].toArray()) {
 		add(value.toObject());
 	}
 	if (size() < 1) add();
 }
 
-template<class T> void MMGManager<T>::json(const QString &key, QJsonObject &json_obj) const
+template <class T> void MMGManager<T>::json(QJsonObject &json_obj) const
 {
 	QJsonArray json_arr;
 	for (T *value : _list) {
 		QJsonObject value_json;
+		value_json["name"] = value->objectName();
 		value->json(value_json);
 		json_arr += value_json;
 	}
 	json_obj[key] = json_arr;
 }
 
-#endif // MMG_MANAGER_CPP
+template <class T> void MMGManager<T>::copy(MMGManager<T> *dest) const
+{
+	dest->setObjectName(objectName());
+
+	dest->clear();
+	for (T *value : _list)
+		dest->copy(value);
+}
+
+template class MMGManager<MMGMessage>;
+template class MMGManager<MMGAction>;
+template class MMGManager<MMGBinding>;
+template class MMGManager<MMGBindingManager>;
+template class MMGManager<MMGDevice>;
+template class MMGManager<MMGPreference>;

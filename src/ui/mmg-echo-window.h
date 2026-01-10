@@ -18,11 +18,14 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #pragma once
 #include <QDialog>
+#include <QProxyStyle>
 
-#include "ui_mmg-echo-window.h"
-#include "mmg-message-display.h"
-#include "mmg-manager-control.h"
 #include "../mmg-device.h"
+#include "mmg-action-display.h"
+#include "mmg-manager-display.h"
+#include "mmg-message-display.h"
+#include "mmg-state-display.h"
+#include "ui_mmg-echo-window.h"
 
 class MMGEchoWindow : public QDialog {
 	Q_OBJECT
@@ -31,33 +34,50 @@ public:
 	explicit MMGEchoWindow(QWidget *parent);
 	~MMGEchoWindow() override;
 
-	enum MultiMode { MODE_COLLECTION, MODE_DEVICE, MODE_BINDING, MODE_MESSAGE, MODE_ACTION };
+	enum View { MODE_COLLECTION, MODE_BINDING, MODE_MESSAGE, MODE_ACTION };
 
 private:
 	Ui::MMGEchoWindow *ui;
 
 	QMenu *menu_binding_groups;
 
-	MMGMessageDisplay *message_display;
+	MMGWidgets::MMGMessageDisplay *message_object_display;
+	MMGWidgets::MMGActionDisplay *action_object_display;
+	MMGWidgets::MMGStateDisplay *state_display;
 
-	MMGManagerControl<MMGBindingManager> *collection_control;
-	MMGManagerControl<MMGDevice> *device_control;
-	MMGManagerControl<MMGBinding> *binding_control;
-	MMGManagerControl<MMGMessage> *message_control;
-	MMGManagerControl<MMGAction> *action_control;
-
+	MMGWidgets::MMGManagerDisplay<MMGBindingManager> *collection_display;
 	MMGBindingManager *current_collection = nullptr;
+
+	MMGWidgets::MMGManagerDisplay<MMGDevice> *device_display;
 	MMGDevice *current_device = nullptr;
+
+	MMGWidgets::MMGValueFixedDisplay<MMGMIDIPort *> *thru_display;
+	static MMGParams<MMGMIDIPort *> thru_params;
+
+	MMGWidgets::MMGValueFixedDisplay<MMGBinding::ResetMode> *reset_mode_display;
+	static MMGParams<MMGBinding::ResetMode> reset_mode_params;
+
+	MMGWidgets::MMGManagerDisplay<MMGPreference> *preference_display;
+	MMGPreference *current_preference = nullptr;
+
+	MMGWidgets::MMGManagerDisplay<MMGBinding> *binding_display;
 	MMGBinding *current_binding = nullptr;
+
+	MMGWidgets::MMGManagerDisplay<MMGMessage> *message_display;
 	MMGMessage *current_message = nullptr;
+
+	MMGWidgets::MMGManagerDisplay<MMGAction> *action_display;
 	MMGAction *current_action = nullptr;
+
+	View current_view = MODE_COLLECTION;
 
 	void reject() override;
 	void connectUISignals();
 	void translate();
 
-	void changeView(MultiMode mode);
-	int multiIndex(MMGUtils::DeviceType) const;
+	void changeView(View view);
+	void setTitle(const QString &name = "");
+	void refreshStylesheet(QWidget *widget);
 
 public slots:
 	void displayWindow();
@@ -68,35 +88,23 @@ private slots:
 	void deviceShow();
 	void onDeviceInputActiveChange(bool toggled);
 	void onDeviceOutputActiveChange(bool toggled);
-	void onDeviceThruStateChange(bool toggled);
-	void onDeviceThruChange(const QString &device);
-	void onDeviceCheck();
+	void onDeviceThruChange();
+	void onDeviceRefresh();
 	void onDeviceRemove();
 
-	void multiShow();
-	void onMultiRename(QListWidgetItem *item);
-	void onMultiReset(int = 0);
-	void onMultiClick();
+	void onMessageEditClick();
+	void onActionEditClick();
 	void onConfirmClick();
 
 	void bindingShow();
 	void onBindingActiveChange(bool toggled);
 	void onBindingSwitch(bool toggled);
-	void onBindingResetChange(int index);
+	void onBindingResetChange();
 	void onBindingMoveClick();
 	void onBindingMoveSelect();
+	void onBindingConditionChange();
 
 	void messageShow();
-
 	void actionShow();
-	void onActionCategoryChange(int index);
-	void onActionSubUpdate();
-	void onActionSubChange(int index);
-
 	void preferenceShow();
-	void exportBindings();
-	void importBindings();
-	void openHelp() const;
-	void reportBug() const;
-	void checkForUpdates() const;
 };

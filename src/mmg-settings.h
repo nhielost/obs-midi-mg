@@ -28,10 +28,10 @@ public:
 
 	void json(const QString &key, QJsonObject &json_obj) const;
 	void load(const QJsonObject &json_obj);
-	//bool isEditable() const { return editable; };
+	// bool isEditable() const { return editable; };
 
 private:
-	//bool editable = true;
+	// bool editable = true;
 };
 
 #endif // MMG_SETTINGS_H

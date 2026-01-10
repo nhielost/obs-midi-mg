@@ -19,35 +19,38 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #pragma once
 #include "mmg-action.h"
 
-class MMGActionCollections : public MMGAction {
+namespace MMGActions {
+
+const MMGStringTranslationMap enumerateCollections();
+const MMGString currentCollection();
+
+class MMGActionCollections : public MMGAction, public MMGSignal::MMGFrontendReceiver {
 	Q_OBJECT
 
 public:
 	MMGActionCollections(MMGActionManager *parent, const QJsonObject &json_obj);
 
-	enum Actions { COLLECTION_COLLECTION };
-	enum Events { COLLECTION_CHANGING, COLLECTION_CHANGED, COLLECTION_TOGGLE_CHANGING };
+	static constexpr Id actionId() { return Id(0x2101); };
+	constexpr Id id() const final override { return actionId(); };
+	const char *categoryName() const override { return "Collections"; };
+	const char *trActionName() const override { return "ChangeState"; };
 
-	Category category() const override { return MMGACTION_COLLECTION; };
-	const QString trName() const override { return "Collections"; };
-	const QStringList subNames() const override;
-
+	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 	void copy(MMGAction *dest) const override;
-	void setEditable(bool edit) override;
-	void toggle() override;
 
-	void createDisplay(QWidget *parent) override;
-	void setActionParams() override;
-
-	void execute(const MMGMessage *midi) const override;
-
-	static const QStringList enumerate();
-	static const QString currentCollection();
+	void createDisplay(MMGWidgets::MMGActionDisplay *display) override;
 
 private:
-	MMGUtils::MMGString collection;
+	void execute(const MMGMappingTest &test) const override;
+	void connectSignal(bool connect) override { MMGSignal::connectMMGSignal(this, connect); };
+	void processEvent(obs_frontend_event event) const override;
 
-private slots:
-	void frontendEventReceived(obs_frontend_event) override;
+private:
+	MMGStringID collection;
+
+	static MMGParams<MMGString> collection_params;
 };
+MMG_DECLARE_ACTION(MMGActionCollections);
+
+} // namespace MMGActions

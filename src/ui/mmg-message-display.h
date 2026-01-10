@@ -19,38 +19,49 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_MESSAGE_DISPLAY_H
 #define MMG_MESSAGE_DISPLAY_H
 
-#include "../mmg-utils.h"
-#include "../mmg-config.h"
+#include "../messages/mmg-message.h"
+#include "mmg-value-manager.h"
 
-class MMGMessageDisplay : public QWidget {
+namespace MMGWidgets {
+
+class MMGMessageDisplay : public MMGValueManager, public MMGMessageReceiver {
 	Q_OBJECT
 
 public:
-	MMGMessageDisplay(QWidget *parent);
+	MMGMessageDisplay(QWidget *parent, MMGStateDisplay *state_display);
 
-	void setStorage(MMGMessage *storage);
-	void connectDevice(bool);
+	void setStorage(DeviceType message_type, MMGMessageManager *parent, MMGMessage *storage);
 
-public slots:
-	void setLabels();
-	void setDevice();
-	void onListenClick();
+	void resetListening();
 
-	void deactivate();
-	void updateMessage(const MMGSharedMessage &);
+signals:
+	void messageChanged();
 
 private:
-	MMGMessage *_storage = nullptr;
-	MMGUtils::MMGString _device;
+	void setDevice();
+	void setType();
+	void resetMessage();
 
-	MMGStringDisplay *device_display;
-	MMGStringDisplay *type_display;
-	MMGNumberDisplay *channel_display;
-	MMGNumberDisplay *note_display;
-	MMGNumberDisplay *value_display;
+	void connectDevice(bool);
+	void onListenClick();
+	void processMessage(const MMGMessageData &) override;
+
+private:
+	MMGMessageManager *_parent = nullptr;
+	MMGMessage *_storage = nullptr;
+
+	MMGValue<MMGMIDIPort *> _device;
+	MMGValue<MMGMessages::Id> _id;
 
 	QPushButton *listen_button;
 	short listening_mode = 0;
+
+	static MMGParams<MMGMIDIPort *> device_params;
+	static MMGParams<MMGMessages::Id> id_params;
 };
+
+#undef MMG_HAS_STORAGE
+
+} // namespace MMGWidgets
 
 #endif // MMG_MESSAGE_DISPLAY_H

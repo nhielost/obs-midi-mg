@@ -19,39 +19,48 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_MANAGER_H
 #define MMG_MANAGER_H
 
-#include "mmg-utils.h"
+#include "mmg-json.h"
+#include "mmg-string.h"
 
-template<class T> class MMGManager : public QObject {
+template <class T> class MMGManager : public QObject {
 
 public:
-	virtual T *add(const QJsonObject &json_obj = QJsonObject()) = 0;
-	virtual T *copy(T *source);
+	MMGManager(QObject *parent, const char *load_key) : QObject(parent), key(load_key) {};
+	~MMGManager() { clear(); };
+
+	T *add(const QJsonObject &json_obj = QJsonObject()) { return add(T::generate(this, json_obj)); };
+
+	T *copy(T *source);
 	T *find(const QString &name) const;
 	void move(int from, int to);
 	void remove(T *source);
 	void clear(bool full = true);
 
-	void load(const QJsonArray &json_arr);
-	void json(const QString &key, QJsonObject &json_obj) const;
+	void load(const QJsonObject &json_obj);
+	void json(QJsonObject &json_obj) const;
 	void setUniqueName(T *source, qulonglong count = 2);
-	const QStringList names() const;
+	const MMGTranslationMap<T *> names() const;
 
 	T *at(qsizetype i) const { return _list.value(i); };
+	qsizetype indexOf(T *source) const { return _list.indexOf(source); };
 	qsizetype size() const { return _list.size(); };
 
 	auto begin() const { return _list.begin(); };
 	auto end() const { return _list.end(); };
 
 protected:
-	MMGManager(QObject *parent) : QObject(parent){};
-	~MMGManager() { clear(); };
-
 	T *add(T *new_t);
 	T *copy(T *source, T *dest);
 
-	QList<T *> _list;
-};
+	void copy(MMGManager<T> *dest) const;
 
-#include "mmg-manager.cpp"
+	static MMGManager<T> *generate(MMGManager<MMGManager<T>> *, const QJsonObject &) { return nullptr; };
+
+private:
+	QList<T *> _list;
+	const char *key;
+
+	friend class MMGManager<MMGManager<T>>;
+};
 
 #endif // MMG_MANAGER_H

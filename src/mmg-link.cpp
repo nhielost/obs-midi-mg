@@ -18,15 +18,18 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-link.h"
 #include "mmg-binding.h"
-#include "mmg-midi.h"
 
-using namespace MMGUtils;
+uint16_t MMGLink::thread_count = 0;
 
-short MMGLink::thread_count = 0;
-
-MMGLink::MMGLink(MMGBinding *parent) : QThread(parent), binding(parent), incoming_message(new MMGMessage(this))
+MMGLink::MMGLink(MMGBinding *parent) : QThread(parent), binding(parent)
 {
-	setObjectName(QString("<%1>").arg(binding->objectName()));
+	changeName(binding->objectName());
+	connect(binding, &QObject::objectNameChanged, this, &MMGLink::changeName);
+}
+
+void MMGLink::changeName(const QString &name)
+{
+	setObjectName(QString("<%1>").arg(name));
 }
 
 void MMGLink::blog(int log_status, const QString &message) const
@@ -39,42 +42,62 @@ void MMGLink::establish(bool _connect)
 	switch (binding->type()) {
 		case TYPE_INPUT:
 		default:
-			if (!binding->messages(0)->device()) break;
-
 			if (_connect) {
-				connect(binding->messages(0)->device(), &MMGMIDIPort::messageReceived, this,
-					&MMGLink::messageReceived, Qt::UniqueConnection);
+				connect(binding->messages(0), &MMGMessage::refreshRequested, binding,
+					&MMGBinding::refresh, Qt::UniqueConnection);
+				connect(binding->messages(0), &MMGMessage::fulfilled, this, &MMGLink::execute,
+					Qt::UniqueConnection);
 			} else {
-				disconnect(binding->messages(0)->device(), &MMGMIDIPort::messageReceived, this,
-					   &MMGLink::messageReceived);
+				disconnect(binding->messages(0), &MMGMessage::refreshRequested, binding,
+					   &MMGBinding::refresh);
+				disconnect(binding->messages(0), &MMGMessage::fulfilled, this, &MMGLink::execute);
 			}
+
+			binding->messages(0)->connectDevice(_connect);
 			break;
 
 		case TYPE_OUTPUT:
 			if (_connect) {
-				connect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::actionFulfilled,
+				connect(binding->actions(0), &MMGAction::refreshRequested, binding,
+					&MMGBinding::refresh, Qt::UniqueConnection);
+				connect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::execute,
 					Qt::UniqueConnection);
 			} else {
-				disconnect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::actionFulfilled);
+				disconnect(binding->actions(0), &MMGAction::refreshRequested, binding,
+					   &MMGBinding::refresh);
+				disconnect(binding->actions(0), &MMGAction::fulfilled, this, &MMGLink::execute);
 			}
+
+			binding->actions(0)->connectSignal(_connect);
 			break;
 	}
-
-	for (MMGAction *action : *binding->actions())
-		action->connectSignals(_connect);
 }
 
-void MMGLink::execute()
+void MMGLink::execute(const MMGMappingTest &test)
 {
-	if (binding->resetMode()) {
-		if (thread_count > 0xff) {
-			blog(LOG_INFO, "Thread count exceeded - the provided function will not execute.");
+	if (thread_count > 0xff) {
+		blog(LOG_INFO, "FAILED: Thread count exceeded - the provided function will "
+			       "not execute.");
+		return;
+	}
+
+	if (binding->type() == TYPE_OUTPUT) {
+		if (binding->messages()->size() < 1) {
+			blog(LOG_INFO, "FAILED: No messages to send!");
 			return;
 		}
+	} else {
+		if (binding->actions()->size() < 1) {
+			blog(LOG_INFO, "FAILED: No actions to execute!");
+			return;
+		}
+	}
 
+	if (binding->resetMode()) {
 		auto link = new MMGLink(binding);
-		link->setObjectName(QString("<%1> (thread %2)").arg(binding->objectName()).arg(thread_count + 1));
+		link->changeName(QString("Thread #%1 <%2>").arg(thread_count + 1).arg(binding->objectName()));
 		connect(link, &QThread::finished, &QObject::deleteLater);
+		link->_test = test;
 		link->start();
 	} else {
 		if (locked) {
@@ -82,6 +105,7 @@ void MMGLink::execute()
 			wait();
 		}
 
+		_test = test;
 		start();
 	}
 }
@@ -103,58 +127,14 @@ void MMGLink::executeInput()
 {
 	for (MMGAction *action : *binding->actions()) {
 		if (mutex.try_lock()) return;
-		action->execute(incoming_message);
+		action->execute(_test);
 	}
-
-	binding->toggle();
 }
 
 void MMGLink::executeOutput()
 {
-	MMGMessage *applied_message = new MMGMessage;
-
-	for (int i = 0; i < binding->messages()->size(); ++i) {
+	for (MMGMessage *message : *binding->messages()) {
 		if (mutex.try_lock()) return;
-
-		binding->messages(i)->copy(applied_message);
-		applied_message->applyValues(incoming_nums.size() < i ? incoming_nums[i] : incoming_nums.last());
-		applied_message->send();
+		message->send(_test);
 	}
-
-	binding->toggle();
-	delete applied_message;
-}
-
-void MMGLink::messageReceived(const MMGSharedMessage &incoming)
-{
-	MMGMessage *checked_message = binding->messages(0);
-	if (!checked_message->acceptable(incoming.get())) return;
-
-	if (binding->actions()->size() < 1) {
-		blog(LOG_INFO, "FAILED: No actions to execute!");
-		return;
-	}
-
-	checked_message->copy(incoming_message);
-	incoming_message->type().setValue(incoming->type().value());
-	incoming_message->channel().setValue(incoming->channel().value());
-	incoming_message->note().setValue(incoming->note().value());
-	incoming_message->value().setValue(incoming->value().value());
-
-	execute();
-}
-
-void MMGLink::actionFulfilled(const MMGNumberList &values)
-{
-	if (binding->messages()->size() < 1) {
-		blog(LOG_INFO, "FAILED: No messages to send!");
-		return;
-	}
-	if (values.isEmpty()) {
-		blog(LOG_INFO, "FAILED: Values not found. Report this as a bug.");
-		return;
-	}
-
-	incoming_nums = values;
-	execute();
 }

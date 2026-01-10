@@ -19,95 +19,44 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_SIGNAL_H
 #define MMG_SIGNAL_H
 
-#include "mmg-utils.h"
+#include "mmg-string.h"
 
-#include <QEvent>
+namespace MMGSignal {
 
-class MMGSourceSignal : public QObject {
-	Q_OBJECT
+void initSignals();
 
+class MMGFrontendReceiver;
+class MMGSourceReceiver;
+class MMGHotkeyReceiver;
+
+void connectMMGSignal(MMGFrontendReceiver *rec, bool connect);
+void connectMMGSignal(MMGSourceReceiver *rec, bool connect);
+void connectMMGSignal(MMGHotkeyReceiver *rec, bool connect);
+
+class MMGFrontendReceiver {
 public:
-	MMGSourceSignal(QObject *parent, obs_source_t *source);
+	virtual ~MMGFrontendReceiver() { connectMMGSignal(this, false); };
 
-	enum Event {
-		SIGNAL_UPDATE,
-		SIGNAL_VISIBILITY,
-		SIGNAL_LOCK,
-		SIGNAL_TRANSFORM,
-		SIGNAL_MUTE,
-		SIGNAL_VOLUME,
-		SIGNAL_SYNC_OFFSET,
-		SIGNAL_MONITOR,
-		SIGNAL_MEDIA_PLAY,
-		SIGNAL_MEDIA_PAUSE,
-		SIGNAL_MEDIA_RESTART,
-		SIGNAL_MEDIA_STOP,
-		SIGNAL_MEDIA_PREVIOUS,
-		SIGNAL_MEDIA_NEXT,
-		SIGNAL_FILTER_ENABLE,
-		SIGNAL_FILTER_REORDER,
-		SIGNAL_TRANSITION_START,
-		SIGNAL_TRANSITION_STOP,
-	};
-
-	obs_source_t *source() const { return _source; };
-	bool match(const obs_source_t *source) const { return _source == source; };
-
-	void disconnectSignals();
-
-signals:
-	void sourceChanged(Event, QVariant = QVariant());
-
-private:
-	obs_source_t *_source = nullptr;
-
-	static void sourceUpdateCallback(void *ptr, calldata_t *cd);
-
-	static void sourceVisibleCallback(void *ptr, calldata_t *cd);
-	static void sourceLockedCallback(void *ptr, calldata_t *cd);
-	static void sourceTransformCallback(void *ptr, calldata_t *cd);
-
-	static void sourceMuteCallback(void *ptr, calldata_t *cd);
-	static void sourceVolumeCallback(void *ptr, calldata_t *cd);
-	static void sourceSyncOffsetCallback(void *ptr, calldata_t *cd);
-	static void sourceMonitoringCallback(void *ptr, calldata_t *cd);
-
-	static void mediaPlayCallback(void *ptr, calldata_t *cd);
-	static void mediaPauseCallback(void *ptr, calldata_t *cd);
-	static void mediaRestartCallback(void *ptr, calldata_t *cd);
-	static void mediaStopCallback(void *ptr, calldata_t *cd);
-	static void mediaPreviousCallback(void *ptr, calldata_t *cd);
-	static void mediaNextCallback(void *ptr, calldata_t *cd);
-
-	static void transitionStartedCallback(void *ptr, calldata_t *cd);
-	static void transitionStoppedCallback(void *ptr, calldata_t *cd);
-
-	static void filterEnableCallback(void *ptr, calldata_t *cd);
-	static void filterReorderCallback(void *ptr, calldata_t *cd);
+	virtual void processEvent(obs_frontend_event event) const = 0;
 };
 
-class MMGSignals : public QObject {
-	Q_OBJECT
-
+class MMGSourceReceiver {
 public:
-	MMGSignals(QObject *parent);
+	virtual ~MMGSourceReceiver() { connectMMGSignal(this, false); };
 
-	const MMGSourceSignal *requestSourceSignal(obs_source_t *source);
-	const MMGSourceSignal *requestSourceSignalByName(const MMGUtils::MMGString &name);
-	void disconnectAllSignals(QObject *obj);
+	virtual MMGString sourceId() const = 0;
+	virtual const char *sourceSignalName() const = 0;
 
-signals:
-	void frontendEvent(obs_frontend_event);
-	void hotkeyEvent(obs_hotkey_id);
-
-private:
-	QList<MMGSourceSignal *> source_signals;
-	bool allow_events = false;
-
-	static void frontendCallback(obs_frontend_event event, void *ptr);
-	static void hotkeyCallback(void *ptr, obs_hotkey_id id, bool pressed);
+	virtual void processEvent(const calldata_t *cd) const = 0;
 };
 
-MMGSignals *mmgsignals();
+class MMGHotkeyReceiver {
+public:
+	virtual ~MMGHotkeyReceiver() { connectMMGSignal(this, false); };
+
+	virtual void processEvent(obs_hotkey_id id) const = 0;
+};
+
+} // namespace MMGSignal
 
 #endif // MMG_SIGNAL_H

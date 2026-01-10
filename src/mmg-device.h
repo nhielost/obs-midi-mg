@@ -19,13 +19,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_DEVICE_H
 #define MMG_DEVICE_H
 
-#include "mmg-utils.h"
 #include "mmg-midi.h"
 
-#define MMG_ENABLED if (editable)
-
-class MMGBinding;
-class MMGDeviceManager;
+class MMGDevice;
+template <class T> class MMGManager;
+using MMGDeviceManager = MMGManager<MMGDevice>;
 
 class MMGDevice : public MMGMIDIPort {
 	Q_OBJECT
@@ -36,31 +34,24 @@ public:
 	void json(QJsonObject &device_obj) const;
 	void update(const QJsonObject &json_obj);
 	void copy(MMGDevice *) const {};
+
+	bool isEditable() const { return editable; };
 	void setEditable(bool edit) { editable = edit; };
 
-	bool isActive(MMGUtils::DeviceType type) const;
-	void setActive(MMGUtils::DeviceType type, bool active);
+	bool isActive(DeviceType type) const;
+	void setActive(DeviceType type, bool active);
 
-	void checkCapable();
+	void refreshPort();
+
+	static MMGDevice *generate(MMGDeviceManager *parent, const QJsonObject &json_obj);
+
+signals:
+	void activeStateChanged();
 
 private:
-	uint _active : 2 = 0;
+	uint8_t _active : 2 = 0;
 
 	bool editable = true;
 };
-using MMGDeviceList = QList<MMGDevice *>;
-
-class MMGDeviceManager : public MMGManager<MMGDevice> {
-
-public:
-	MMGDeviceManager(QObject *parent) : MMGManager(parent){};
-
-	MMGDevice *add(const QJsonObject &json_obj = QJsonObject()) override;
-	MMGDevice *add(const QString &name);
-
-	const QStringList capableDevices(MMGUtils::DeviceType) const;
-};
-
-#undef MMG_ENABLED
 
 #endif // MMG_DEVICE_H

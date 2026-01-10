@@ -18,15 +18,12 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "mmg-binding.h"
 #include "mmg-config.h"
-#include "mmg-midi.h"
-
-using namespace MMGUtils;
 
 // MMGBinding
 MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	: QObject(parent),
-	  _messages(new MMGMessageManager(this)),
-	  _actions(new MMGActionManager(this))
+	  _messages(new MMGMessageManager(this, "messages")),
+	  _actions(new MMGActionManager(this, "actions"))
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Binding.Untitled")));
 	link = new MMGLink(this);
@@ -35,9 +32,9 @@ MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	_type = (DeviceType)json_obj["type"].toInt();
 	reset_mode = json_obj["reset_mode"].toInt();
 
-	_messages->load(json_obj["messages"].toArray());
-	_actions->setType(_type);
-	_actions->load(json_obj["actions"].toArray());
+	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::ReferenceIndex(0));
+	_messages->load(json_obj);
+	_actions->load(json_obj);
 }
 
 void MMGBinding::setType(DeviceType type)
@@ -46,17 +43,22 @@ void MMGBinding::setType(DeviceType type)
 
 	setConnected(false);
 	_type = type;
-	_actions->setType(type);
 
 	_messages->clear(false);
 	_actions->clear(false);
+
+	if (_type == TYPE_OUTPUT) {
+		_actions->at(0)->setObjectName(mmgtr("Actions.Condition").translate());
+	} else {
+		_messages->at(0)->setObjectName(mmgtr("Message.Condition").translate());
+	}
 
 	setConnected(true);
 }
 
 void MMGBinding::blog(int log_status, const QString &message) const
 {
-	MMGText::mmgblog(log_status, QString("[Bindings] <%1> %2").arg(objectName()).arg(message));
+	mmgblog(log_status, QString("[Bindings] <%1> %2").arg(objectName()).arg(message));
 }
 
 void MMGBinding::json(QJsonObject &binding_obj) const
@@ -66,8 +68,8 @@ void MMGBinding::json(QJsonObject &binding_obj) const
 	binding_obj["type"] = _type;
 	binding_obj["reset_mode"] = reset_mode;
 
-	_messages->json("messages", binding_obj);
-	_actions->json("actions", binding_obj);
+	_messages->json(binding_obj);
+	_actions->json(binding_obj);
 }
 
 void MMGBinding::copy(MMGBinding *dest)
@@ -75,26 +77,16 @@ void MMGBinding::copy(MMGBinding *dest)
 	dest->setObjectName(objectName());
 	dest->reset_mode = reset_mode;
 	dest->_type = _type;
-	dest->_actions->setType(_type);
 
 	QJsonObject json_obj;
 	dest->_messages->clear();
 	dest->_actions->clear();
-	_messages->json("messages", json_obj);
-	_actions->json("actions", json_obj);
-	dest->_messages->load(json_obj["messages"].toArray());
-	dest->_actions->load(json_obj["actions"].toArray());
+	_messages->json(json_obj);
+	_actions->json(json_obj);
+	dest->_messages->load(json_obj);
+	dest->_actions->load(json_obj);
 
 	dest->setEnabled(_enabled);
-}
-
-void MMGBinding::toggle()
-{
-	for (MMGMessage *message : *_messages)
-		message->toggle();
-
-	for (MMGAction *action : *_actions)
-		action->toggle();
 }
 
 void MMGBinding::setEnabled(bool val)
@@ -117,70 +109,12 @@ void MMGBinding::refresh()
 	setConnected(false);
 	setConnected(true);
 }
-
-QDataStream &operator<<(QDataStream &out, const MMGBinding *&obj)
-{
-	return out << (const QObject *&)obj;
-}
-
-QDataStream &operator>>(QDataStream &in, MMGBinding *&obj)
-{
-	return in >> (QObject *&)obj;
-}
 // End MMGBinding
 
-// MMGBindingManager
-MMGBindingManager::MMGBindingManager(QObject *parent, const QJsonObject &json_obj) : MMGManager(parent)
+template <> MMGBindingManager *MMGBindingManager::generate(MMGCollections *parent, const QJsonObject &json_obj)
 {
-	setObjectName(json_obj["name"].toString(mmgtr("Collection.Untitled")));
-
-	for (const QJsonValue &val : json_obj["bindings"].toArray())
-		add(val.toObject());
-
-	if (size() < 1) add();
+	auto *manager = new MMGBindingManager(parent, "bindings");
+	manager->setObjectName(json_obj["name"].toString(mmgtr("Collection.Untitled")));
+	manager->load(json_obj);
+	return manager;
 }
-
-MMGBinding *MMGBindingManager::add(const QJsonObject &json_obj)
-{
-	return MMGManager::add(new MMGBinding(this, json_obj));
-}
-
-void MMGBindingManager::copy(MMGBindingManager *dest)
-{
-	dest->setObjectName(objectName());
-
-	dest->clear();
-	for (MMGBinding *binding : _list) {
-		dest->copy(binding);
-	}
-}
-
-void MMGBindingManager::json(QJsonObject &json_obj) const
-{
-	json_obj["name"] = objectName();
-	MMGManager::json("bindings", json_obj);
-}
-
-void MMGBindingManager::refreshAll()
-{
-	for (MMGBinding *binding : _list)
-		binding->refresh();
-}
-
-QDataStream &operator<<(QDataStream &out, const MMGBindingManager *&obj)
-{
-	return out << (const QObject *&)obj;
-}
-
-QDataStream &operator>>(QDataStream &in, MMGBindingManager *&obj)
-{
-	return in >> (QObject *&)obj;
-}
-// End MMGBindingManager
-
-// MMGCollections
-MMGBindingManager *MMGCollections::add(const QJsonObject &json_obj)
-{
-	return MMGManager::add(new MMGBindingManager(this, json_obj));
-}
-// End MMGCollections

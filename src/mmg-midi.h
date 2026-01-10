@@ -19,85 +19,64 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef MMG_MIDI_H
 #define MMG_MIDI_H
 
-#include "obs-midi-mg.h"
-#include "mmg-message.h"
+#include "messages/mmg-message-data.h"
+
+#include <libremidi/libremidi.hpp>
+
+static void inputAdded(const libremidi::input_port &port);
+static void inputRemoved(const libremidi::input_port &port);
+static void outputAdded(const libremidi::output_port &port);
+static void outputRemoved(const libremidi::output_port &port);
 
 class MMGMIDIPort : public QObject {
 	Q_OBJECT
 
 public:
-	const QString &thru() const { return _thru; };
-	void setThru(const QString &device) { _thru = device; };
+	MMGMIDIPort *thru() const { return _thru; };
+	void setThru(MMGMIDIPort *device);
 
-	bool isPortOpen(MMGUtils::DeviceType type) const;
-	bool isCapable(MMGUtils::DeviceType type) const;
-	QString status(MMGUtils::DeviceType type) const;
+	bool isPortOpen(DeviceType type) const;
+	bool isCapable(DeviceType type) const;
+	QString status(DeviceType type) const;
+
+	void blockReceiver(MMGMessageReceiver *rec, bool block) { blocking_rec = block ? rec : nullptr; };
+	void connectReceiver(MMGMessageReceiver *rec, bool connect);
 
 protected:
 	MMGMIDIPort(QObject *parent, const QJsonObject &json_obj);
 
 	void blog(int log_status, const QString &message) const;
 
-	void openPort(MMGUtils::DeviceType type);
-	void closePort(MMGUtils::DeviceType type);
-
-signals:
-	void messageListened(const MMGSharedMessage &);
-	void messageReceived(const MMGSharedMessage &);
+	void openPort(DeviceType type);
+	void closePort(DeviceType type);
+	void refreshPortAPI();
 
 public slots:
-	void sendMessage(const MMGMessage *midi);
+	void sendMessage(const MMGMessageData &midi) const;
 
 protected:
-	QString _thru;
-	uint _capable : 2 = 0;
+	QList<MMGMessageReceiver *> recs;
+	MMGMessageReceiver *blocking_rec = nullptr;
 
-	int listening = 0;
-	int connections = 0;
-
-	void setCapable(MMGUtils::DeviceType type, bool capable);
+	MMGMIDIPort *_thru = nullptr;
 
 private:
-	libremidi::input_port in_port_info;
-	libremidi::midi_in midi_in;
+	std::unique_ptr<libremidi::input_port> in_port_info;
+	std::unique_ptr<libremidi::midi_in> midi_in;
 
-	libremidi::output_port out_port_info;
-	libremidi::midi_out midi_out;
+	std::unique_ptr<libremidi::output_port> out_port_info;
+	std::unique_ptr<libremidi::midi_out> midi_out;
 
-	MMGSharedMessage message;
+	void callback(const MMGMessageData &incoming);
+	void sendThru(const MMGMessageData &incoming);
 
-	void callback(const libremidi::message &msg);
-	void sendThru();
-
-	void connectNotify(const QMetaMethod &) override;
-	void disconnectNotify(const QMetaMethod &) override;
-
-	friend class MMGMIDI;
+	friend void inputAdded(const libremidi::input_port &port);
+	friend void inputRemoved(const libremidi::input_port &port);
+	friend void outputAdded(const libremidi::output_port &port);
+	friend void outputRemoved(const libremidi::output_port &port);
+	friend void resetMIDIAPI(libremidi_api api);
 };
 
-class MMGMIDI : public QObject {
-	Q_OBJECT
-
-public:
-	MMGMIDI(QObject *parent);
-
-	void blog(int log_status, const QString &message) const;
-
-	const libremidi::input_configuration inputConfig(MMGMIDIPort *port) const;
-	const libremidi::output_configuration outputConfig() const;
-
-signals:
-	void deviceCapableChange();
-
-private:
-	libremidi::observer observer;
-
-	void inputAdded(const libremidi::input_port &port);
-	void inputRemoved(const libremidi::input_port &port);
-	void outputAdded(const libremidi::output_port &port);
-	void outputRemoved(const libremidi::output_port &port);
-
-	static void backendError(std::string_view, const libremidi::source_location &);
-};
+void resetMIDIAPI(libremidi_api api);
 
 #endif // MMG_MIDI_H

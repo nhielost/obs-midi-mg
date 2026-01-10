@@ -17,75 +17,79 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-action-display.h"
-#include "mmg-fields.h"
 
-#include <QScrollBar>
+namespace MMGWidgets {
 
-using namespace MMGUtils;
+MMGParams<MMGActions::Id> MMGActionDisplay::cat_params {
+	.desc = mmgtr("Actions.Category"),
+	.options = OPTION_NONE,
+	.default_value = MMGActions::Id(0x0000),
+	.bounds = {},
+};
 
-MMGActionDisplay::MMGActionDisplay(QWidget *parent) : QWidget(parent)
+MMGParams<MMGActions::Id> MMGActionDisplay::sub_params {
+	.desc = mmgtr("Actions.Name"),
+	.options = OPTION_NONE,
+	.default_value = MMGActions::Id(0x0000),
+	.bounds = {},
+};
+
+MMGActionDisplay::MMGActionDisplay(QWidget *parent, MMGStateDisplay *state_display)
+	: MMGValueManager(parent, state_display)
 {
-	scroll_area = new QScrollArea(this);
-	scroll_widget = new QWidget(scroll_area);
+	state_display->setActionReferences(state_infos);
 
-	scroll_area->setGeometry(0, 0, 350, 350);
-	scroll_area->setWidgetResizable(true);
-	scroll_area->setFrameShape(QFrame::NoFrame);
-	scroll_area->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-	scroll_area->verticalScrollBar()->setSingleStep(35);
-	scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	cat_params.bounds = MMGActions::availableActionCategories();
 
-	layout = new QVBoxLayout(this);
-	layout->setSpacing(10);
-	layout->setSizeConstraint(QLayout::SetFixedSize);
-	layout->setContentsMargins(10, 10, 10, 10);
-
-	scroll_widget->setContentsMargins(0, 0, 0, 0);
-	scroll_widget->setLayout(layout);
-	scroll_area->setWidget(scroll_widget);
+	addFixed(&cat, &cat_params, std::bind(&MMGActionDisplay::setCategory, this));
+	addFixed(&sub, &sub_params, std::bind(&MMGActionDisplay::setSub, this));
 }
 
-MMGStringDisplay *MMGActionDisplay::addNew(MMGString *storage, const QStringList &bounds)
+void MMGActionDisplay::setStorage(DeviceType action_type, MMGActionManager *parent, MMGAction *storage)
 {
-	MMGStringDisplay *str_display = new MMGStringDisplay(this);
-	str_display->setStorage(storage, bounds);
-	string_fields.append(str_display);
-	layout->addWidget(str_display);
-	return str_display;
-}
-
-MMGNumberDisplay *MMGActionDisplay::addNew(MMGNumber *storage)
-{
-	MMGNumberDisplay *num_display = new MMGNumberDisplay(this);
-	num_display->setStorage(storage, true);
-	number_fields.append(num_display);
-	layout->addWidget(num_display);
-	return num_display;
-}
-
-void MMGActionDisplay::hideAll()
-{
-	for (int i = 0; i < layout->count(); i++)
-		layout->itemAt(i)->widget()->hide();
-}
-
-void MMGActionDisplay::setFields(QWidget *widget)
-{
-	reset();
-	fields = widget;
-	fields->setParent(scroll_widget);
-	fields->setVisible(true);
-	connect(fields, &QObject::destroyed, this, [&]() { fields = nullptr; });
-	layout->addWidget(widget);
-}
-
-void MMGActionDisplay::reset()
-{
-	if (fields) {
-		layout->removeWidget(fields);
-		fields->setParent(nullptr);
-		fields->setVisible(false);
-		disconnect(fields, &QObject::destroyed, this, nullptr);
+	if (_parent == parent && _storage == storage) {
+		refreshAll();
+		return;
 	}
-	fields = nullptr;
+
+	if (!!_storage) disconnect(_storage, &QObject::destroyed, this, nullptr);
+	_parent = parent;
+	_storage = storage;
+	_type = action_type;
+	if (!parent || !storage) {
+		clear();
+		return;
+	}
+	connect(_storage, &QObject::destroyed, this, [&]() { _storage = nullptr; });
+
+	cat = MMGActions::Id(storage->id() & 0xff00);
+	sub = storage->id();
+
+	resetAction();
 }
+
+void MMGActionDisplay::setCategory()
+{
+	if (!_storage) return;
+	sub_params.bounds = MMGActions::availableActions(cat, _type);
+	sub_params.default_value = sub_params.bounds.firstKey();
+}
+
+void MMGActionDisplay::setSub()
+{
+	if (MMGActions::changeAction(_parent, _storage, sub)) {
+		resetAction();
+		emit actionChanged();
+	}
+}
+
+void MMGActionDisplay::resetAction()
+{
+	clear();
+
+	_storage->createDisplay(this);
+	refresh_sender = nullptr;
+	refreshAll();
+}
+
+} // namespace MMGWidgets

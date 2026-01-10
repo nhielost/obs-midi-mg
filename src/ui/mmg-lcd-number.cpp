@@ -17,174 +17,151 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "mmg-lcd-number.h"
-#include "../mmg-utils.h"
 
-#include <QKeyEvent>
+#include <QToolButton>
 
-using namespace MMGUtils;
+namespace MMGWidgets {
 
-MMGLCDNumber::MMGLCDNumber(QWidget *parent) : QWidget(parent)
+MMGLCDNumber::MMGLCDNumber(QWidget *parent) : MMGValueWidget(parent)
 {
-	lcd = new QLCDNumber(this);
-	inc_button = new QToolButton(this);
-	dec_button = new QToolButton(this);
+	setFixedHeight(40);
+
 	auto_repeat_timer = new QTimer(this);
-	repeat_delay_timer = new QTimer(this);
-	repeat_delay_timer->setSingleShot(true);
+	auto_repeat_timer->callOnTimeout(this, &MMGLCDNumber::autoRepeat);
+
+	auto_repeat_hold = new QTimer(this);
+	auto_repeat_hold->setSingleShot(true);
+	auto_repeat_hold->callOnTimeout(this, &MMGLCDNumber::initAutoRepeat);
+
 	blinking_timer = new QTimer(this);
+	blinking_timer->callOnTimeout(this, &MMGLCDNumber::blink);
 
-	connect(auto_repeat_timer, &QTimer::timeout, this, &MMGLCDNumber::autoRepeat);
-	connect(repeat_delay_timer, &QTimer::timeout, this, &MMGLCDNumber::initAutoRepeat);
-	connect(blinking_timer, &QTimer::timeout, this, &MMGLCDNumber::blink);
+	main_layout->setContentsMargins(0, 3, 0, 3);
+	main_layout->setSpacing(0);
+	main_layout->addStretch(1);
 
-	lcd->setDigitCount(8);
+	lcd = new QLCDNumber(this);
+	lcd->setFixedSize(203, 34);
+	lcd->setDigitCount(digitCount());
 	lcd->setSmallDecimalPoint(true);
-	QPalette p = parent->palette();
-	p.setColor(QPalette::Dark, QColor("#ffffff"));
-	lcd->setPalette(p);
-	lcd->setSegmentStyle(QLCDNumber::Filled);
+	lcd->setCursor(Qt::PointingHandCursor);
+	lcd->setSegmentStyle(QLCDNumber::Flat);
 	lcd->setFrameShape(QFrame::NoFrame);
-	lcd->setFrameShadow(QFrame::Raised);
-	lcd->setLineWidth(0);
-	lcd->setVisible(true);
-	lcd->setGeometry(0, 0, 160, 30);
+	main_layout->addWidget(lcd);
 
-	inc_button->setVisible(true);
-	inc_button->setGeometry(160, 0, 15, 15);
-	inc_button->setStyleSheet("padding: 0; "
-				  "border-radius: 0; "
-				  "border-top-left-radius: 3px; "
-				  "border-top-right-radius: 3px;");
-	inc_button->setIcon(MMGInterface::icon("increase"));
-	inc_button->setIconSize(QSize(7, 7));
-	connect(inc_button, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeatInc);
-	connect(inc_button, &QAbstractButton::released, this, &MMGLCDNumber::autoRepeatCancel);
+	QVBoxLayout *buttons_layout = new QVBoxLayout;
+	buttons_layout->setContentsMargins(0, 0, 0, 0);
+	buttons_layout->setSpacing(0);
 
-	dec_button->setVisible(true);
-	dec_button->setGeometry(160, 15, 15, 15);
-	dec_button->setStyleSheet("padding: 0; "
-				  "border-radius: 0; "
-				  "border-bottom-left-radius: 3px; "
-				  "border-bottom-right-radius: 3px;");
-	dec_button->setIcon(MMGInterface::icon("decrease"));
-	dec_button->setIconSize(QSize(7, 7));
-	connect(dec_button, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeatDec);
-	connect(dec_button, &QAbstractButton::released, this, &MMGLCDNumber::autoRepeatCancel);
+	inc = new QToolButton(this);
+	inc->setFixedSize(17, 17);
+	inc->setStyleSheet("border-radius: 0; "
+			   "border-top-left-radius: 3px; "
+			   "border-top-right-radius: 3px;");
+	inc->setIcon(mmgicon("increase"));
+	inc->setIconSize({8, 8});
+	connect(inc, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeat);
+	connect(inc, &QAbstractButton::released, this, &MMGLCDNumber::cancelAutoRepeat);
+	buttons_layout->addWidget(inc, 1);
+
+	dec = new QToolButton(this);
+	dec->setFixedSize(17, 17);
+	dec->setStyleSheet("border-radius: 0; "
+			   "border-bottom-left-radius: 3px; "
+			   "border-bottom-right-radius: 3px;");
+	dec->setIcon(mmgicon("decrease"));
+	dec->setIconSize({8, 8});
+	connect(dec, &QAbstractButton::pressed, this, &MMGLCDNumber::delayAutoRepeat);
+	connect(dec, &QAbstractButton::released, this, &MMGLCDNumber::cancelAutoRepeat);
+	buttons_layout->addWidget(dec, 1);
+
+	main_layout->addLayout(buttons_layout);
 }
 
-void MMGLCDNumber::delayAutoRepeatInc()
+void MMGLCDNumber::setValue(double val)
 {
-	timer_kind = true;
-	repeat_delay_timer->start(500);
-	inc();
-}
+	held_value = val;
+	setHeldValue(0);
+	/*if (val > _max) {
+          _value = _max;
+  } else if (val < _min) {
+          _value = _min;
+  } else if (_step < 1.0) {
+          _value = std::round(val / _step) * _step;
+  } else {
+          _value = val;
+  }*/
 
-void MMGLCDNumber::delayAutoRepeatDec()
-{
-	timer_kind = false;
-	repeat_delay_timer->start(500);
-	dec();
-}
-
-void MMGLCDNumber::initAutoRepeat()
-{
-	auto_repeat_timer->start(40);
-}
-
-void MMGLCDNumber::autoRepeat()
-{
-	if (!fmod(_value, 10 * _step)) step_mult = 10;
-	timer_kind ? inc() : dec();
-}
-
-void MMGLCDNumber::autoRepeatCancel()
-{
-	auto_repeat_timer->stop();
-	repeat_delay_timer->stop();
-	step_mult = 1;
-}
-
-void MMGLCDNumber::blink()
-{
-	if (lcd->digitCount() == 0) {
-		lcd->setDigitCount(8);
-		lcd->display(blink_press ? edit_string : original_value);
-	} else {
-		lcd->setDigitCount(0);
-	}
+	_value = held_value;
+	// original_value = QString::number(_value, 'g', digitCount());
+	emit valueChanged();
+	// update();
 }
 
 void MMGLCDNumber::setBounds(double lower, double upper)
 {
 	_min = lower;
 	_max = upper;
+
+	lcd->setDigitCount(digitCount());
 }
 
-void MMGLCDNumber::setStep(double step)
+void MMGLCDNumber::display() const
 {
-	_step = step;
-}
-
-void MMGLCDNumber::setValue(double val)
-{
-	if (!editable) return;
-	if (val > _max) {
-		_value = _max;
-	} else if (val < _min) {
-		_value = _min;
-	} else if (_step < 1 && qAbs(val - qFloor(val)) > 0 && qAbs(val - qFloor(val)) < adj_step()) {
-		_value = qRound(val / _step) * _step;
+	if (_time_format) {
+		int min = qAbs(held_value / 60);
+		int sec = fmod(qAbs(held_value), 60);
+		lcd->display(QString("%1%2:%3").arg(held_value < 0.0 ? "-" : "").arg(min).arg(sec, 2, 10, QChar('0')));
 	} else {
-		_value = val;
-	}
-	emit numberChanged(_value);
-	display(LCDNUMBER_ACTIVE);
-}
-
-void MMGLCDNumber::display(State state)
-{
-	switch (state) {
-		case LCDNUMBER_ACTIVE:
-			if (_time_format) {
-				lcd->display(QTime(_value / 3600.0, fmod(_value / 60.0, 60.0), fmod(_value, 60.0))
-						     .toString("hh:mm:ss"));
-			} else {
-				lcd->display(_value);
-			}
-			break;
-
-		case LCDNUMBER_0_127:
-			lcd->display("  0-127 ");
-			break;
-
-		case LCDNUMBER_INACTIVE:
-			lcd->display("  ----- ");
-			break;
-
-		default:
-			break;
+		lcd->display(held_value);
 	}
 }
 
-void MMGLCDNumber::wheelEvent(QWheelEvent *event)
+void MMGLCDNumber::setHeldValue(double inc)
 {
-	if (blinking_timer->isActive()) {
-		event->ignore();
-		return;
+	held_value += inc;
+
+	if (held_value > _max) {
+		held_value = _max;
+	} else if (held_value < _min) {
+		held_value = _min;
+	} else if (_step < 1.0) {
+		held_value = std::round(held_value / _step) * _step;
 	}
-	if (event->hasPixelDelta()) {
-		event->pixelDelta().y() > 0 ? inc() : dec();
-	} else if (!event->angleDelta().isNull()) {
-		event->angleDelta().y() > 0 ? inc() : dec();
-	}
-	event->accept();
+
+	original_value = QString::number(held_value, 'g', digitCount());
+	display();
 }
 
-void MMGLCDNumber::mouseDoubleClickEvent(QMouseEvent *event)
+void MMGLCDNumber::delayAutoRepeat()
 {
-	original_value = QString::number(_value);
-	blinking_timer->start(500);
-	setFocus();
+	auto_repeat_dir = sender() == inc;
+	setHeldValue(auto_repeat_dir ? _step : -_step);
+
+	auto_repeat_hold->start(500);
+}
+
+void MMGLCDNumber::autoRepeat()
+{
+	double adj_step = !fmod(held_value, 10.0 * _step) ? _step * 10.0 : _step;
+	setHeldValue(auto_repeat_dir ? adj_step : -adj_step);
+}
+
+void MMGLCDNumber::cancelAutoRepeat()
+{
+	auto_repeat_hold->stop();
+	auto_repeat_timer->stop();
+	setValue(held_value);
+}
+
+void MMGLCDNumber::blink()
+{
+	if (lcd->digitCount() == 0) {
+		lcd->setDigitCount(digitCount());
+		lcd->display(blink_press ? edit_string : original_value);
+	} else {
+		lcd->setDigitCount(0);
+	}
 }
 
 void MMGLCDNumber::keyPressEvent(QKeyEvent *event)
@@ -200,13 +177,17 @@ void MMGLCDNumber::keyPressEvent(QKeyEvent *event)
 		case Qt::Key_7:
 		case Qt::Key_8:
 		case Qt::Key_9:
-			if (edit_string == "0") edit_string.clear();
-			if (edit_string.size() == 8) break;
+			if (edit_string == "0" || edit_string.size() == digitCount())
+				edit_string.remove(edit_string.size() - 1, 1);
+			else if (edit_string.contains(".") && !edit_string.endsWith(".") &&
+				 edit_string.indexOf(".") == edit_string.size() - decimalsAllowed() - 1)
+				edit_string.remove(edit_string.size() - 1, 1);
+
 			edit_string += QString::number(event->key() - Qt::Key_0);
 			break;
 
 		case Qt::Key_Period:
-			if (_step >= 1 || edit_string.contains(".")) break;
+			if (decimalsAllowed() == 0 || edit_string.contains(".")) break;
 			edit_string += ".";
 			break;
 
@@ -240,11 +221,27 @@ void MMGLCDNumber::keyPressEvent(QKeyEvent *event)
 	blink_press = true;
 }
 
-void MMGLCDNumber::focusOutEvent(QFocusEvent *event)
+bool MMGLCDNumber::focusAcquired()
+{
+	if (!lcd->underMouse()) return false;
+
+	original_value = QString::number(_value, 'g', digitCount());
+	blinking_timer->start(500);
+	setFocus();
+	blink();
+
+	return true;
+}
+
+bool MMGLCDNumber::focusLost()
 {
 	blinking_timer->stop();
-	lcd->setDigitCount(8);
-	setValue(edit_string.toDouble());
+	lcd->setDigitCount(digitCount());
+	if (!edit_string.isEmpty()) setValue(edit_string.toDouble());
 	edit_string.clear();
 	blink_press = false;
+
+	return true;
 }
+
+} // namespace MMGWidgets
