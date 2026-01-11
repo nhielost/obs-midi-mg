@@ -28,7 +28,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <obs.hpp>
 
-#define OBS_MIDIMG_VERSION "v3.1.1"
+#define OBS_MIDIMG_VERSION "v3.1.2"
 
 class MMGConfig;
 MMGConfig *config();

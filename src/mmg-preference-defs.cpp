@@ -111,7 +111,7 @@ void MMGPreferenceGeneral::reportBug() const
 // End MMGPreferenceGeneral
 
 // MMGPreferenceMIDI
-static const QList<libremidi_api> api_blacklist {WINDOWS_UWP, KEYBOARD, KEYBOARD_UMP, NETWORK, NETWORK_UMP, DUMMY};
+static const QList<libremidi_api> api_blacklist {WINDOWS_UWP, WINDOWS_MIDI_SERVICES, KEYBOARD, KEYBOARD_UMP, NETWORK, NETWORK_UMP, DUMMY};
 
 MMGPreferenceMIDI *MMGPreferenceMIDI::self = nullptr;
 

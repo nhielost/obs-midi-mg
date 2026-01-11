@@ -1,5 +1,9 @@
 set(CMAKE_CXX_STANDARD 20)
 
+# Windows MIDI Services is not fully integrated yet
+set(LIBREMIDI_NO_WINMIDI TRUE)
+set(LIBREMIDI_NO_NETWORK TRUE)
+
 # For rogue CPack inclusion by readerwriterqueue
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fake/CPack.cmake" "")
 set(LIBREMIDI_MODULE_PATH ${CMAKE_MODULE_PATH})
