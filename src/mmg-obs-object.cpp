@@ -478,7 +478,7 @@ void MMGOBSObject::json(QJsonObject &json_obj) const
 void MMGOBSObject::copy(MMGOBSObject *dest) const
 {
 	QJsonObject this_json;
-	props_manager->jsonData(this_json);
+	if (!!props_manager) props_manager->jsonData(this_json);
 	dest->changeSource(source_uuid, this_json);
 }
 

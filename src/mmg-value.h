@@ -197,7 +197,8 @@ inline void initOldStringData(MMGValue<T> &value_obj, const QJsonObject &json_ob
 
 		case STATE_TOGGLE:
 			init_obj["range"] = toggle_arr;
-			MMGJson::setValue<int>(init_obj, "index", init_obj["value"] == toggle_arr[1]);
+			if (toggle_arr.size() >= 2)
+				MMGJson::setValue<int>(init_obj, "index", init_obj["value"] == toggle_arr[1]);
 			break;
 
 		default:
