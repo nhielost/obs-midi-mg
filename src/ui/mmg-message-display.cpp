@@ -104,8 +104,8 @@ void MMGMessageDisplay::setDevice()
 void MMGMessageDisplay::setType()
 {
 	if (MMGMessages::changeMessage(_parent, _storage, _id)) {
-		emit messageChanged();
 		resetMessage();
+		emit messageChanged();
 	}
 }
 

@@ -100,6 +100,8 @@ MMGManagerDisplay<T>::MMGManagerDisplay(QWidget *parent, QWidget *info_widget, b
 
 template <typename T> void MMGManagerDisplay<T>::setStorage(MMGManager<T> *manager)
 {
+	if (current_manager == manager) return;
+
 	current_manager = manager;
 	refresh();
 }
@@ -131,6 +133,7 @@ template <typename T> void MMGManagerDisplay<T>::setCurrentValue(T *value)
 {
 	int index = current_manager->indexOf(value);
 	list_widget->setCurrentRow(!!value ? index : -1);
+	if (current_value != value) itemShow();
 }
 
 template <typename T> void MMGManagerDisplay<T>::itemShow()

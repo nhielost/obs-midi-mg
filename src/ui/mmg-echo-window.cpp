@@ -383,9 +383,10 @@ void MMGEchoWindow::bindingShow()
 
 	message_display->setStorage(current_binding->messages());
 	message_display->setCurrentValue(current_binding->messages()->at(0));
+	messageShow();
+
 	action_display->setStorage(current_binding->actions());
 	action_display->setCurrentValue(current_binding->actions()->at(0));
-	messageShow();
 	actionShow();
 
 	ui->binding_editors_pages->setProperty("disabled", true);
@@ -455,6 +456,9 @@ void MMGEchoWindow::onBindingMoveSelect()
 void MMGEchoWindow::onBindingConditionChange()
 {
 	current_binding->refresh();
+
+	if (!!message_object_display->storage()) message_display->setCurrentValue(message_object_display->storage());
+	if (!!action_object_display->storage()) action_display->setCurrentValue(action_object_display->storage());
 }
 
 void MMGEchoWindow::messageShow()

@@ -30,6 +30,7 @@ class MMGActionDisplay : public MMGValueManager {
 public:
 	MMGActionDisplay(QWidget *parent, MMGStateDisplay *state_display);
 
+	MMGAction *storage() const { return _storage; };
 	void setStorage(DeviceType action_type, MMGActionManager *parent, MMGAction *storage);
 
 signals:

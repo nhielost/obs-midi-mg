@@ -30,6 +30,7 @@ class MMGMessageDisplay : public MMGValueManager, public MMGMessageReceiver {
 public:
 	MMGMessageDisplay(QWidget *parent, MMGStateDisplay *state_display);
 
+	MMGMessage *storage() const { return _storage; };
 	void setStorage(DeviceType message_type, MMGMessageManager *parent, MMGMessage *storage);
 
 	void resetListening();
