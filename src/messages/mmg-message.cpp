@@ -117,7 +117,7 @@ bool changeMessage(MMGMessageManager *parent, MMGMessage *&message, Id new_id)
 	if (message->id() == new_id) return false;
 
 	QJsonObject json_obj;
-	MMGJson::setValue(json_obj, "name", message->objectName());
+	message->json(json_obj);
 	MMGJson::setValue(json_obj, "id", new_id);
 
 	qsizetype index = parent->indexOf(message);

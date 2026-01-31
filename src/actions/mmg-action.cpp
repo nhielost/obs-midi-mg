@@ -162,7 +162,7 @@ bool changeAction(MMGActionManager *parent, MMGAction *&action, Id new_id)
 	if (action->id() == new_id) return false;
 
 	QJsonObject json_obj;
-	MMGJson::setValue(json_obj, "name", action->objectName());
+	action->json(json_obj);
 	MMGJson::setValue(json_obj, "id", new_id);
 
 	qsizetype index = parent->indexOf(action);
