@@ -22,6 +22,11 @@ Compression=lzma
 SolidCompression=yes
 DirExistsWarning=no
 
+[InstallDelete]
+Type: files;          Name: "{commonpf64}\obs-studio\obs-plugins\64bit\{#MyAppName}.dll"
+Type: files;          Name: "{commonpf64}\obs-studio\obs-plugins\64bit\{#MyAppName}.pdb"
+Type: filesandordirs; Name: "{commonpf64}\obs-studio\data\obs-plugins\{#MyAppName}"
+
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
