@@ -24,7 +24,7 @@ namespace MMGActions {
 const MMGParams<MMGString> &sceneParams(char type = 0);
 
 const MMGStringTranslationMap enumerateScenes();
-const MMGStringTranslationMap enumerateSceneItems(const MMGString &scene_uuid, uint64_t bounds);
+const MMGStringTranslationMap enumerateSceneItems(const MMGString &scene_uuid);
 MMGString currentScene(bool preview = false);
 
 class MMGActionScenesSwitch : public MMGAction, public MMGSignal::MMGFrontendReceiver {

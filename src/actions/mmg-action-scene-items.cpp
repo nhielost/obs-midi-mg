@@ -72,7 +72,7 @@ MMGActionSceneItems::MMGActionSceneItems(MMGActionManager *parent, const QJsonOb
 void MMGActionSceneItems::initOldData(const QJsonObject &json_obj)
 {
 	MMGCompatibility::initOldStringData(scene, json_obj, "scene", 1, enumerateScenes());
-	MMGCompatibility::initOldStringData(source, json_obj, "source", 2, enumerateSceneItems(scene, sourceBounds()));
+	MMGCompatibility::initOldStringData(source, json_obj, "source", 2, enumerateSceneItems(scene));
 }
 
 void MMGActionSceneItems::json(QJsonObject &json_obj) const
@@ -113,7 +113,7 @@ void MMGActionSceneItems::createDisplay(MMGWidgets::MMGActionDisplay *display)
 
 void MMGActionSceneItems::onSceneChanged()
 {
-	source_params.bounds = enumerateSceneItems(scene, sourceBounds());
+	source_params.bounds = enumerateSceneItems(scene);
 	source_params.default_value = !source_params.bounds.isEmpty() ? source_params.bounds.firstKey() : MMGString();
 	source_params.options.setFlag(OPTION_DISABLED, source_params.bounds.isEmpty());
 	emit refreshRequested();

@@ -45,7 +45,6 @@ public:
 
 	MMGString sourceId() const final override { return scene; };
 	virtual const char *sourceSignalName() const override = 0;
-	virtual uint64_t sourceBounds() const = 0;
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -90,7 +89,6 @@ public:
 	const char *trActionName() const override { return "Display"; };
 
 	const char *sourceSignalName() const override { return "item_visible"; };
-	uint64_t sourceBounds() const override { return 0; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -121,7 +119,6 @@ public:
 	const char *trActionName() const override { return "Locking"; };
 
 	const char *sourceSignalName() const override { return "item_locked"; };
-	uint64_t sourceBounds() const override { return 0; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -152,7 +149,6 @@ public:
 	const char *trActionName() const override { return "Move"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -187,7 +183,6 @@ public:
 	const char *trActionName() const override { return "Scale"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -222,7 +217,6 @@ public:
 	const char *trActionName() const override { return "Rotate"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -255,7 +249,6 @@ public:
 	const char *trActionName() const override { return "Crop"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -291,7 +284,6 @@ public:
 	const char *trActionName() const override { return "Align"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -326,7 +318,6 @@ public:
 	const char *trActionName() const override { return "ScaleFiltering"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -359,7 +350,6 @@ public:
 	const char *trActionName() const override { return "BlendingMode"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -392,7 +382,6 @@ public:
 	const char *trActionName() const override { return "BoundingBoxType"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -425,7 +414,6 @@ public:
 	const char *trActionName() const override { return "BoundingBoxSize"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
@@ -460,7 +448,6 @@ public:
 	const char *trActionName() const override { return "BoundingBoxAlign"; };
 
 	const char *sourceSignalName() const override { return "item_transform"; };
-	uint64_t sourceBounds() const override { return OBS_SOURCE_VIDEO; };
 
 	void initOldData(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;

@@ -53,37 +53,26 @@ const MMGStringTranslationMap enumerateScenes()
 	return list;
 }
 
-struct SceneItemEnumerator {
-	MMGStringTranslationMap names;
-	uint64_t bounds;
-};
-
 static bool enumerateThruSceneItems(obs_scene_t *, obs_sceneitem_t *item, void *param)
 {
-	auto _enumerator = reinterpret_cast<SceneItemEnumerator *>(param);
+	auto _names = reinterpret_cast<MMGStringTranslationMap *>(param);
 
 	obs_source_t *obs_source = obs_sceneitem_get_source(item);
-	if (_enumerator->bounds == OBS_SOURCE_VIDEO) {
-		if (obs_source_get_width(obs_source) == 0) return true;
-		if (obs_source_get_height(obs_source) == 0) return true;
-	}
-
-	_enumerator->names.insert(obs_source_get_uuid(obs_source), nontr(obs_source_get_name(obs_source)));
+	_names->insert(obs_source_get_uuid(obs_source), nontr(obs_source_get_name(obs_source)));
 	if (obs_sceneitem_is_group(item)) obs_sceneitem_group_enum_items(item, enumerateThruSceneItems, param);
 
 	return true;
 }
 
-const MMGStringTranslationMap enumerateSceneItems(const MMGString &scene_uuid, uint64_t bounds)
+const MMGStringTranslationMap enumerateSceneItems(const MMGString &scene_uuid)
 {
-	SceneItemEnumerator enumerator;
-	enumerator.bounds = bounds;
+	MMGStringTranslationMap names;
 
 	obs_scene_t *obs_scene = obs_scene_from_source(OBSSourceAutoRelease(obs_get_source_by_uuid(scene_uuid)));
-	if (!obs_scene) return enumerator.names;
+	if (!obs_scene) return names;
 
-	obs_scene_enum_items(obs_scene, enumerateThruSceneItems, &enumerator);
-	return enumerator.names;
+	obs_scene_enum_items(obs_scene, enumerateThruSceneItems, &names);
+	return names;
 }
 
 MMGString currentScene(bool preview)
