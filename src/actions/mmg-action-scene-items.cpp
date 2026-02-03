@@ -94,6 +94,16 @@ void MMGActionSceneItems::copy(MMGAction *dest) const
 	source.copy(casted->source);
 }
 
+MMGString MMGActionSceneItems::sourceId() const
+{
+	obs_sceneitem_t *child_sceneitem = getSceneItem(source);
+	if (!child_sceneitem) return scene;
+
+	OBSSourceAutoRelease obs_scene = obs_get_source_by_uuid(scene.as<STATE_FIXED>()->value());
+	obs_sceneitem_t *group_sceneitem = obs_sceneitem_get_group(obs_scene_from_source(obs_scene), child_sceneitem);
+	return !!group_sceneitem ? MMGString(obs_source_get_uuid(obs_sceneitem_get_source(group_sceneitem))) : scene;
+}
+
 obs_sceneitem_t *MMGActionSceneItems::getSceneItem(const MMGString &source) const
 {
 	OBSSourceAutoRelease obs_scene = obs_get_source_by_uuid(scene.as<STATE_FIXED>()->value());

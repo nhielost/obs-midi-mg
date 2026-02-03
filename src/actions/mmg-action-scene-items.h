@@ -43,7 +43,7 @@ public:
 	const char *categoryName() const final override { return "SceneItems"; };
 	virtual const char *trActionName() const override = 0;
 
-	MMGString sourceId() const final override { return scene; };
+	MMGString sourceId() const final override;
 	virtual const char *sourceSignalName() const override = 0;
 
 	void initOldData(const QJsonObject &json_obj) override;
