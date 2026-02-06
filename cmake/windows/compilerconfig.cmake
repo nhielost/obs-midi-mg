@@ -61,3 +61,8 @@ add_link_options(
 if(CMAKE_COMPILE_WARNING_AS_ERROR)
   add_link_options(/WX)
 endif()
+
+# Make linking on Windows static
+cmake_policy(SET CMP0091 NEW)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+add_compile_options(/bigobj)
