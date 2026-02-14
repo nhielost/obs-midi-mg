@@ -24,3 +24,6 @@
 
 # Exclude CMake build number cache
 /cmake/.CMakeBuildNumber
+
+# Exclude template-defs header for version
+/src/template-defs.h

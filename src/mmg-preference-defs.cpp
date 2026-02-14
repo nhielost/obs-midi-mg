@@ -240,7 +240,7 @@ void MMGPreferenceAbout::createDisplay(QWidget *widget)
 	QPushButton *version_button = new QPushButton(widget);
 	version_button->setFixedHeight(40);
 	version_button->setCursor(QCursor(Qt::PointingHandCursor));
-	version_button->setText(OBS_MIDIMG_VERSION);
+	version_button->setText(OBS_MIDIMG_VERSION_DISPLAY);
 	connect(version_button, &QPushButton::clicked, this, &MMGPreferenceAbout::checkForUpdates);
 	main_layout->addWidget(version_button, 1);
 }

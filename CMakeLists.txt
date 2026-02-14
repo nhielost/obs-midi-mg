@@ -36,6 +36,8 @@ endif()
 
 include(libremidi)
 
+configure_file(src/template-defs.h.in "${CMAKE_CURRENT_SOURCE_DIR}/src/template-defs.h")
+
 target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE ./src/template-defs.cpp
@@ -92,7 +94,8 @@ target_sources(
 
 target_sources(
   ${CMAKE_PROJECT_NAME}
-  PRIVATE ./src/actions/mmg-action.h
+  PRIVATE ./src/template-defs.h
+          ./src/actions/mmg-action.h
           ./src/actions/mmg-action-none.h
           ./src/actions/mmg-action-stream.h
           ./src/actions/mmg-action-record.h

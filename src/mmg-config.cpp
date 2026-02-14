@@ -135,7 +135,7 @@ void MMGConfig::save(const QString &path_str) const
 	_collections->json(doc);
 
 	doc["savedate"] = QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss-zzz");
-	doc["plugin_version"] = OBS_MIDIMG_VERSION;
+	doc["plugin_version"] = OBS_MIDIMG_VERSION_DISPLAY;
 	doc["file_version"] = currentFileVersion();
 
 	QFile file(filepath(path_str));

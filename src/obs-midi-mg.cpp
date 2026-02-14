@@ -86,7 +86,7 @@ static void showUI()
 
 bool obs_module_load(void)
 {
-	mmgblog(LOG_INFO, "Loading plugin (" OBS_MIDIMG_VERSION ")...");
+	mmgblog(LOG_INFO, "Loading plugin (" OBS_MIDIMG_VERSION_DISPLAY ")...");
 
 	// Create the obs-midi-mg directory in plugin_config if it doesn't exist
 	auto *config_path = obs_module_config_path("");
