@@ -1,6 +1,6 @@
 /*
 obs-midi-mg
-Copyright (C) 2022-2024 nhielost <nhielost@gmail.com>
+Copyright (C) 2022-2026 nhielost <nhielost@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
