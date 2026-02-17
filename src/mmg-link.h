@@ -56,6 +56,6 @@ private:
 	std::timed_mutex mutex;
 	bool locked = false;
 
-	static uint16_t thread_count;
+	static uint32_t thread_count;
 };
 #endif // MMG_LINK_H

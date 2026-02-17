@@ -19,7 +19,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-link.h"
 #include "mmg-binding.h"
 
-uint16_t MMGLink::thread_count = 0;
+uint32_t MMGLink::thread_count = 0u;
 
 MMGLink::MMGLink(MMGBinding *parent) : QThread(parent), binding(parent)
 {
@@ -75,7 +75,7 @@ void MMGLink::establish(bool _connect)
 
 void MMGLink::execute(const MMGMappingTest &test)
 {
-	if (thread_count > 0xff) {
+	if (thread_count > 0x7fffffff) {
 		blog(LOG_INFO, "FAILED: Thread count exceeded - the provided function will "
 			       "not execute.");
 		return;
