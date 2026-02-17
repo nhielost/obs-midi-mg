@@ -467,6 +467,10 @@ void MMGActionSceneItemsScale::onSourceFixedChanged(const obs_sceneitem_t *obs_s
 	obs_source_t *obs_source = obs_sceneitem_get_source(obs_sceneitem);
 	obs_sceneitem_get_scale(obs_sceneitem, &current_scale);
 
+	scale_x_params.options.setFlag(OPTION_HIDDEN, obs_source_get_width(obs_source) == 0u);
+	scale_y_params.options.setFlag(OPTION_HIDDEN, obs_source_get_height(obs_source) == 0u);
+	if (obs_source_get_width(obs_source) == 0u || obs_source_get_height(obs_source) == 0u) return;
+
 	scale_x_params.lower_bound = -double(9000100u / obs_source_get_width(obs_source));
 	scale_x_params.upper_bound = -scale_x_params.lower_bound;
 	scale_x_params.default_value = current_scale.x * 100;
