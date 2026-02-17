@@ -387,8 +387,10 @@ const char *MMGOBSPropertyManager::sourceId() const
 void MMGOBSPropertyManager::loadProperties(const QJsonObject &current_json, const QJsonObject &default_json) const
 {
 	for (MMGOBSProperty *prop : _props) {
-		prop->loadProperty(current_json.contains(prop->objectName()) ? current_json : default_json);
-		prop->setDefaultValue(default_json);
+		const QJsonObject &prop_source_json = current_json.contains(prop->objectName()) ? current_json
+												: default_json;
+		prop->loadProperty(prop_source_json);
+		prop->setDefaultValue(prop_source_json);
 	}
 }
 // End MMGOBSPropertyManager
