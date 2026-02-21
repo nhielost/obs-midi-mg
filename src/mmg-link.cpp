@@ -93,7 +93,7 @@ void MMGLink::execute(const MMGMappingTest &test)
 		}
 	}
 
-	if (binding->resetMode()) {
+	if (binding->resetMode() == MMGBinding::BINDING_CONTINUOUS) {
 		auto link = new MMGLink(binding);
 		link->changeName(QString("Thread #%1 <%2>").arg(thread_count + 1).arg(binding->objectName()));
 		connect(link, &QThread::finished, &QObject::deleteLater);

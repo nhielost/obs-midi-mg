@@ -450,6 +450,7 @@ QJsonObject MMGOBSObject::getSourceSettings(bool defaults) const
 	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
 	OBSDataAutoRelease obs_source_data = obs_source_get_settings(obs_source);
 	if (defaults) obs_source_data = obs_data_get_defaults(obs_source_data);
+
 	return MMGJson::toObject(obs_data_get_json(obs_source_data));
 }
 
