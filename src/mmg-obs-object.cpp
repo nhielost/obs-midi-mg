@@ -445,19 +445,18 @@ void MMGOBSObject::changeSource(const MMGString &source_id, const QJsonObject &j
 	emit sourceChanged();
 }
 
+QJsonObject MMGOBSObject::getSourceSettings(bool defaults) const
+{
+	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
+	OBSDataAutoRelease obs_source_data = obs_source_get_settings(obs_source);
+	if (defaults) obs_source_data = obs_data_get_defaults(obs_source_data);
+	return MMGJson::toObject(obs_data_get_json(obs_source_data));
+}
+
 void MMGOBSObject::loadProperties()
 {
 	if (props_manager->size() == 0) return;
-
-	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
-
-	OBSDataAutoRelease source_data = obs_source_get_settings(obs_source);
-	OBSDataAutoRelease source_defaults = obs_data_get_defaults(source_data);
-
-	QJsonObject current_json = MMGJson::toObject(obs_data_get_json(source_data));
-	QJsonObject default_json = MMGJson::toObject(obs_data_get_json(source_defaults));
-
-	props_manager->loadProperties(current_json, default_json);
+	props_manager->loadProperties(getSourceSettings(), getSourceSettings(true));
 }
 
 void MMGOBSObject::updateProperties()
@@ -494,26 +493,19 @@ void MMGOBSObject::createDisplay(MMGWidgets::MMGActionDisplay *display)
 void MMGOBSObject::execute(const MMGMappingTest &test) const
 {
 	std::lock_guard custom_guard(custom_update);
-	QJsonObject final_json = property_json;
+	QJsonObject final_json = getSourceSettings();
 
 	props_manager->execute(test, final_json);
 
 	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
 	OBSDataAutoRelease obs_source_data = obs_data_create_from_json(MMGJson::toString(final_json));
 	obs_source_update(obs_source, obs_source_data);
-
-	property_json = final_json;
 }
 
 void MMGOBSObject::processEvent(MMGMappingTest &test) const
 {
 	std::lock_guard custom_guard(custom_update);
-
-	OBSSourceAutoRelease obs_source = obs_get_source_by_uuid(source_uuid);
-	OBSDataAutoRelease source_data = obs_source_get_settings(obs_source);
-	property_json = MMGJson::toObject(obs_data_get_json(source_data));
-
-	props_manager->processEvent(test, property_json);
+	props_manager->processEvent(test, getSourceSettings());
 }
 // End MMGOBSObject
 

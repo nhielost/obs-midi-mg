@@ -201,6 +201,7 @@ public:
 
 	const char *sourceId() const { return source_uuid; };
 	void changeSource(const MMGString &source_id, const QJsonObject &json_obj = {});
+	QJsonObject getSourceSettings(bool defaults = false) const;
 
 	void json(QJsonObject &json_obj) const;
 	void copy(MMGOBSObject *dest) const;
