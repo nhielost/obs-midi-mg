@@ -57,7 +57,7 @@ private:
 
 protected:
 	virtual void execute(const MMGMappingTest &test, obs_source_t *obs_source) const = 0;
-	virtual void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const = 0;
+	virtual void processEvent(MMGMappingTest &test, const calldata_t *cd) const = 0;
 
 private:
 	MMGStringID source;
@@ -88,7 +88,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const override;
+	void processEvent(MMGMappingTest &test, const calldata_t *cd) const override;
 
 private:
 	float convertIfToDecibels(float pct) const { return format == "dB" ? 20.0 * std::log10(pct) : pct * 100.0; };
@@ -123,7 +123,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const override;
+	void processEvent(MMGMappingTest &test, const calldata_t *cd) const override;
 
 private:
 	MMGBoolean mute;
@@ -152,7 +152,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const override;
+	void processEvent(MMGMappingTest &test, const calldata_t *cd) const override;
 
 private:
 	static int64_t getMillisecondOffset(const obs_source_t *obs_source)
@@ -187,7 +187,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const override;
+	void processEvent(MMGMappingTest &test, const calldata_t *cd) const override;
 
 private:
 	MMGValue<obs_monitoring_type> monitor;
@@ -225,7 +225,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &, const obs_source_t *) const override {};
+	void processEvent(MMGMappingTest &, const calldata_t *) const override {};
 
 private:
 	MMGValue<Actions> media_state;
@@ -254,7 +254,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &, const obs_source_t *) const override {};
+	void processEvent(MMGMappingTest &, const calldata_t *) const override {};
 
 private:
 	MMGValue<int64_t> time;
@@ -283,7 +283,7 @@ public:
 
 private:
 	void execute(const MMGMappingTest &test, obs_source_t *obs_source) const override;
-	void processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const override;
+	void processEvent(MMGMappingTest &test, const calldata_t *) const override;
 
 private:
 	MMGOBSFields::MMGOBSObject *custom_data;

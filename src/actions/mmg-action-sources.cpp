@@ -134,7 +134,7 @@ void MMGActionSources::processEvent(const calldata_t *cd) const
 	current_uuid = obs_source_get_uuid(signal_source);
 
 	EventFulfillment fulfiller(this);
-	processEvent(*fulfiller, signal_source);
+	processEvent(*fulfiller, cd);
 }
 // End MMGActionSources
 
@@ -232,9 +232,9 @@ void MMGActionSourcesAudioVolume::execute(const MMGMappingTest &test, obs_source
 	obs_source_set_volume(obs_source, convertIfFromDecibels(current_volume));
 }
 
-void MMGActionSourcesAudioVolume::processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const
+void MMGActionSourcesAudioVolume::processEvent(MMGMappingTest &test, const calldata_t *cd) const
 {
-	test.addAcceptable(volume, convertIfToDecibels(obs_source_get_volume(obs_source)));
+	test.addAcceptable(volume, convertIfToDecibels(calldata_float(cd, "volume")));
 }
 // End MMGActionSourcesAudioVolume
 
@@ -299,9 +299,9 @@ void MMGActionSourcesAudioMute::execute(const MMGMappingTest &test, obs_source_t
 	obs_source_set_muted(obs_source, muted);
 }
 
-void MMGActionSourcesAudioMute::processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const
+void MMGActionSourcesAudioMute::processEvent(MMGMappingTest &test, const calldata_t *cd) const
 {
-	test.addAcceptable(mute, obs_source_muted(obs_source));
+	test.addAcceptable(mute, calldata_bool(cd, "muted"));
 }
 // End MMGActionSourcesAudioMute
 
@@ -371,9 +371,9 @@ void MMGActionSourcesAudioSyncOffset::execute(const MMGMappingTest &test, obs_so
 	obs_source_set_sync_offset(obs_source, current_offset * 1000000);
 }
 
-void MMGActionSourcesAudioSyncOffset::processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const
+void MMGActionSourcesAudioSyncOffset::processEvent(MMGMappingTest &test, const calldata_t *cd) const
 {
-	test.addAcceptable(offset, getMillisecondOffset(obs_source));
+	test.addAcceptable(offset, calldata_int(cd, "offset") / 1000000LL);
 }
 // End MMGActionSourcesAudioSyncOffset
 
@@ -445,9 +445,9 @@ void MMGActionSourcesAudioMonitor::execute(const MMGMappingTest &test, obs_sourc
 	obs_source_set_monitoring_type(obs_source, current_monitor);
 }
 
-void MMGActionSourcesAudioMonitor::processEvent(MMGMappingTest &test, const obs_source_t *obs_source) const
+void MMGActionSourcesAudioMonitor::processEvent(MMGMappingTest &test, const calldata_t *cd) const
 {
-	test.addAcceptable(monitor, obs_source_get_monitoring_type(obs_source));
+	test.addAcceptable(monitor, obs_monitoring_type(calldata_int(cd, "type")));
 }
 // End MMGActionSourcesAudioMonitor
 
@@ -725,7 +725,7 @@ void MMGActionSourcesCustom::execute(const MMGMappingTest &test, obs_source_t *)
 	custom_data->execute(test);
 }
 
-void MMGActionSourcesCustom::processEvent(MMGMappingTest &test, const obs_source_t *) const
+void MMGActionSourcesCustom::processEvent(MMGMappingTest &test, const calldata_t *) const
 {
 	custom_data->processEvent(test);
 }
