@@ -27,8 +27,8 @@ class QLabel;
 
 namespace MMGOBSFields {
 
-#define ENUMERATE_PROPS(f)                   \
-	for (MMGOBSProperty * prop : _props) \
+#define ENUMERATE_PROPS(f)                  \
+	for (MMGOBSProperty *prop : _props) \
 	prop->f
 
 class MMGOBSPropertyManager;
