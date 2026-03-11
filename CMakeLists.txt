@@ -64,7 +64,6 @@ target_sources(
           ./src/mmg-config.cpp
           ./src/mmg-device.cpp
           ./src/mmg-json.cpp
-          ./src/mmg-link.cpp
           ./src/mmg-manager.cpp
           ./src/mmg-mapping.cpp
           ./src/mmg-midi.cpp
@@ -118,7 +117,6 @@ target_sources(
           ./src/mmg-config.h
           ./src/mmg-device.h
           ./src/mmg-json.h
-          ./src/mmg-link.h
           ./src/mmg-manager.h
           ./src/mmg-mapping.h
           ./src/mmg-midi.h

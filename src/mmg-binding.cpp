@@ -19,14 +19,17 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include "mmg-binding.h"
 #include "mmg-config.h"
 
+#include <QThreadPool>
+
 // MMGBinding
 MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	: QObject(parent),
+	  QRunnable(),
 	  _messages(new MMGMessageManager(this, "messages")),
 	  _actions(new MMGActionManager(this, "actions"))
 {
 	setObjectName(json_obj["name"].toString(mmgtr("Binding.Untitled")));
-	link = new MMGLink(this);
+	setAutoDelete(false);
 
 	_enabled = json_obj["enabled"].toBool(true);
 	_type = (DeviceType)json_obj["type"].toInt();
@@ -99,7 +102,36 @@ void MMGBinding::setConnected(bool _connected)
 {
 	if (_connected && (!_enabled || connected)) return;
 
-	link->establish(_connected);
+	switch (_type) {
+		case TYPE_INPUT:
+		default:
+			if (_connected) {
+				connect(messages(0), &MMGMessage::refreshRequested, this, &MMGBinding::refresh,
+					Qt::UniqueConnection);
+				connect(messages(0), &MMGMessage::fulfilled, this, &MMGBinding::execute,
+					Qt::UniqueConnection);
+			} else {
+				disconnect(messages(0), &MMGMessage::refreshRequested, this, &MMGBinding::refresh);
+				disconnect(messages(0), &MMGMessage::fulfilled, this, &MMGBinding::execute);
+			}
+
+			messages(0)->connectDevice(_connected);
+			break;
+
+		case TYPE_OUTPUT:
+			if (_connected) {
+				connect(actions(0), &MMGAction::refreshRequested, this, &MMGBinding::refresh,
+					Qt::UniqueConnection);
+				connect(actions(0), &MMGAction::fulfilled, this, &MMGBinding::execute,
+					Qt::UniqueConnection);
+			} else {
+				disconnect(actions(0), &MMGAction::refreshRequested, this, &MMGBinding::refresh);
+				disconnect(actions(0), &MMGAction::fulfilled, this, &MMGBinding::execute);
+			}
+
+			actions(0)->connectSignal(_connected);
+			break;
+	}
 
 	connected = _connected;
 }
@@ -108,6 +140,46 @@ void MMGBinding::refresh()
 {
 	setConnected(false);
 	setConnected(true);
+}
+
+void MMGBinding::execute(const MMGMappingTest &test)
+{
+	if (_type == TYPE_OUTPUT) {
+		if (_messages->size() < 1) {
+			blog(LOG_INFO, "EXECUTION FAILED: No messages to send!");
+			return;
+		}
+	} else {
+		if (_actions->size() < 1) {
+			blog(LOG_INFO, "EXECUTION FAILED: No actions to execute!");
+			return;
+		}
+	}
+
+	_test = test;
+	stop_request = reset_mode != MMGBinding::BINDING_CONTINUOUS;
+
+	QThreadPool::globalInstance()->start(this);
+}
+
+void MMGBinding::run()
+{
+	stop_request = false;
+	MMGMappingTest thread_test = _test;
+
+	if (_type == TYPE_OUTPUT) {
+		for (MMGMessage *message : *_messages) {
+			if (stop_request) break;
+			message->send(thread_test);
+		}
+	} else {
+		for (MMGAction *action : *_actions) {
+			if (stop_request) break;
+			action->execute(thread_test);
+		}
+	}
+
+	stop_request = false;
 }
 // End MMGBinding
 

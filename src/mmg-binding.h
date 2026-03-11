@@ -21,19 +21,21 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "actions/mmg-action.h"
 #include "messages/mmg-message.h"
-#include "mmg-link.h"
 #include "mmg-manager.h"
+
+#include <QRunnable>
 
 class MMGBinding;
 using MMGBindingManager = MMGManager<MMGBinding>;
 
-class MMGBinding : public QObject {
+class MMGBinding : public QObject, QRunnable {
 	Q_OBJECT
 
 public:
 	MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj = QJsonObject());
+	virtual ~MMGBinding() = default;
 
-	enum ResetMode { BINDING_TRIGGERED, BINDING_CONTINUOUS };
+	enum ResetMode : uint8_t { BINDING_TRIGGERED, BINDING_CONTINUOUS };
 
 	DeviceType type() const { return _type; };
 	void setType(DeviceType type);
@@ -62,16 +64,23 @@ public:
 		return new MMGBinding(parent, json_obj);
 	};
 
+public slots:
+	void execute(const MMGMappingTest &test);
+
+private:
+	void run() override;
+
 private:
 	DeviceType _type;
 	bool _enabled;
 	bool connected = false;
-	short reset_mode = 0;
+	uint8_t reset_mode = 0;
+
+	bool stop_request = false;
+	MMGMappingTest _test;
 
 	MMGMessageManager *_messages;
 	MMGActionManager *_actions;
-
-	MMGLink *link;
 };
 MMG_DECLARE_STREAM_OPERATORS(MMGBinding);
 
