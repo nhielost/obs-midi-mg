@@ -41,6 +41,7 @@ public:
 
 	void blockReceiver(MMGMessageReceiver *rec, bool block) { blocking_rec = block ? rec : nullptr; };
 	void connectReceiver(MMGMessageReceiver *rec, bool connect);
+	uint8_t receiverCount() const { return recs.size(); };
 
 protected:
 	MMGMIDIPort(QObject *parent, const QJsonObject &json_obj);

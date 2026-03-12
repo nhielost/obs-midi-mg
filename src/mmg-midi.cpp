@@ -83,10 +83,12 @@ static void inputRemoved(const libremidi::input_port &port)
 
 	removing_device->in_port_info.reset();
 	removing_device->refreshPort();
-	if (!removing_device->isCapable(TYPE_NONE)) return;
 
-	manager(device)->remove(removing_device);
-	midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	if (!removing_device->isCapable(TYPE_NONE) && removing_device->receiverCount() == 0) {
+		manager(device)->remove(removing_device);
+		midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	}
+
 	if (!api_changing) emit config() -> midiStateChanged();
 }
 
@@ -114,10 +116,12 @@ static void outputRemoved(const libremidi::output_port &port)
 
 	removing_device->out_port_info.reset();
 	removing_device->refreshPort();
-	if (!removing_device->isCapable(TYPE_NONE)) return;
 
-	manager(device)->remove(removing_device);
-	midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	if (!removing_device->isCapable(TYPE_NONE) && removing_device->receiverCount() == 0) {
+		manager(device)->remove(removing_device);
+		midiblog(LOG_INFO, QString("Device <%1> removed.").arg(port_name));
+	}
+
 	if (!api_changing) emit config() -> midiStateChanged();
 }
 
