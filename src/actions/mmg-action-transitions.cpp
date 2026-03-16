@@ -184,7 +184,7 @@ MMGParams<int32_t> MMGActionTransitionsTBar::tbar_params {
 
 MMGParams<int32_t> MMGActionTransitionsTBar::held_duration_params {
 	.desc = mmgtr("Actions.Transitions.HeldDuration"),
-	.options = OPTION_NONE,
+	.options = OPTION_ALLOW_IGNORE,
 	.default_value = 1000,
 	.lower_bound = 10.0,
 	.upper_bound = 5000.0,
@@ -205,7 +205,7 @@ MMGActionTransitionsTBar::MMGActionTransitionsTBar(MMGActionManager *parent, con
 void MMGActionTransitionsTBar::initOldData(const QJsonObject &json_obj)
 {
 	MMGCompatibility::initOldNumberData(tbar, json_obj, "num", 1);
-	held_duration = 1000;
+	held_duration.changeTo<STATE_IGNORE>();
 }
 
 void MMGActionTransitionsTBar::json(QJsonObject &json_obj) const
@@ -242,7 +242,7 @@ void MMGActionTransitionsTBar::execute(const MMGMappingTest &test) const
 						       "Position field and try again.");
 
 	runInMainThread([=, this]() {
-		tbar_timer.restart(held_duration);
+		if (held_duration->state() == STATE_FIXED) tbar_timer.restart(held_duration);
 		obs_frontend_set_tbar_position(tbar_dst);
 	});
 }
