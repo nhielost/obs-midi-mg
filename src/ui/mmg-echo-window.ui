@@ -99,7 +99,7 @@ QScrollBar:vertical {
     <number>0</number>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="device_page">
     <widget class="QFrame" name="preferences_frame">
@@ -1108,7 +1108,7 @@ MMGWidgets--MMGValueQWidget[editing=&quot;-1&quot;]:hover {
       </rect>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="value_page">
       <widget class="QFrame" name="value_editor_frame">
@@ -1178,6 +1178,9 @@ MMGWidgets--MMGValueQWidget[editing=&quot;-1&quot;]:hover {
           </property>
           <property name="alignment">
            <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
