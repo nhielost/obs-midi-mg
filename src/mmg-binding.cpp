@@ -35,7 +35,7 @@ MMGBinding::MMGBinding(MMGBindingManager *parent, const QJsonObject &json_obj)
 	_type = (DeviceType)json_obj["type"].toInt();
 	reset_mode = json_obj["reset_mode"].toInt();
 
-	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::ReferenceIndex(0));
+	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::REFIDX_0);
 	_messages->load(json_obj);
 	_actions->load(json_obj);
 }

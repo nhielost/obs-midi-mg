@@ -63,17 +63,17 @@ template <typename T> requires DefaultFeatures<T> inline void MIDIMap<T>::json(Q
 }
 
 template <typename T>
-requires DefaultFeatures<T> inline bool MIDIMap<T>::acceptable(int64_t &ref_index, const T &value) const
+requires DefaultFeatures<T> inline bool MIDIMap<T>::acceptable(int64_t &ref_result, const T &value) const
 {
 	int64_t value_index = indexOf(value);
-	ref_index = normalize(value_index, referenceSize() - 1);
+	ref_result = normalize(value_index, referenceSize() - 1);
 	return value_index >= 0;
 }
 
-template <typename T> requires DefaultFeatures<T> bool MIDIMap<T>::apply(int64_t ref_index, T &result) const
+template <typename T> requires DefaultFeatures<T> bool MIDIMap<T>::apply(int64_t ref_result, T &result) const
 {
-	if (ref_index < 0) return false;
-	result = mappings[int64_t(denormalize(ref_index, referenceSize() - 1) + 0.5)];
+	if (ref_result < 0) return false;
+	result = mappings[int64_t(denormalize(ref_result, referenceSize() - 1) + 0.5)];
 	return true;
 };
 // End MIDIMap<T>
@@ -94,16 +94,16 @@ template <typename T> requires ExtraFeatures<T> inline void MIDIRange<T>::json(Q
 }
 
 template <typename T>
-requires ExtraFeatures<T> inline bool MIDIRange<T>::acceptable(int64_t &ref_index, const T &value) const
+requires ExtraFeatures<T> inline bool MIDIRange<T>::acceptable(int64_t &ref_result, const T &value) const
 {
-	ref_index = normalize(value - min_value, max_value - min_value);
+	ref_result = normalize(value - min_value, max_value - min_value);
 	return min() <= max() ? min() <= value && value <= max() : max() <= value && value <= min();
 }
 
-template <typename T> requires ExtraFeatures<T> inline bool MIDIRange<T>::apply(int64_t ref_index, T &result) const
+template <typename T> requires ExtraFeatures<T> inline bool MIDIRange<T>::apply(int64_t ref_result, T &result) const
 {
-	result = T(denormalize(ref_index, max_value - min_value)) + min_value;
-	return ref_index >= 0;
+	result = T(denormalize(ref_result, max_value - min_value)) + min_value;
+	return ref_result >= 0;
 }
 // End MIDIRange<T>
 

@@ -71,7 +71,7 @@ void MMGMessageChannelVoice::initOldData(const QJsonObject &json_obj)
 {
 	// Old references don't know which field to use, so we assume the last field
 	// is used because that's how it was in pre v3.1 versions
-	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::ReferenceIndex(3));
+	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::REFIDX_3);
 
 	MMGCompatibility::initOldNumberData(_channel, json_obj, "channel", 0);
 	if (_channel->state() == STATE_FIXED && _channel == uint8_t(0)) _channel = 1;
@@ -554,7 +554,8 @@ void MMGMessagePitchBend::setPitch(MMGMessageData &message, int32_t pitch)
 void MMGMessagePitchBend::initOldData(const QJsonObject &json_obj)
 {
 	MMGMessageChannelVoice::initOldData(json_obj);
-	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::ReferenceIndex(2));
+	// Pitch Bend messages only use three fields instead of four
+	MMGStates::MMGReferenceIndexHandler::setOldReferenceIndex(MMGStates::REFIDX_2);
 
 	MMGCompatibility::initOldNumberData(_pitch, json_obj, "value", 0);
 

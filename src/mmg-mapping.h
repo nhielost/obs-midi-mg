@@ -84,11 +84,11 @@ public:
 	{
 		if (!_valid) return false;
 
-		int64_t ref_index =
+		MMGStates::ReferenceIndex ref_index =
 			value.usesReference()
-				? int64_t(value.template as<MMGStates::MMGReferenceIndexHandler>()->referenceIndex())
-				: -1;
-		return value->apply(results.value(ref_index, -1), result);
+				? value.template as<MMGStates::MMGReferenceIndexHandler>()->referenceIndex()
+				: MMGStates::REFIDX_INVALID;
+		return value->apply(results.value(int64_t(ref_index), -1), result);
 	};
 
 private:

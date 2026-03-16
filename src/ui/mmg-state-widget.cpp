@@ -39,14 +39,16 @@ static inline MMGValueStateWidgetInfo *getReferenceInfo(const MMGValueStateInfoL
 							MMGStates::ReferenceIndex index)
 {
 	if (!refs.value(0)) return nullptr;
-	if (index >= refs.size()) index = MMGStates::ReferenceIndex(0);
+	if (index >= refs.size() || index == MMGStates::REFIDX_UNINITIALIZED)
+		index = MMGStates::ReferenceIndex(refs.size() - 1);
+
 	return refs[index];
 };
 
 static MMGParams<MMGStates::ReferenceIndex> value_index_params {
 	.desc = mmgtr("MIDIButtons.MIDI.Reference"),
 	.options = OPTION_NONE,
-	.default_value = MMGStates::ReferenceIndex(0),
+	.default_value = MMGStates::REFIDX_0,
 
 	.bounds = {},
 };
@@ -56,7 +58,11 @@ MIDIMap<T>::MIDIMap(QWidget *parent, MMGValueStateDisplay<T> *storage, const MMG
 	: MMGStateWidget<T, STATE_MIDI>(parent, storage),
 	  _refs(refs)
 {
-	if (_data->referenceIndex() >= _refs.size()) _data->setReferenceIndex(MMGStates::ReferenceIndex(0));
+	if (_data->referenceIndex() == MMGStates::REFIDX_UNINITIALIZED) {
+		_data->setReferenceIndex(MMGStates::ReferenceIndex(_refs.size() - 1));
+	} else if (_data->referenceIndex() >= _refs.size()) {
+		_data->setReferenceIndex(MMGStates::REFIDX_0);
+	}
 
 	bottom_layout = new QVBoxLayout;
 	bottom_layout->setContentsMargins(5, 5, 5, 5);
@@ -268,6 +274,12 @@ MIDIRange<T>::MIDIRange(QWidget *parent, MMGValueStateDisplay<T> *storage, const
 	: MMGStateWidget<T, STATE_RANGE>(parent, storage),
 	  _refs(refs)
 {
+	if (_data->referenceIndex() == MMGStates::REFIDX_UNINITIALIZED) {
+		_data->setReferenceIndex(MMGStates::ReferenceIndex(_refs.size() - 1));
+	} else if (_data->referenceIndex() >= _refs.size()) {
+		_data->setReferenceIndex(MMGStates::REFIDX_0);
+	}
+
 	min_display = new MMGValueFixedDisplay<T>(this, &min_params);
 	min_display->setContentsMargins(5, 5, 5, 5);
 	connect(min_display, &MMGValueQWidget::valueChanged, this, &MIDIRange<T>::setMin);

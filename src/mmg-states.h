@@ -34,7 +34,20 @@ template <typename T> concept BasicFeatures = std::is_pointer_v<T>;
 template <typename T> concept DefaultFeatures = !BasicFeatures<T>;
 template <typename T> concept ExtraFeatures = MMGIsNumeric<T> && !std::is_enum_v<T>;
 
-enum ReferenceIndex : int64_t {};
+enum ReferenceIndex : int64_t {
+	REFIDX_UNINITIALIZED = -2,
+	REFIDX_INVALID = -1,
+	REFIDX_0 = 0,
+	REFIDX_1 = 1,
+	REFIDX_2 = 2,
+	REFIDX_3 = 3,
+	REFIDX_4 = 4,
+	REFIDX_5 = 5,
+	REFIDX_6 = 6,
+	REFIDX_7 = 7,
+	REFIDX_8 = 8,
+	REFIDX_9 = 9,
+};
 
 class MMGReferenceIndexHandler {
 
@@ -42,7 +55,10 @@ public:
 	virtual ~MMGReferenceIndexHandler() = default;
 
 	const ReferenceIndex &referenceIndex() const { return ref_index; };
-	void setReferenceIndex(const ReferenceIndex &index) { ref_index = index; };
+	void setReferenceIndex(const ReferenceIndex &index)
+	{
+		ref_index = index > REFIDX_INVALID ? index : REFIDX_INVALID;
+	};
 
 	virtual int64_t referenceSize() const = 0;
 	virtual bool hasReferenceValue(int64_t) const = 0;
@@ -51,11 +67,11 @@ public:
 	static void setOldReferenceIndex(MMGStates::ReferenceIndex ref_index) { old_ref_index = ref_index; };
 
 private:
-	ReferenceIndex ref_index = ReferenceIndex(0);
+	ReferenceIndex ref_index = REFIDX_UNINITIALIZED;
 
 	static ReferenceIndex old_ref_index;
 };
-inline ReferenceIndex MMGReferenceIndexHandler::old_ref_index = ReferenceIndex(0);
+inline ReferenceIndex MMGReferenceIndexHandler::old_ref_index = REFIDX_0;
 
 template <typename T> class MMGState {
 
@@ -129,8 +145,8 @@ protected:
 	void init(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 
-	bool acceptable(int64_t &ref_index, const T &value) const override;
-	bool apply(int64_t ref_index, T &result) const override;
+	bool acceptable(int64_t &ref_result, const T &value) const override;
+	bool apply(int64_t ref_result, T &result) const override;
 
 private:
 	DataList mappings;
@@ -153,8 +169,8 @@ protected:
 	void init(const QJsonObject &json_obj) override;
 	void json(QJsonObject &json_obj) const override;
 
-	bool acceptable(int64_t &ref_index, const T &value) const override;
-	bool apply(int64_t ref_index, T &result) const override;
+	bool acceptable(int64_t &ref_result, const T &value) const override;
+	bool apply(int64_t ref_result, T &result) const override;
 
 private:
 	T min_value = T();
