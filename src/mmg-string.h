@@ -57,7 +57,7 @@ public:
 	QString arg(const MMGText &arg) const { return QString(translate()).arg(arg.translate()); };
 
 	operator QString() const { return translate(); };
-	operator const char *() const { return translate(); };
+	explicit operator const char *() const { return translate(); };
 
 	bool operator==(const MMGText &other) const { return std::strcmp(translate(), other.translate()) == 0; };
 	bool operator==(const QString &other) const { return QString(translate()) == other; };

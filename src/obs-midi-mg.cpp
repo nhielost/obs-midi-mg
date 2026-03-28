@@ -71,7 +71,7 @@ const char *obs_module_name(void)
 
 const char *obs_module_description(void)
 {
-	return mmgtr("Plugin.Description");
+	return mmgtr("Plugin.Description").translate();
 }
 
 static void showUI()
@@ -99,7 +99,7 @@ bool obs_module_load(void)
 	QObject::connect(global_config, &MMGConfig::refreshRequested, showUI);
 
 	// Load the UI Window and the menu button (Tools -> obs-midi-mg Setup)
-	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(mmgtr("Plugin.ToolsButton"));
+	auto *menu_action = (QAction *)obs_frontend_add_tools_menu_qaction(mmgtr("Plugin.ToolsButton").translate());
 	QObject::connect(menu_action, &QAction::triggered, showUI);
 
 	// Done

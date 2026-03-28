@@ -72,7 +72,7 @@ void MMGConfig::load(const QString &path_str)
 	blog(LOG_INFO, "Loading configuration...");
 
 	QFile file(filepath(path_str));
-	file.open(QFile::ReadOnly | QFile::Text);
+	bool fileOpen = file.open(QFile::ReadOnly | QFile::Text);
 	QByteArray config_contents;
 	if (file.exists()) {
 		blog(LOG_INFO, QString("Loading configuration file data from %1...").arg(file.fileName()));
@@ -139,7 +139,7 @@ void MMGConfig::save(const QString &path_str) const
 	doc["file_version"] = currentFileVersion();
 
 	QFile file(filepath(path_str));
-	file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
+	bool fileOpen = file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
 	qlonglong result = file.write(MMGJson::toString(doc));
 	if (result < 0) {
 		blog(LOG_INFO, "Configuration unable to be saved. Reason: " + file.errorString());
